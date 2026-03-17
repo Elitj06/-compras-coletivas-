@@ -1,1202 +1,357 @@
+// Produtos Vitafor + VitaPower — Março 2026
+
+const CATEGORIAS = [
+  { id: "todos", nome: "Todos" },
+  { id: "aminovita", nome: "AMINOVITA" },
+  { id: "arginofor", nome: "ARGINOFOR" },
+  { id: "bcaafort", nome: "BCAAFORT" },
+  { id: "beta_alanina", nome: "BETA ALANINA" },
+  { id: "c_lcio_plus", nome: "CÁLCIO PLUS" },
+  { id: "boraprim", nome: "BORAPRIM" },
+  { id: "carbofor", nome: "CARBOFOR" },
+  { id: "choco_family", nome: "CHOCO FAMILY" },
+  { id: "colagentek", nome: "COLAGENTEK" },
+  { id: "colagentek_beauty", nome: "COLAGENTEK BEAUTY" },
+  { id: "colagentek_ii", nome: "COLAGENTEK II" },
+  { id: "colagentek_protein", nome: "COLAGENTEK PROTEIN" },
+  { id: "coq_10", nome: "COQ-10" },
+  { id: "colosfort__cont_m_premium_colo", nome: "COLOSFORT® CONTÉM PREMIUM COLOSTRUM PROTEIN UMA CO" },
+  { id: "colosfort_lactoferrin_plus____", nome: "COLOSFORT LACTOFERRIN PLUS® É PRODUZIDO COM LACTOF" },
+  { id: "creatine", nome: "CREATINE" },
+  { id: "creafort", nome: "CREAFORT" },
+  { id: "curcuma_plus", nome: "CURCUMA PLUS" },
+  { id: "d_ribose", nome: "D-RIBOSE" },
+  { id: "endurance", nome: "ENDURANCE" },
+  { id: "endurance_extreme_energy", nome: "ENDURANCE EXTREME ENERGY" },
+  { id: "enteral_comp", nome: "ENTERAL COMP" },
+  { id: "enteral_comp_fibras", nome: "ENTERAL COMP FIBRAS" },
+  { id: "enzyfor", nome: "ENZYFOR" },
+  { id: "ferro_plus", nome: "FERRO PLUS" },
+  { id: "espefor", nome: "ESPEFOR" },
+  { id: "prebi_tico", nome: "PREBIÓTICO" },
+  { id: "fosvita", nome: "FOSVITA" },
+  { id: "fitzei_barrinhas_proteicas", nome: "FITZEI BARRINHAS PROTEICAS" },
+  { id: "fitzei_snacks", nome: "FITZEI SNACKS" },
+  { id: "glp_1_multivitam_nico", nome: "GLP-1 MULTIVITAMÍNICO" },
+  { id: "glutamax", nome: "GLUTAMAX" },
+  { id: "glutamax_pouch", nome: "GLUTAMAX POUCH" },
+  { id: "hepatofor", nome: "HEPATOFOR" },
+  { id: "hyaluronic_hair", nome: "HYALURONIC HAIR" },
+  { id: "imunomult_multivitam_nico", nome: "IMUNOMULT MULTIVITAMÍNICO" },
+  { id: "isocrisp_whey_neutro", nome: "ISOCRISP WHEY NEUTRO" },
+  { id: "isocrispplant_vegano_prote_nai", nome: "ISOCRISPPLANT-VEGANO-PROTEÍNAISOLADADEERVILHACOMFI" },
+  { id: "isofort", nome: "ISOFORT" },
+  { id: "isofort_ultra_imuno", nome: "ISOFORT ULTRA IMUNO" },
+  { id: "isofort_plant", nome: "ISOFORT PLANT" },
+  { id: "isofort_beauty__for_a_e_beleza", nome: "ISOFORT BEAUTY- FORÇA E BELEZA PARA O SEU DIA A DI" },
+  { id: "krill_vit", nome: "KRILL VIT" },
+  { id: "laczyme", nome: "LACZYME" },
+  { id: "l_carnitina", nome: "L-CARNITINA" },
+  { id: "lipix", nome: "LIPIX" },
+  { id: "lipix6___leo_de_cartamo__leo_s", nome: "LIPIX6- ÓLEO DE CARTAMO,ÓLEO SEMENTE DE UVA, DE CA" },
+  { id: "magn_sio_plus", nome: "MAGNÉSIO PLUS" },
+  { id: "mct", nome: "MCT" },
+  { id: "mega_dha", nome: "MEGA DHA" },
+  { id: "melatonina", nome: "MELATONINA" },
+  { id: "nac", nome: "NAC" },
+  { id: "_mega_3_epa_dha", nome: "ÔMEGA 3 EPA DHA" },
+  { id: "omegafor_plus", nome: "OMEGAFOR PLUS" },
+  { id: "omegafor_family__33__epa_22__d", nome: "OMEGAFOR FAMILY- 33% EPA 22% DHA COM VITAMINAS E M" },
+  { id: "omegafor_vision", nome: "OMEGAFOR VISION" },
+  { id: "omegafor_vegan", nome: "OMEGAFOR VEGAN" },
+  { id: "omegafor_memory", nome: "OMEGAFOR MEMORY" },
+  { id: "omegafor_vitamins", nome: "OMEGAFOR VITAMINS" },
+  { id: "palatinose__carboidrato_de_bai", nome: "PALATINOSE (CARBOIDRATO DE BAIXO ÍNDICE GLICÊMICO" },
+  { id: "palatinose_pouch_600g", nome: "PALATINOSE POUCH 600g" },
+  { id: "profem", nome: "PROFEM" },
+  { id: "pr_polis", nome: "PRÓPOLIS" },
+  { id: "resveratrol_plus", nome: "RESVERATROL PLUS" },
+  { id: "simfort_femme", nome: "SIMFORT FEMME" },
+  { id: "simcaps", nome: "SIMCAPS" },
+  { id: "simfort", nome: "SIMFORT" },
+  { id: "simfort__fibras_alimentares_so", nome: "SIMFORT -FIBRAS ALIMENTARES SOLÚVEIS E INSOLÚVEIS" },
+  { id: "simfort_plus", nome: "SIMFORT PLUS" },
+  { id: "simfort_ultra", nome: "SIMFORT ULTRA" },
+  { id: "sleepfor", nome: "SLEEPFOR" },
+  { id: "sustevit", nome: "SUSTEVIT" },
+  { id: "taurine", nome: "TAURINE" },
+  { id: "termoplus", nome: "TERMOPLUS" },
+  { id: "termo_plus_capsulas", nome: "TERMO PLUS CAPSULAS" },
+  { id: "v_coffee_energy_boost", nome: "V-COFFEE ENERGY BOOST" },
+  { id: "v_fort_intenso_pr__treino_com_", nome: "V-FORT INTENSO PRÉ TREINO COM CREATINA MONOHIDRATA" },
+  { id: "v__fort_ultra", nome: "V- FORT ULTRA" },
+  { id: "vitatea", nome: "VITATEA" },
+  { id: "vitatea_equilibrium", nome: "VITATEA EQUILIBRIUM" },
+  { id: "nutri__o_infantil_e_adultos", nome: "NUTRIÇÃO INFANTIL E ADULTOS" },
+  { id: "vita_c3___vitamina_c3___cido_a", nome: "VITA C3 – VITAMINA C3 (Ácido ascórbico, ascorbato" },
+  { id: "vita_d3___2_000ui_vitamina_d3_", nome: "VITA D3 – 2.000UI VITAMINA D3 (colecalciferol) POR" },
+  { id: "vita_d3__vit_c___zinco", nome: "VITA D3® VIT.C + ZINCO" },
+  { id: "vita_d3___2_000ui_vitamina_d3_", nome: "VITA D3 – 2.000UI VITAMINA D3 (colecalciferol) LÍQ" },
+  { id: "vita_d3___k2_gotas_frasco_20_m", nome: "VITA D3 + K2 GOTAS FRASCO 20 ML SABOR MENTA" },
+  { id: "vitamina_b12_sabor_menta", nome: "VITAMINA B12 SABOR MENTA" },
+  { id: "whey_fort", nome: "WHEY FORT" },
+  { id: "whey_protein_isolate", nome: "WHEY PROTEIN ISOLATE" },
+  { id: "whey_protein_wpc_pouch", nome: "WHEY PROTEIN WPC POUCH" },
+  { id: "xilitol_family", nome: "XILITOL FAMILY" },
+  { id: "acanthopanax", nome: "ACANTHOPANAX" },
+  { id: "bupleurum_combination_100_c_ps", nome: "BUPLEURUM COMBINATION 100 CÁPSULAS 400mg" },
+  { id: "cinnamon___poria", nome: "CINNAMON & PORIA" },
+  { id: "cordyceps", nome: "CORDYCEPS" },
+  { id: "echinacea", nome: "ECHINACEA" },
+  { id: "hypericum___lonicera", nome: "HYPERICUM & LONICERA" },
+  { id: "rehmannia_eight_f_rmula___guif", nome: "REHMANNIA EIGHT FÓRMULA – GUIFU DIHUANG JIAONANG" },
+  { id: "rehmannia___epimedii_100_c_psu", nome: "REHMANNIA & EPIMEDII 100 CÁPSULAS" },
+  { id: "rhodiola", nome: "RHODIOLA" },
+  { id: "six_flavor", nome: "SIX FLAVOR" },
+  { id: "linha_integral", nome: "LINHA INTEGRAL" },
+  { id: "linha_gourmet", nome: "LINHA GOURMET" },
+  { id: "linha_exclusiva_air_com_whey", nome: "LINHA EXCLUSIVA AIR COM WHEY" },
+];
+
 const PRODUTOS = [
-  {
-    "codigo": "AM240LI",
-    "nome": "AMINOVITA 240g LIMÃO",
-    "embalagem": 12,
-    "preco": 159.0
-  },
-  {
-    "codigo": "AM240MR",
-    "nome": "AMINOVITA POTE 240G MARACUJÁ",
-    "embalagem": 12,
-    "preco": 159.0
-  },
-  {
-    "codigo": "AM30LI",
-    "nome": "AMINOVITA 30 SACHES 10G LIMAO",
-    "embalagem": 6,
-    "preco": 220.0
-  },
-  {
-    "codigo": "AM30MR",
-    "nome": "AMINOVITA 30 SACHES 10G MARACUJÁ",
-    "embalagem": 6,
-    "preco": 220.0
-  },
-  {
-    "codigo": "AGF30",
-    "nome": "ARGINOFOR 30 CAPSULAS 780mg",
-    "embalagem": 6,
-    "preco": 64.0
-  },
-  {
-    "codigo": "AGF60",
-    "nome": "ARGINOFOR 60 CAPSULAS 780mg",
-    "embalagem": 6,
-    "preco": 105.0
-  },
-  {
-    "codigo": "AGF120",
-    "nome": "ARGINOFOR 120 CAPSULAS 780mg",
-    "embalagem": 6,
-    "preco": 158.0
-  },
-  {
-    "codigo": "BF210LI",
-    "nome": "BCAA FORT 210G LIMAO",
-    "embalagem": 12,
-    "preco": 107.0
-  },
-  {
-    "codigo": "BF210TA",
-    "nome": "BCAA FORT 210G TANGERINA",
-    "embalagem": 12,
-    "preco": 107.0
-  },
-  {
-    "codigo": "BF120",
-    "nome": "BCAA FORT 120 CÁPSULAS 950mg",
-    "embalagem": 6,
-    "preco": 115.0
-  },
-  {
-    "codigo": "BA120",
-    "nome": "BETA ALANINA 120 CAPSULAS 500mg",
-    "embalagem": 6,
-    "preco": 88.0
-  },
-  {
-    "codigo": "BA240",
-    "nome": "BETA ALANINA 240 CAPSULAS 500mg",
-    "embalagem": 6,
-    "preco": 164.0
-  },
-  {
-    "codigo": "BAP120",
-    "nome": "BETA ALANINA POTE 120g",
-    "embalagem": 12,
-    "preco": 86.0
-  },
-  {
-    "codigo": "BM30",
-    "nome": "BORAPRIM 30 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 67.0
-  },
-  {
-    "codigo": "BM60",
-    "nome": "BORAPRIM 60 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 116.0
-  },
-  {
-    "codigo": "CCF240",
-    "nome": "CHOCO FAMILY POUCH 240G",
-    "embalagem": 6,
-    "preco": 58.0
-  },
-  {
-    "codigo": "CLK300AB",
-    "nome": "COLAGENTEK POTE 300g ABACAXI",
-    "embalagem": 12,
-    "preco": 124.0
-  },
-  {
-    "codigo": "CLK300LA",
-    "nome": "COLAGENTEK POTE 300g LARANJA COM ACEROLA",
-    "embalagem": 12,
-    "preco": 124.0
-  },
-  {
-    "codigo": "CLK300LI",
-    "nome": "COLAGENTEK POTE 300g LIMAO",
-    "embalagem": 12,
-    "preco": 124.0
-  },
-  {
-    "codigo": "CLK300N",
-    "nome": "COLAGENTEK POTE 300g NEUTRO",
-    "embalagem": 12,
-    "preco": 124.0
-  },
-  {
-    "codigo": "CLK300MV",
-    "nome": "COLAGENTEK POTE 300g MACA VERDE",
-    "embalagem": 12,
-    "preco": 124.0
-  },
-  {
-    "codigo": "CLK300TA",
-    "nome": "COLAGENTEK POTE 300g TANGERINA",
-    "embalagem": 12,
-    "preco": 124.0
-  },
-  {
-    "codigo": "CLK300CR",
-    "nome": "COLAGENTEK POTE 300g CRANBERRY",
-    "embalagem": 12,
-    "preco": 124.0
-  },
-  {
-    "codigo": "CLK30S",
-    "nome": "COLAGENTEK 30 SACHÊS DE 10g - SORTIDOS",
-    "embalagem": 6,
-    "preco": 230.0
-  },
-  {
-    "codigo": "CLB30AH",
-    "nome": "COLAGENTEK BEAUTY 30 SACHES DE 3,5g ABACAXI COM HORTELA",
-    "embalagem": 6,
-    "preco": 169.0
-  },
-  {
-    "codigo": "CLB30MC",
-    "nome": "COLAGENTEK BEAUTY 30 SACHES DE 3,5g MACA COM CANELA",
-    "embalagem": 6,
-    "preco": 169.0
-  },
-  {
-    "codigo": "CG30",
-    "nome": "COLAGENTEK TIPO II 30 CAPSULAS 790MG",
-    "embalagem": 6,
-    "preco": 89.0
-  },
-  {
-    "codigo": "CG60",
-    "nome": "COLAGENTEK TIPO II 60 CAPSULAS 790MG",
-    "embalagem": 6,
-    "preco": 136.0
-  },
-  {
-    "codigo": "CG120",
-    "nome": "COLAGENTEK TIPO II 120 CAPSULAS 790MG",
-    "embalagem": 6,
-    "preco": 240.0
-  },
-  {
-    "codigo": "CKP460MO",
-    "nome": "COLAGENTEK PROTEIN LATA 460g SABOR MORANGO",
-    "embalagem": 6,
-    "preco": 258.0
-  },
-  {
-    "codigo": "CKP460N",
-    "nome": "COLAGENTEK PROTEIN LATA 460g SABOR NEUTRO",
-    "embalagem": 6,
-    "preco": 258.0
-  },
-  {
-    "codigo": "CKP460CA",
-    "nome": "COLAGENTEK PROTEIN LATA 460g SABOR CACAU",
-    "embalagem": 6,
-    "preco": 258.0
-  },
-  {
-    "codigo": "CKP460TA",
-    "nome": "COLAGENTEK PROTEIN LATA 460g SABOR TANGERINA",
-    "embalagem": 6,
-    "preco": 258.0
-  },
-  {
-    "codigo": "CQ30",
-    "nome": "COENZIMA Q10  30 CAPSULAS 500mg",
-    "embalagem": 6,
-    "preco": 109.0
-  },
-  {
-    "codigo": "CQ60",
-    "nome": "COENZIMA Q10  60 CAPSULAS 500mg",
-    "embalagem": 6,
-    "preco": 172.0
-  },
-  {
-    "codigo": "CQ120",
-    "nome": "COENZIMA Q10  120 CAPSULAS 500mg",
-    "embalagem": 6,
-    "preco": 299.0
-  },
-  {
-    "codigo": "COQ60",
-    "nome": "COENZIMA Q10 60 CAPSULAS 500mg",
-    "embalagem": 6,
-    "preco": 109.0
-  },
-  {
-    "codigo": "CLF120",
-    "nome": "COLOSFORT POTE 120G",
-    "embalagem": 12,
-    "preco": 348.0
-  },
-  {
-    "codigo": "CLF30",
-    "nome": "COLOSFORT LACTOFERRIN PLUS 30 CÁPSULAS DE 400mg",
-    "embalagem": 6,
-    "preco": 224.0
-  },
-  {
-    "codigo": "CE100",
-    "nome": "CREATINE POTE 100g",
-    "embalagem": 12,
-    "preco": 48.0
-  },
-  {
-    "codigo": "CE300",
-    "nome": "CREATINE POTE 300g",
-    "embalagem": 12,
-    "preco": 109.0
-  },
-  {
-    "codigo": "CE600",
-    "nome": "CREATINE POUCH 600g",
-    "embalagem": 4,
-    "preco": 198.0
-  },
-  {
-    "codigo": "CR300",
-    "nome": "CREAFORT POTE 300g",
-    "embalagem": 12,
-    "preco": 259.0
-  },
-  {
-    "codigo": "CR30",
-    "nome": "CREAFORT CAIXA 30 SACHES 3g",
-    "embalagem": 6,
-    "preco": 120.0
-  },
-  {
-    "codigo": "CMP30",
-    "nome": "CURCUMA PLUS 30 CAPSULAS 500mg",
-    "embalagem": 6,
-    "preco": 69.0
-  },
-  {
-    "codigo": "CMP60",
-    "nome": "CURCUMA PLUS 60 CAPSULAS 500mg",
-    "embalagem": 6,
-    "preco": 109.0
-  },
-  {
-    "codigo": "DR150",
-    "nome": "D RIBOSE POTE 150G",
-    "embalagem": 12,
-    "preco": 148.0
-  },
-  {
-    "codigo": "EG12LI",
-    "nome": "END CAFFEINE GEL 12 SACHES DE 30g LIMAO",
-    "embalagem": 6,
-    "preco": 89.0
-  },
-  {
-    "codigo": "EG12MC",
-    "nome": "END CAFFEINE GEL 12 SACHES DE 30g MOCHA",
-    "embalagem": 6,
-    "preco": 89.0
-  },
-  {
-    "codigo": "EG12CB",
-    "nome": "END CAFFEINE GEL 12 SACHES DE 30g CHOCOLATE BELGA",
-    "embalagem": 6,
-    "preco": 89.0
-  },
-  {
-    "codigo": "EG12BN",
-    "nome": "END ENERGY GEL 12 SACHES DE 30g BANANA",
-    "embalagem": 6,
-    "preco": 89.0
-  },
-  {
-    "codigo": "EG12BA",
-    "nome": "END ENERGY GEL 12 SACHES DE 30g BAUNILHA",
-    "embalagem": 6,
-    "preco": 89.0
-  },
-  {
-    "codigo": "EG12TA",
-    "nome": "END ENERGY GEL 12 SACHES DE 30g TANGERINA",
-    "embalagem": 6,
-    "preco": 89.0
-  },
-  {
-    "codigo": "EG12PA",
-    "nome": "END ENERGY GEL 12 SACHÊS 30G PAÇOCA",
-    "embalagem": 6,
-    "preco": 89.0
-  },
-  {
-    "codigo": "EXE1000AB",
-    "nome": "ENDURANCE EXTREME ENERGY POTE 1000G ABACAXI",
-    "embalagem": 6,
-    "preco": 158.0
-  },
-  {
-    "codigo": "EXE1000LA",
-    "nome": "ENDURANCE EXTREME ENERGY POTE 1000G LARANJA",
-    "embalagem": 6,
-    "preco": 158.0
-  },
-  {
-    "codigo": "EZ10",
-    "nome": "ENZYFOR 10 SACHES 3g",
-    "embalagem": 12,
-    "preco": 89.0
-  },
-  {
-    "codigo": "EZ30",
-    "nome": "ENZYFOR 30 SACHES 3g",
-    "embalagem": 6,
-    "preco": 198.0
-  },
-  {
-    "codigo": "FEP30",
-    "nome": "FERRO PLUS 30 CÁPSULAS 500mg",
-    "embalagem": 6,
-    "preco": 42.0
-  },
-  {
-    "codigo": "FBF10",
-    "nome": "FIBERFOR 10 SACHES DE 5g",
-    "embalagem": 12,
-    "preco": 40.0
-  },
-  {
-    "codigo": "FBF400",
-    "nome": "FIBERFOR POTE COM 400g",
-    "embalagem": 6,
-    "preco": 126.0
-  },
-  {
-    "codigo": "FV250",
-    "nome": "FOSVITA 250g",
-    "embalagem": 12,
-    "preco": 99.0
-  },
-  {
-    "codigo": "FV30",
-    "nome": "FOSVITA 30 SACHES 7g",
-    "embalagem": 6,
-    "preco": 138.0
-  },
-  {
-    "codigo": "FZ12BF",
-    "nome": "FITZEI DISPLAY C/ 12 BARRAS 40G BANOFFE",
-    "embalagem": 12,
-    "preco": 119.0
-  },
-  {
-    "codigo": "FZ12FV",
-    "nome": "FITZEI DISPLAY C/ 12 BARRAS 40G FRUTAS VERMELHAS",
-    "embalagem": 12,
-    "preco": 119.0
-  },
-  {
-    "codigo": "FZ12PA",
-    "nome": "FITZEI DISPLAY C/ 12 BARRAS 40G PACOCA",
-    "embalagem": 12,
-    "preco": 119.0
-  },
-  {
-    "codigo": "FZ12CO",
-    "nome": "FITZEI DISPLAY C/ 12 BARRAS 40G COCO",
-    "embalagem": 12,
-    "preco": 119.0
-  },
-  {
-    "codigo": "FZ12CA",
-    "nome": "FITZEI DISPLAY C/ 12 BARRAS 40G CARAMELO E AMENDOIM",
-    "embalagem": 12,
-    "preco": 119.0
-  },
-  {
-    "codigo": "FZS45CG",
-    "nome": "FITZEI SNACK PACOTE 45g CRISPY GARLIC",
-    "embalagem": 10,
-    "preco": 9.98
-  },
-  {
-    "codigo": "FZS45CH",
-    "nome": "FITZEI SNACK PACOTE 45g CHURRASCO",
-    "embalagem": 10,
-    "preco": 9.98
-  },
-  {
-    "codigo": "FZS45EFQ",
-    "nome": "FITZEI SNACK PACOTE 45g ERVAS FINAS COM QUEIJO",
-    "embalagem": 10,
-    "preco": 9.98
-  },
-  {
-    "codigo": "MTS90",
-    "nome": "GLP-1 MULTIVITAMÍNICO 90 CÁPSULAS 620mg",
-    "embalagem": 6,
-    "preco": 198.0
-  },
-  {
-    "codigo": "GM150",
-    "nome": "GLUTAMAX POTE 150g",
-    "embalagem": 12,
-    "preco": 70.0
-  },
-  {
-    "codigo": "GM300",
-    "nome": "GLUTAMAX POTE 300g",
-    "embalagem": 12,
-    "preco": 116.0
-  },
-  {
-    "codigo": "GMS30",
-    "nome": "GLUTAMAX 30 SACHES 5g",
-    "embalagem": 6,
-    "preco": 128.0
-  },
-  {
-    "codigo": "GM30",
-    "nome": "GLUTAMAX 30 SACHES 10g",
-    "embalagem": 6,
-    "preco": 184.0
-  },
-  {
-    "codigo": "GM600",
-    "nome": "GLUTAMAX POUCH 600G",
-    "embalagem": 6,
-    "preco": 178.0
-  },
-  {
-    "codigo": "HF60",
-    "nome": "HEPATOFOR 60 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 116.0
-  },
-  {
-    "codigo": "HH60",
-    "nome": "HYALURONIC HAIR 60 CÁPSULAS 500MG",
-    "embalagem": 6,
-    "preco": 98.0
-  },
-  {
-    "codigo": "IMT60",
-    "nome": "IMUNOMULT MULTIVITAMINICO 60 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 120.0
-  },
-  {
-    "codigo": "IMT120",
-    "nome": "IMUNOMULT MULTIVITAMINICO 120 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 184.0
-  },
-  {
-    "codigo": "ISC60N",
-    "nome": "ISOCRISP NEUTRO POTE 60g",
-    "embalagem": 12,
-    "preco": 62.0
-  },
-  {
-    "codigo": "ISC240N",
-    "nome": "ISOCRISP WHEY NEUTRO POUCH 240G",
-    "embalagem": 4,
-    "preco": 114.0
-  },
-  {
-    "codigo": "ISP60",
-    "nome": "ISOCRISP PLANT POTE 60g",
-    "embalagem": 12,
-    "preco": 33.0
-  },
-  {
-    "codigo": "ISP240",
-    "nome": "ISOCRISP PLANT  POUCH 240G",
-    "embalagem": 4,
-    "preco": 89.0
-  },
-  {
-    "codigo": "ICP240",
-    "nome": "ISOCRISP PLANT POTE 240g",
-    "embalagem": 12,
-    "preco": 91.0
-  },
-  {
-    "codigo": "ISF15BA",
-    "nome": "ISOFORT 15 SACHES 30g BAUNILHA",
-    "embalagem": 4,
-    "preco": 280.0
-  },
-  {
-    "codigo": "ISF15CH",
-    "nome": "ISOFORT 15 SACHES 30g CHOCOLATE",
-    "embalagem": 4,
-    "preco": 280.0
-  },
-  {
-    "codigo": "ISF15FV",
-    "nome": "ISOFORT 15 SACHES 30g FRUTAS VERMELHAS",
-    "embalagem": 4,
-    "preco": 280.0
-  },
-  {
-    "codigo": "ISF15N",
-    "nome": "ISOFORT 15 SACHES 30g NEUTRO",
-    "embalagem": 4,
-    "preco": 280.0
-  },
-  {
-    "codigo": "ISF900BA",
-    "nome": "ISOFORT POTE 900g BAUNILHA",
-    "embalagem": 4,
-    "preco": 440.0
-  },
-  {
-    "codigo": "ISF900CH",
-    "nome": "ISOFORT POTE 900g CHOCOLATE",
-    "embalagem": 4,
-    "preco": 440.0
-  },
-  {
-    "codigo": "ISF900FV",
-    "nome": "ISOFORT POTE 900g FRUTAS VERMELHAS",
-    "embalagem": 4,
-    "preco": 440.0
-  },
-  {
-    "codigo": "ISF900N",
-    "nome": "ISOFORT POTE 900g NEUTRO",
-    "embalagem": 4,
-    "preco": 440.0
-  },
-  {
-    "codigo": "IU900BA",
-    "nome": "ISOFORT ULTRA IMUNO POTE 900G BAUNILHA",
-    "embalagem": 4,
-    "preco": 440.0
-  },
-  {
-    "codigo": "IU900CA",
-    "nome": "ISOFORT ULTRA IMUNO POTE 900G CACAU",
-    "embalagem": 4,
-    "preco": 440.0
-  },
-  {
-    "codigo": "IFP450BC",
-    "nome": "ISOFORT PLANT 450g BANANA COM CANELA",
-    "embalagem": 6,
-    "preco": 168.0
-  },
-  {
-    "codigo": "IFP450CA",
-    "nome": "ISOFORT PLANT 450g CACAU",
-    "embalagem": 6,
-    "preco": 168.0
-  },
-  {
-    "codigo": "IFP450BA",
-    "nome": "ISOFORT PLANT 450g BAUNILHA",
-    "embalagem": 6,
-    "preco": 168.0
-  },
-  {
-    "codigo": "IFP450PA",
-    "nome": "ISOFORT PLANT 450g PACOCA",
-    "embalagem": 6,
-    "preco": 168.0
-  },
-  {
-    "codigo": "IFB450BA",
-    "nome": "ISOFORT BEAUTY 450g BAUNILHA",
-    "embalagem": 6,
-    "preco": 198.0
-  },
-  {
-    "codigo": "IFB450CA",
-    "nome": "ISOFORT BEAUTY 450g CACAU",
-    "embalagem": 6,
-    "preco": 198.0
-  },
-  {
-    "codigo": "IFB450AG",
-    "nome": "ISOFORT BEAUTY 450g ABACAXI COM GENGIBRE",
-    "embalagem": 6,
-    "preco": 198.0
-  },
-  {
-    "codigo": "IFB450CB",
-    "nome": "ISOFORT BEAUTY 450g CRANBERRY",
-    "embalagem": 6,
-    "preco": 198.0
-  },
-  {
-    "codigo": "IFB450N",
-    "nome": "ISOFORT BEAUTY 450g NEUTRO",
-    "embalagem": 6,
-    "preco": 198.0
-  },
-  {
-    "codigo": "IFB15AG",
-    "nome": "ISOFORT BEAUTY 15 SACHES 25g ABACAXI COM GENGIBRE",
-    "embalagem": 4,
-    "preco": 226.0
-  },
-  {
-    "codigo": "IFB15BA",
-    "nome": "ISOFORT BEAUTY 15 SACHES 25g BAUNILHA",
-    "embalagem": 4,
-    "preco": 226.0
-  },
-  {
-    "codigo": "IFB15CA",
-    "nome": "ISOFORT BEAUTY 15 SACHES 25g CACAU",
-    "embalagem": 4,
-    "preco": 226.0
-  },
-  {
-    "codigo": "IFB15CB",
-    "nome": "ISOFORT BEAUTY 15 SACHES 25g CRANBERRY",
-    "embalagem": 4,
-    "preco": 226.0
-  },
-  {
-    "codigo": "IFB15N",
-    "nome": "ISOFORT BEAUTY 15 SACHES 25G NEUTRO",
-    "embalagem": 4,
-    "preco": 226.0
-  },
-  {
-    "codigo": "KV30",
-    "nome": "KRILL VIT 30 CAPSULAS 500mg",
-    "embalagem": 6,
-    "preco": 89.0
-  },
-  {
-    "codigo": "KV60",
-    "nome": "KRILL VIT 60 CAPSULAS 500mg",
-    "embalagem": 6,
-    "preco": 158.0
-  },
-  {
-    "codigo": "LCZ60",
-    "nome": "LACZYME 60 CAPSULAS 470mg",
-    "embalagem": 6,
-    "preco": 108.0
-  },
-  {
-    "codigo": "LCT60",
-    "nome": "L CARNITINA 60 CAPSULAS 530mg",
-    "embalagem": 6,
-    "preco": 89.0
-  },
-  {
-    "codigo": "LCT120",
-    "nome": "L CARNITINA 120 CAPSULAS DE 530mg",
-    "embalagem": 6,
-    "preco": 144.0
-  },
-  {
-    "codigo": "LP120",
-    "nome": "LIPIX 120 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 98.0
-  },
-  {
-    "codigo": "LPS60",
-    "nome": "LIPIX 6   60  CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 89.0
-  },
-  {
-    "codigo": "LPS120",
-    "nome": "LIPIX 6 120 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 149.0
-  },
-  {
-    "codigo": "MGP90",
-    "nome": "MAGNESIO PLUS 90 CÁPSULAS 690mg",
-    "embalagem": 6,
-    "preco": 98.0
-  },
-  {
-    "codigo": "MCA250",
-    "nome": "MCT COM AGE FRASCO 250ML",
-    "embalagem": 6,
-    "preco": 98.0
-  },
-  {
-    "codigo": "MCT500",
-    "nome": "MCT FRASCO 500ML",
-    "embalagem": 6,
-    "preco": 196.0
-  },
-  {
-    "codigo": "MD60",
-    "nome": "MEGA DHA 60 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 119.0
-  },
-  {
-    "codigo": "MD120",
-    "nome": "MEGA DHA 120 CAPSULAS 1000mg",
-    "embalagem": 12,
-    "preco": 214.0
-  },
-  {
-    "codigo": "ML20",
-    "nome": "MELATONINA GOTAS FRASCO 20ML",
-    "embalagem": 32,
-    "preco": 58.0
-  },
-  {
-    "codigo": "NAC30",
-    "nome": "N ACETIL CISTEINA 30 CAPSULAS 750mg",
-    "embalagem": 6,
-    "preco": 65.0
-  },
-  {
-    "codigo": "NAC60",
-    "nome": "N ACETIL CISTEINA 60 CAPSULAS 750mg",
-    "embalagem": 6,
-    "preco": 104.0
-  },
-  {
-    "codigo": "OF60",
-    "nome": "OMEGA 3 EPA E DHA 60 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 79.0
-  },
-  {
-    "codigo": "OF120",
-    "nome": "OMEGA 3 EPA E DHA 120 CAPSULAS 1000mg",
-    "embalagem": 12,
-    "preco": 140.0
-  },
-  {
-    "codigo": "OF240",
-    "nome": "OMEGA 3 EPA E DHA 240 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 260.0
-  },
-  {
-    "codigo": "OFP60",
-    "nome": "OMEGAFOR PLUS 60 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 132.0
-  },
-  {
-    "codigo": "OFP120",
-    "nome": "OMEGAFOR PLUS 120 CAPSULAS 1000mg",
-    "embalagem": 12,
-    "preco": 218.0
-  },
-  {
-    "codigo": "OFP240",
-    "nome": "OMEGAFOR PLUS 240 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 378.0
-  },
-  {
-    "codigo": "OFF60",
-    "nome": "OMEGAFOR FAMILY 60 CAPSULAS 500mg",
-    "embalagem": 6,
-    "preco": 95.0
-  },
-  {
-    "codigo": "OFF120",
-    "nome": "OMEGAFOR FAMILY 120 CAPSULAS 500mg",
-    "embalagem": 6,
-    "preco": 168.0
-  },
-  {
-    "codigo": "OFF360",
-    "nome": "OMEGAFOR FAMILY 360 CAPSULAS 500mg",
-    "embalagem": 6,
-    "preco": 399.0
-  },
-  {
-    "codigo": "OMV60",
-    "nome": "OMEGAFOR VISION 60 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 145.0
-  },
-  {
-    "codigo": "OV60",
-    "nome": "OMEGAFOR VEGAN 60 CAPSULAS 700mg",
-    "embalagem": 6,
-    "preco": 145.0
-  },
-  {
-    "codigo": "OME60",
-    "nome": "OMEGAFOR MEMORY 60 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 148.0
-  },
-  {
-    "codigo": "OFV60",
-    "nome": "OMEGAFOR VITAMINS 60 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 88.0
-  },
-  {
-    "codigo": "OFV120",
-    "nome": "OMEGAFOR VITAMINS 120 CAPSULAS 1000mg",
-    "embalagem": 12,
-    "preco": 154.0
-  },
-  {
-    "codigo": "PA300",
-    "nome": "PALATINOSE POTE 300g",
-    "embalagem": 12,
-    "preco": 69.0
-  },
-  {
-    "codigo": "PA600",
-    "nome": "PALATINOSE POUCH 600g",
-    "embalagem": 6,
-    "preco": 120.0
-  },
-  {
-    "codigo": "PR60",
-    "nome": "PROFEM 60 CÁPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 89.0
-  },
-  {
-    "codigo": "PL20",
-    "nome": "PRÓPOLIS LIQUIDA GOTAS FRASCO 20ml",
-    "embalagem": 32,
-    "preco": 62.0
-  },
-  {
-    "codigo": "REP60",
-    "nome": "RESVERATROL PLUS 60 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 168.0
-  },
-  {
-    "codigo": "SFM15",
-    "nome": "SIMFORT FEMME 15 CÁPSULAS 650mg",
-    "embalagem": 6,
-    "preco": 78.0
-  },
-  {
-    "codigo": "SFM30",
-    "nome": "SIMFORT FEMME 30 CÁPSULAS 650MG",
-    "embalagem": 6,
-    "preco": 134.0
-  },
-  {
-    "codigo": "SCP30",
-    "nome": "SIMCAPS 30 CAPSULAS 400mg",
-    "embalagem": 6,
-    "preco": 68.0
-  },
-  {
-    "codigo": "SCP60",
-    "nome": "SIMCAPS 60 CAPSULAS 400mg",
-    "embalagem": 6,
-    "preco": 99.0
-  },
-  {
-    "codigo": "SF10",
-    "nome": "SIMFORT 10 SACHES 2g",
-    "embalagem": 6,
-    "preco": 53.0
-  },
-  {
-    "codigo": "SF30",
-    "nome": "SIMFORT 30 SACHES 2g",
-    "embalagem": 12,
-    "preco": 129.0
-  },
-  {
-    "codigo": "SF60",
-    "nome": "SIMFORT 60 SACHES 2g",
-    "embalagem": 10,
-    "preco": 242.0
-  },
-  {
-    "codigo": "SFF210",
-    "nome": "SIMFORT FIBRAS 210g",
-    "embalagem": 12,
-    "preco": 89.0
-  },
-  {
-    "codigo": "SFS10",
-    "nome": "SIMFORT PLUS 10 SACHES 2g",
-    "embalagem": 12,
-    "preco": 53.0
-  },
-  {
-    "codigo": "SFS30",
-    "nome": "SIMFORT PLUS 30 SACHES 2g",
-    "embalagem": 12,
-    "preco": 129.0
-  },
-  {
-    "codigo": "SFP30",
-    "nome": "SIMFORT PLUS 30 CÁPSULAS 390mg",
-    "embalagem": 6,
-    "preco": 89.0
-  },
-  {
-    "codigo": "SFP60",
-    "nome": "SIMFORT PLUS 60 CAPSULAS 390mg",
-    "embalagem": 6,
-    "preco": 158.0
-  },
-  {
-    "codigo": "SFU30",
-    "nome": "SIMFORT ULTRA 30 CAPSULAS 390mg",
-    "embalagem": 6,
-    "preco": 107.0
-  },
-  {
-    "codigo": "SFU60",
-    "nome": "SIMFORT ULTRA 60 CAPSULAS 390mg",
-    "embalagem": 6,
-    "preco": 198.0
-  },
-  {
-    "codigo": "SL30",
-    "nome": "SLEEPFOR 30 CAPSULAS 470mg",
-    "embalagem": 6,
-    "preco": 65.0
-  },
-  {
-    "codigo": "SL60",
-    "nome": "SLEEPFOR 60 CAPSULAS 470mg",
-    "embalagem": 6,
-    "preco": 95.0
-  },
-  {
-    "codigo": "TA30",
-    "nome": "TAURINE 30 CAPSULAS 550mg",
-    "embalagem": 6,
-    "preco": 54.0
-  },
-  {
-    "codigo": "TA60",
-    "nome": "TAURINE 60 CAPSULAS 550mg",
-    "embalagem": 6,
-    "preco": 95.0
-  },
-  {
-    "codigo": "TP240TC",
-    "nome": "TERMO PLUS 240G TANGERINA COM CHA VERDE",
-    "embalagem": 12,
-    "preco": 176.0
-  },
-  {
-    "codigo": "TP240FGC",
-    "nome": "TERMO PLUS 240G FRUTAS VERMELHAS COM GENGIBRE E CHÁ VERDE",
-    "embalagem": 12,
-    "preco": 176.0
-  },
-  {
-    "codigo": "TP30TC",
-    "nome": "TERMO PLUS 30 SACHÊS 4G TANGERINA COM CHÁ VERDE",
-    "embalagem": 6,
-    "preco": 132.0
-  },
-  {
-    "codigo": "TP30FGC",
-    "nome": "TERMO PLUS 30 SACHES 4G FRUTAS VERMELHAS E GENGIBRE COM CHÁ VERDE",
-    "embalagem": 6,
-    "preco": 132.0
-  },
-  {
-    "codigo": "TPC90",
-    "nome": "TERMO PLUS 90 CAPSULAS 650mg",
-    "embalagem": 6,
-    "preco": 108.0
-  },
-  {
-    "codigo": "CFE220OR",
-    "nome": "V-COFFEE LATA 220G ORIGINAL",
-    "embalagem": 12,
-    "preco": 119.0
-  },
-  {
-    "codigo": "VF240FV",
-    "nome": "V FORT 240g FRUTAS VERMELHAS",
-    "embalagem": 12,
-    "preco": 164.0
-  },
-  {
-    "codigo": "VF240LI",
-    "nome": "V FORT 240g LIMAO",
-    "embalagem": 12,
-    "preco": 164.0
-  },
-  {
-    "codigo": "VFU240LI",
-    "nome": "V FORT ULTRA POTE 240G LIMAO",
-    "embalagem": 12,
-    "preco": 164.0
-  },
-  {
-    "codigo": "VTT30",
-    "nome": "VITATEA 30 SACHES 2g",
-    "embalagem": 12,
-    "preco": 94.0
-  },
-  {
-    "codigo": "VTE30",
-    "nome": "VITATEA EQUILIBRIUM 30 SACHES DE 2g",
-    "embalagem": 12,
-    "preco": 94.0
-  },
-  {
-    "codigo": "VB60F",
-    "nome": "VITA BEAR 4g 60 GOMAS DE FRUTAS",
-    "embalagem": 6,
-    "preco": 130.0
-  },
-  {
-    "codigo": "VC60",
-    "nome": "VITA C3 60 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 71.0
-  },
-  {
-    "codigo": "VC120",
-    "nome": "VITA C3 120 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 120.0
-  },
-  {
-    "codigo": "VD60",
-    "nome": "VITA D3 60 CAPSULAS 500mg",
-    "embalagem": 6,
-    "preco": 72.0
-  },
-  {
-    "codigo": "VDZ30",
-    "nome": "VITA D3 + C + ZINCO 30 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 59.0
-  },
-  {
-    "codigo": "VDZ60",
-    "nome": "VITA D3 + C + ZINCO 60 CAPSULAS 1000mg",
-    "embalagem": 6,
-    "preco": 88.0
-  },
-  {
-    "codigo": "VD10",
-    "nome": "VITA D3 GOTAS FRASCO 10 ML",
-    "embalagem": 32,
-    "preco": 69.0
-  },
-  {
-    "codigo": "VDK20ME",
-    "nome": "VITA D3 + K2 GOTAS FRASCO 20ML SABOR MENTA",
-    "embalagem": 32,
-    "preco": 93.0
-  },
-  {
-    "codigo": "B1220ME",
-    "nome": "VITAMINA B12 GOTAS FRASCO 20ML MENTA",
-    "embalagem": 32,
-    "preco": 49.0
-  },
-  {
-    "codigo": "WFT900BN",
-    "nome": "WHEY FORT 3W POTE 900G BANANA",
-    "embalagem": 4,
-    "preco": 298.0
-  },
-  {
-    "codigo": "WFT900BA",
-    "nome": "WHEY FORT 3W POTE 900G BAUNILHA",
-    "embalagem": 4,
-    "preco": 298.0
-  },
-  {
-    "codigo": "WFT900CH",
-    "nome": "WHEY FORT 3W POTE 900G CHOCOLATE",
-    "embalagem": 4,
-    "preco": 298.0
-  },
-  {
-    "codigo": "WFT900CC",
-    "nome": "WHEY FORT 3W POTE 900G COOKIES N CREAM",
-    "embalagem": 4,
-    "preco": 298.0
-  },
-  {
-    "codigo": "WFT900FV",
-    "nome": "WHEY FORT 3W POTE 900G FRUTAS VERMELHAS",
-    "embalagem": 4,
-    "preco": 298.0
-  },
-  {
-    "codigo": "WFT900MC",
-    "nome": "WHEY FORT 3W POTE 900G MOCHACCINO",
-    "embalagem": 4,
-    "preco": 298.0
-  },
-  {
-    "codigo": "WFT900N",
-    "nome": "WHEY FORT 3W POTE 900G NEUTRO",
-    "embalagem": 4,
-    "preco": 298.0
-  },
-  {
-    "codigo": "WFT900PA",
-    "nome": "WHEY FORT 3W POTE 900G PAÇOCA",
-    "embalagem": 4,
-    "preco": 298.0
-  },
-  {
-    "codigo": "WFT1800BA",
-    "nome": "WHEY FORT 3W POTE 1800G BAUNILHA",
-    "embalagem": 4,
-    "preco": 589.0
-  },
-  {
-    "codigo": "WFT1800CH",
-    "nome": "WHEY FORT 3W POTE 1800G CHOCOLATE",
-    "embalagem": 4,
-    "preco": 589.0
-  },
-  {
-    "codigo": "WPI250",
-    "nome": "WHEY PROTEIN ISOLATE 250g",
-    "embalagem": 12,
-    "preco": 160.0
-  },
-  {
-    "codigo": "WPI15",
-    "nome": "WHEY PROTEIN ISOLATE 15 SACHES DE 15g",
-    "embalagem": 6,
-    "preco": 216.0
-  },
-  {
-    "codigo": "WP900BA",
-    "nome": "WHEY PROTEIN WPC POUCH 900G BAUNILHA",
-    "embalagem": 4,
-    "preco": 197.0
-  },
-  {
-    "codigo": "WP900MO",
-    "nome": "WHEY PROTEIN WPC POUCH 900G MORANGO",
-    "embalagem": 4,
-    "preco": 197.0
-  },
-  {
-    "codigo": "WP900BJ",
-    "nome": "WHEY PROTEIN WPC POUCH 900G BEIJINHO",
-    "embalagem": 4,
-    "preco": 197.0
-  },
-  {
-    "codigo": "WP900MM",
-    "nome": "WHEY PROTEIN WPC POUCH 900G MOUSSE DE MARACUJÁ",
-    "embalagem": 4,
-    "preco": 197.0
-  },
-  {
-    "codigo": "XLF300",
-    "nome": "XILITOL FAMILY POUCH 300g",
-    "embalagem": 6,
-    "preco": 69.0
-  }
+  { codigo: "AM240LI", nome: "AMINOVITA POTE 240g LIMÃO", preco: 159.0, embalagem: 12, categoria: "aminovita", categoriaNome: "AMINOVITA", imagem: "img/aminovita.png" },
+  { codigo: "AM240MR", nome: "AMINOVITA POTE 240G MARACUJÁ", preco: 159.0, embalagem: 12, categoria: "aminovita", categoriaNome: "AMINOVITA", imagem: "img/aminovita.png" },
+  { codigo: "AM30LI", nome: "AMINOVITA 30 SACHES 10G LIMAO", preco: 220.0, embalagem: 6, categoria: "aminovita", categoriaNome: "AMINOVITA", imagem: "img/aminovita_1.png" },
+  { codigo: "AM30MR", nome: "AMINOVITA 30 SACHES 10G MARACUJÁ", preco: 220.0, embalagem: 6, categoria: "aminovita", categoriaNome: "AMINOVITA", imagem: "img/aminovita_1.png" },
+  { codigo: "AGF30", nome: "ARGINOFOR 30 CAPSULAS 780mg", preco: 64.0, embalagem: 6, categoria: "arginofor", categoriaNome: "ARGINOFOR", imagem: "img/arginofor.png" },
+  { codigo: "AGF60", nome: "ARGINOFOR 60 CAPSULAS 780mg", preco: 105.0, embalagem: 6, categoria: "arginofor", categoriaNome: "ARGINOFOR", imagem: "img/arginofor.png" },
+  { codigo: "AGF120", nome: "ARGINOFOR 120 CAPSULAS 780mg", preco: 158.0, embalagem: 6, categoria: "arginofor", categoriaNome: "ARGINOFOR", imagem: "img/arginofor.png" },
+  { codigo: "BF210LI", nome: "BCAA FORT 210G LIMAO", preco: 107.0, embalagem: 12, categoria: "bcaafort", categoriaNome: "BCAAFORT", imagem: "img/bcaafort.png" },
+  { codigo: "BF210TA", nome: "BCAA FORT 210G TANGERINA", preco: 107.0, embalagem: 12, categoria: "bcaafort", categoriaNome: "BCAAFORT", imagem: "img/bcaafort.png" },
+  { codigo: "BF120", nome: "BCAA FORT 120 CÁPSULAS 950mg", preco: 115.0, embalagem: 6, categoria: "bcaafort", categoriaNome: "BCAAFORT", imagem: "img/bcaafort_1.png" },
+  { codigo: "BA120", nome: "BETA ALANINA 120 CAPSULAS 500mg", preco: 88.0, embalagem: 6, categoria: "beta_alanina", categoriaNome: "BETA ALANINA", imagem: "img/beta_alanina.png" },
+  { codigo: "BA240", nome: "BETA ALANINA 240 CAPSULAS 500mg", preco: 164.0, embalagem: 6, categoria: "beta_alanina", categoriaNome: "BETA ALANINA", imagem: "img/beta_alanina.png" },
+  { codigo: "BAP120", nome: "BETA ALANINA POTE 120g", preco: 86.0, embalagem: 12, categoria: "beta_alanina", categoriaNome: "BETA ALANINA", imagem: "img/beta_alanina_1.png" },
+  { codigo: "CP90", nome: "CALCIO PLUS CAPSULA 800mg", preco: 98.0, embalagem: 6, categoria: "c_lcio_plus", categoriaNome: "CÁLCIO PLUS", imagem: "img/c_lcio_plus.png" },
+  { codigo: "BM30", nome: "BORAPRIM 30 CAPSULAS 1000mg", preco: 67.0, embalagem: 6, categoria: "boraprim", categoriaNome: "BORAPRIM", imagem: "img/boraprim.png" },
+  { codigo: "BM60", nome: "BORAPRIM 60 CAPSULAS 1000mg", preco: 116.0, embalagem: 6, categoria: "boraprim", categoriaNome: "BORAPRIM", imagem: "img/boraprim.png" },
+  { codigo: "CF400", nome: "CARBOFOR 400g", preco: 58.0, embalagem: 12, categoria: "carbofor", categoriaNome: "CARBOFOR", imagem: "img/carbofor.png" },
+  { codigo: "CF20", nome: "CARBOFOR 20 SACHES 25g", preco: 184.0, embalagem: 1, categoria: "carbofor", categoriaNome: "CARBOFOR", imagem: "img/carbofor_1.png" },
+  { codigo: "CCF240", nome: "CHOCO FAMILY POUCH 240G", preco: 58.0, embalagem: 6, categoria: "choco_family", categoriaNome: "CHOCO FAMILY", imagem: "img/choco_family.png" },
+  { codigo: "CLK300AB", nome: "COLAGENTEK POTE 300g ABACAXI", preco: 124.0, embalagem: 12, categoria: "colagentek", categoriaNome: "COLAGENTEK", imagem: "img/colagentek.png" },
+  { codigo: "CLK300LA", nome: "COLAGENTEK POTE 300g LARANJA COM ACEROLA", preco: 124.0, embalagem: 12, categoria: "colagentek", categoriaNome: "COLAGENTEK", imagem: "img/colagentek.png" },
+  { codigo: "CLK300LI", nome: "COLAGENTEK POTE 300g LIMAO", preco: 124.0, embalagem: 12, categoria: "colagentek", categoriaNome: "COLAGENTEK", imagem: "img/colagentek.png" },
+  { codigo: "CLK300N", nome: "COLAGENTEK POTE 300g NEUTRO", preco: 124.0, embalagem: 12, categoria: "colagentek", categoriaNome: "COLAGENTEK", imagem: "img/colagentek.png" },
+  { codigo: "CLK300MV", nome: "COLAGENTEK POTE 300g MACA VERDE", preco: 124.0, embalagem: 12, categoria: "colagentek", categoriaNome: "COLAGENTEK", imagem: "img/choco_family.png" },
+  { codigo: "CLK300TA", nome: "COLAGENTEK POTE 300g TANGERINA", preco: 124.0, embalagem: 12, categoria: "colagentek", categoriaNome: "COLAGENTEK", imagem: "img/choco_family.png" },
+  { codigo: "CLK300CR", nome: "COLAGENTEK POTE 300g CRANBERRY", preco: 124.0, embalagem: 12, categoria: "colagentek", categoriaNome: "COLAGENTEK", imagem: "img/colagentek_1.png" },
+  { codigo: "CLK30S", nome: "COLAGENTEK 30 SACHÊS DE 10g - SORTIDOS", preco: 230.0, embalagem: 6, categoria: "colagentek", categoriaNome: "COLAGENTEK", imagem: "img/colagentek_1.png" },
+  { codigo: "CLB30AH", nome: "COLAGENTEK BEAUTY 30 SACHES DE 3,5g ABACAXI COM HORTELA", preco: 169.0, embalagem: 6, categoria: "colagentek_beauty", categoriaNome: "COLAGENTEK BEAUTY", imagem: "img/colagentek_beauty.png" },
+  { codigo: "CLB30MC", nome: "COLAGENTEK BEAUTY 30 SACHES DE 3,5g MACA COM CANELA", preco: 169.0, embalagem: 6, categoria: "colagentek_beauty", categoriaNome: "COLAGENTEK BEAUTY", imagem: "img/colagentek_beauty.png" },
+  { codigo: "CG30", nome: "COLAGENTEK TIPO II 30 CAPSULAS 790MG", preco: 89.0, embalagem: 6, categoria: "colagentek_ii", categoriaNome: "COLAGENTEK II", imagem: "img/colagentek_ii.png" },
+  { codigo: "CG60", nome: "COLAGENTEK TIPO II 60 CAPSULAS 790MG", preco: 136.0, embalagem: 6, categoria: "colagentek_ii", categoriaNome: "COLAGENTEK II", imagem: "img/colagentek_ii.png" },
+  { codigo: "CG120", nome: "COLAGENTEK TIPO II 120 CAPSULAS 790MG", preco: 240.0, embalagem: 6, categoria: "colagentek_ii", categoriaNome: "COLAGENTEK II", imagem: "img/colagentek_ii.png" },
+  { codigo: "CKP460MO", nome: "COLAGENTEK PROTEIN LATA 460g SABOR MORANGO", preco: 258.0, embalagem: 6, categoria: "colagentek_protein", categoriaNome: "COLAGENTEK PROTEIN", imagem: "img/colagentek_protein.png" },
+  { codigo: "CKP460N", nome: "COLAGENTEK PROTEIN LATA 460g SABOR NEUTRO", preco: 258.0, embalagem: 6, categoria: "colagentek_protein", categoriaNome: "COLAGENTEK PROTEIN", imagem: "img/colagentek_protein.png" },
+  { codigo: "CKP460CA", nome: "COLAGENTEK PROTEIN LATA 460g SABOR CACAU", preco: 258.0, embalagem: 6, categoria: "colagentek_protein", categoriaNome: "COLAGENTEK PROTEIN", imagem: "img/colagentek_protein_1.png" },
+  { codigo: "CKP460TA", nome: "COLAGENTEK PROTEIN LATA 460g SABOR TANGERINA", preco: 258.0, embalagem: 6, categoria: "colagentek_protein", categoriaNome: "COLAGENTEK PROTEIN", imagem: "img/colagentek_protein.png" },
+  { codigo: "CQ30", nome: "COENZIMA Q10 30 CAPSULAS 500mg = 200mg POR PORÇÃO", preco: 109.0, embalagem: 6, categoria: "coq_10", categoriaNome: "COQ-10", imagem: "img/coq_10.png" },
+  { codigo: "CQ60", nome: "COENZIMA Q10 60 CAPSULAS 500mg = 200mg POR PORÇÃO", preco: 172.0, embalagem: 6, categoria: "coq_10", categoriaNome: "COQ-10", imagem: "img/coq_10.png" },
+  { codigo: "CQ120", nome: "COENZIMA Q10 120 CAPSULAS 500mg = 200mg POR PORÇÃO", preco: 299.0, embalagem: 6, categoria: "coq_10", categoriaNome: "COQ-10", imagem: "img/coq_10.png" },
+  { codigo: "COQ60", nome: "COENZIMA Q10 60 CAPSULAS 500mg = 100mg POR PORÇÃO", preco: 109.0, embalagem: 6, categoria: "coq_10", categoriaNome: "COQ-10", imagem: "img/coq_10_1.png" },
+  { codigo: "CLF120", nome: "COLOSFORT POTE 120G", preco: 348.0, embalagem: 12, categoria: "colosfort__cont_m_premium_colo", categoriaNome: "COLOSFORT® CONTÉM PREMIUM COLOSTRUM PROTEIN UMA CO", imagem: "img/colosfort__cont_m_premium.png" },
+  { codigo: "CLF30", nome: "COLOSFORT LACTOFERRIN PLUS 30 CÁPSULAS DE 400mg", preco: 224.0, embalagem: 6, categoria: "colosfort_lactoferrin_plus____", categoriaNome: "COLOSFORT LACTOFERRIN PLUS® É PRODUZIDO COM LACTOF", imagem: "img/colosfort_lactoferrin_plu.png" },
+  { codigo: "CE100", nome: "CREATINE POTE 100g", preco: 48.0, embalagem: 12, categoria: "creatine", categoriaNome: "CREATINE", imagem: "img/creatine.png" },
+  { codigo: "CE300", nome: "CREATINE POTE 300g", preco: 109.0, embalagem: 12, categoria: "creatine", categoriaNome: "CREATINE", imagem: "img/creatine.png" },
+  { codigo: "CE600", nome: "CREATINE POTE 600g", preco: 198.0, embalagem: 4, categoria: "creatine", categoriaNome: "CREATINE", imagem: "img/creatine_1.png" },
+  { codigo: "CR300", nome: "CREAFORT POTE 300g", preco: 259.0, embalagem: 12, categoria: "creafort", categoriaNome: "CREAFORT", imagem: "img/creafort.png" },
+  { codigo: "CR30", nome: "CREAFORT CAIXA 30 SACHES 3g", preco: 120.0, embalagem: 6, categoria: "creafort", categoriaNome: "CREAFORT", imagem: "img/creafort.png" },
+  { codigo: "CMP30", nome: "CURCUMA PLUS 30 CAPSULAS 500mg", preco: 69.0, embalagem: 6, categoria: "curcuma_plus", categoriaNome: "CURCUMA PLUS", imagem: "img/curcuma_plus.png" },
+  { codigo: "CMP60", nome: "CURCUMA PLUS 60 CAPSULAS 500mg", preco: 109.0, embalagem: 6, categoria: "curcuma_plus", categoriaNome: "CURCUMA PLUS", imagem: "img/curcuma_plus.png" },
+  { codigo: "DR150", nome: "D RIBOSE POTE 150G", preco: 148.0, embalagem: 12, categoria: "d_ribose", categoriaNome: "D-RIBOSE", imagem: "img/d_ribose.png" },
+  { codigo: "EG12LI", nome: "END CAFFEINE GEL 12 SACHES DE 30g LIMAO", preco: 89.0, embalagem: 6, categoria: "endurance", categoriaNome: "ENDURANCE", imagem: "img/endurance.png" },
+  { codigo: "EG12MC", nome: "END CAFFEINE GEL 12 SACHES DE 30g MOCHA", preco: 89.0, embalagem: 6, categoria: "endurance", categoriaNome: "ENDURANCE", imagem: "img/endurance.png" },
+  { codigo: "EG12CB", nome: "END CAFFEINE GEL 12 SACHES DE 30g CHOCOLATE BELGA", preco: 89.0, embalagem: 6, categoria: "endurance", categoriaNome: "ENDURANCE", imagem: "img/endurance.png" },
+  { codigo: "EG12BN", nome: "END ENERGY GEL 12 SACHES DE 30g BANANA", preco: 89.0, embalagem: 6, categoria: "endurance", categoriaNome: "ENDURANCE", imagem: "img/endurance_1.png" },
+  { codigo: "EG12BA", nome: "END ENERGY GEL 12 SACHES DE 30g BAUNILHA", preco: 89.0, embalagem: 6, categoria: "endurance", categoriaNome: "ENDURANCE", imagem: "img/endurance_1.png" },
+  { codigo: "EG12TA", nome: "END ENERGY GEL 12 SACHES DE 30g TANGERINA", preco: 89.0, embalagem: 6, categoria: "endurance", categoriaNome: "ENDURANCE", imagem: "img/endurance_1.png" },
+  { codigo: "EG12PA", nome: "END ENERGY GEL 12 SACHÊS 30G PAÇOCA", preco: 89.0, embalagem: 6, categoria: "endurance", categoriaNome: "ENDURANCE", imagem: "img/endurance_1.png" },
+  { codigo: "EXE1000AB", nome: "ENDURANCE EXTREME ENERGY POTE 1000G ABACAXI", preco: 158.0, embalagem: 6, categoria: "endurance_extreme_energy", categoriaNome: "ENDURANCE EXTREME ENERGY", imagem: "img/endurance_extreme_energy.png" },
+  { codigo: "EXE1000LA", nome: "ENDURANCE EXTREME ENERGY POTE 1000G LARANJA", preco: 158.0, embalagem: 6, categoria: "endurance_extreme_energy", categoriaNome: "ENDURANCE EXTREME ENERGY", imagem: "img/endurance_extreme_energy.png" },
+  { codigo: "EC800BA", nome: "ENTERAL COMP POTE 800g BAUNILHA", preco: 168.0, embalagem: 6, categoria: "enteral_comp", categoriaNome: "ENTERAL COMP", imagem: "img/enteral_comp.png" },
+  { codigo: "ECF800BA", nome: "ENTERAL COMP FIBRAS POTE 800g BAUNILHA", preco: 176.0, embalagem: 6, categoria: "enteral_comp_fibras", categoriaNome: "ENTERAL COMP FIBRAS", imagem: "img/enteral_comp_fibras.png" },
+  { codigo: "EZ10", nome: "ENZYFOR 10 SACHES 3g", preco: 89.0, embalagem: 12, categoria: "enzyfor", categoriaNome: "ENZYFOR", imagem: "img/enzyfor.png" },
+  { codigo: "EZ30", nome: "ENZYFOR 30 SACHES 3g", preco: 198.0, embalagem: 6, categoria: "enzyfor", categoriaNome: "ENZYFOR", imagem: "img/enzyfor.png" },
+  { codigo: "FEP30", nome: "FERRO PLUS 30 CÁPSULAS 500mg", preco: 42.0, embalagem: 6, categoria: "ferro_plus", categoriaNome: "FERRO PLUS", imagem: "img/ferro_plus.png" },
+  { codigo: "EF20", nome: "ESPEFOR 20 SACHES 4g", preco: 79.0, embalagem: 6, categoria: "espefor", categoriaNome: "ESPEFOR", imagem: "img/espefor.png" },
+  { codigo: "EF250", nome: "ESPEFOR 250g", preco: 98.0, embalagem: 12, categoria: "espefor", categoriaNome: "ESPEFOR", imagem: "img/espefor.png" },
+  { codigo: "FBF10", nome: "FIBERFOR 10 SACHES DE 5g", preco: 40.0, embalagem: 12, categoria: "prebi_tico", categoriaNome: "PREBIÓTICO", imagem: "img/prebi_tico.png" },
+  { codigo: "FBF400", nome: "FIBERFOR POTE COM 400g", preco: 126.0, embalagem: 6, categoria: "prebi_tico", categoriaNome: "PREBIÓTICO", imagem: "img/prebi_tico.png" },
+  { codigo: "FV250", nome: "FOSVITA 250g", preco: 99.0, embalagem: 12, categoria: "fosvita", categoriaNome: "FOSVITA", imagem: "img/fosvita.png" },
+  { codigo: "FV30", nome: "FOSVITA 30 SACHES 7g", preco: 138.0, embalagem: 6, categoria: "fosvita", categoriaNome: "FOSVITA", imagem: "img/fosvita_1.png" },
+  { codigo: "FZ12BF", nome: "FITZEI DISPLAY C/ 12 BARRAS 40G BANOFFE", preco: 119.0, embalagem: 12, categoria: "fitzei_barrinhas_proteicas", categoriaNome: "FITZEI BARRINHAS PROTEICAS", imagem: "img/fitzei_barrinhas_proteica.png" },
+  { codigo: "FZ12FV", nome: "FITZEI DISPLAY C/ 12 BARRAS 40G FRUTAS VERMELHAS", preco: 119.0, embalagem: 12, categoria: "fitzei_barrinhas_proteicas", categoriaNome: "FITZEI BARRINHAS PROTEICAS", imagem: "img/fitzei_barrinhas_proteica_1.png" },
+  { codigo: "FZ12PA", nome: "FITZEI DISPLAY C/ 12 BARRAS 40G PACOCA", preco: 119.0, embalagem: 12, categoria: "fitzei_barrinhas_proteicas", categoriaNome: "FITZEI BARRINHAS PROTEICAS", imagem: "img/fitzei_barrinhas_proteica_2.png" },
+  { codigo: "FZ12CO", nome: "FITZEI DISPLAY C/ 12 BARRAS 40G COCO", preco: 119.0, embalagem: 12, categoria: "fitzei_barrinhas_proteicas", categoriaNome: "FITZEI BARRINHAS PROTEICAS", imagem: "img/fitzei_barrinhas_proteica_3.png" },
+  { codigo: "FZ12CA", nome: "FITZEI DISPLAY C/ 12 BARRAS 40G CARAMELO E AMENDOIM", preco: 119.0, embalagem: 12, categoria: "fitzei_barrinhas_proteicas", categoriaNome: "FITZEI BARRINHAS PROTEICAS", imagem: "img/fitzei_barrinhas_proteica_4.png" },
+  { codigo: "FZS45CG", nome: "FITZEI SNACK PACOTE 45g CRISPY GARLIC", preco: 9.98, embalagem: 10, categoria: "fitzei_snacks", categoriaNome: "FITZEI SNACKS", imagem: "img/fitzei_snacks.png" },
+  { codigo: "FZS45CH", nome: "FITZEI SNACK PACOTE 45g CHURRASCO", preco: 9.98, embalagem: 10, categoria: "fitzei_snacks", categoriaNome: "FITZEI SNACKS", imagem: "img/fitzei_snacks_1.png" },
+  { codigo: "FZS45EFQ", nome: "FITZEI SNACK PACOTE 45g ERVAS FINAS COM QUEIJO", preco: 9.98, embalagem: 10, categoria: "fitzei_snacks", categoriaNome: "FITZEI SNACKS", imagem: "img/fitzei_snacks_2.png" },
+  { codigo: "MTS90", nome: "GLP-1 MULTIVITAMÍNICO 90 CÁPSULAS 620mg", preco: 198.0, embalagem: 6, categoria: "glp_1_multivitam_nico", categoriaNome: "GLP-1 MULTIVITAMÍNICO", imagem: "img/glp_1_multivitam_nico.png" },
+  { codigo: "GM150", nome: "GLUTAMAX POTE 150g", preco: 70.0, embalagem: 12, categoria: "glutamax", categoriaNome: "GLUTAMAX", imagem: "img/glutamax.png" },
+  { codigo: "GM300", nome: "GLUTAMAX POTE 300g", preco: 116.0, embalagem: 12, categoria: "glutamax", categoriaNome: "GLUTAMAX", imagem: "img/glutamax.png" },
+  { codigo: "GMS30", nome: "GLUTAMAX 30 SACHES 5g", preco: 128.0, embalagem: 6, categoria: "glutamax", categoriaNome: "GLUTAMAX", imagem: "img/glutamax_1.png" },
+  { codigo: "GM30", nome: "GLUTAMAX 30 SACHES 10g", preco: 184.0, embalagem: 6, categoria: "glutamax", categoriaNome: "GLUTAMAX", imagem: "img/glutamax_1.png" },
+  { codigo: "GM600", nome: "GLUTAMAX POUCH 600G", preco: 178.0, embalagem: 6, categoria: "glutamax_pouch", categoriaNome: "GLUTAMAX POUCH", imagem: "img/glutamax_pouch.png" },
+  { codigo: "HF60", nome: "HEPATOFOR 60 CAPSULAS 1000mg", preco: 116.0, embalagem: 6, categoria: "hepatofor", categoriaNome: "HEPATOFOR", imagem: "img/hepatofor.png" },
+  { codigo: "HH60", nome: "HYALURONIC HAIR 60 CÁPSULAS 500MG", preco: 98.0, embalagem: 6, categoria: "hyaluronic_hair", categoriaNome: "HYALURONIC HAIR", imagem: "img/hyaluronic_hair.png" },
+  { codigo: "IMT60", nome: "IMUNOMULT MULTIVITAMINICO 60 CAPSULAS 1000mg", preco: 120.0, embalagem: 6, categoria: "imunomult_multivitam_nico", categoriaNome: "IMUNOMULT MULTIVITAMÍNICO", imagem: "img/imunomult_multivitam_nico.png" },
+  { codigo: "IMT120", nome: "IMUNOMULT MULTIVITAMINICO 120 CAPSULAS 1000mg", preco: 184.0, embalagem: 6, categoria: "imunomult_multivitam_nico", categoriaNome: "IMUNOMULT MULTIVITAMÍNICO", imagem: "img/imunomult_multivitam_nico.png" },
+  { codigo: "ISC60N", nome: "ISOCRISP NEUTRO POTE 60g", preco: 62.0, embalagem: 12, categoria: "isocrisp_whey_neutro", categoriaNome: "ISOCRISP WHEY NEUTRO", imagem: "img/isocrisp_whey_neutro.png" },
+  { codigo: "ISC240N", nome: "ISOCRISP WHEY NEUTRO POUCH 240G", preco: 114.0, embalagem: 4, categoria: "isocrisp_whey_neutro", categoriaNome: "ISOCRISP WHEY NEUTRO", imagem: "img/isocrisp_whey_neutro_1.png" },
+  { codigo: "ISP60", nome: "ISOCRISP PLANT POTE 60g", preco: 33.0, embalagem: 12, categoria: "isocrispplant_vegano_prote_nai", categoriaNome: "ISOCRISPPLANT-VEGANO-PROTEÍNAISOLADADEERVILHACOMFI", imagem: "img/isocrispplant_vegano_prot.png" },
+  { codigo: "ISP240", nome: "ISOCRISP PLANT  POUCH 240g", preco: 89.0, embalagem: 4, categoria: "isocrispplant_vegano_prote_nai", categoriaNome: "ISOCRISPPLANT-VEGANO-PROTEÍNAISOLADADEERVILHACOMFI", imagem: "img/isocrispplant_vegano_prot_1.png" },
+  { codigo: "ICP240", nome: "ISOCRISP PLANT POTE 240g", preco: 91.0, embalagem: 12, categoria: "isocrispplant_vegano_prote_nai", categoriaNome: "ISOCRISPPLANT-VEGANO-PROTEÍNAISOLADADEERVILHACOMFI", imagem: "img/isocrispplant_vegano_prot_1.png" },
+  { codigo: "ISF15BA", nome: "ISOFORT 15 SACHES 30g BAUNILHA", preco: 280.0, embalagem: 4, categoria: "isofort", categoriaNome: "ISOFORT", imagem: "img/isofort.png" },
+  { codigo: "ISF15CH", nome: "ISOFORT 15 SACHES 30g CHOCOLATE", preco: 280.0, embalagem: 4, categoria: "isofort", categoriaNome: "ISOFORT", imagem: "img/isofort.png" },
+  { codigo: "ISF15FV", nome: "ISOFORT 15 SACHES 30g FRUTAS VERMELHAS", preco: 280.0, embalagem: 4, categoria: "isofort", categoriaNome: "ISOFORT", imagem: "img/isofort.png" },
+  { codigo: "ISF15N", nome: "ISOFORT 15 SACHES 30g NEUTRO", preco: 280.0, embalagem: 4, categoria: "isofort", categoriaNome: "ISOFORT", imagem: "img/isofort_1.png" },
+  { codigo: "ISF900BA", nome: "ISOFORT POTE 900g BAUNILHA", preco: 440.0, embalagem: 4, categoria: "isofort", categoriaNome: "ISOFORT", imagem: "img/isofort_1.png" },
+  { codigo: "ISF900CH", nome: "ISOFORT POTE 900g CHOCOLATE", preco: 440.0, embalagem: 4, categoria: "isofort", categoriaNome: "ISOFORT", imagem: "img/isofort_1.png" },
+  { codigo: "ISF900FV", nome: "ISOFORT POTE 900g FRUTAS VERMELHAS", preco: 440.0, embalagem: 4, categoria: "isofort", categoriaNome: "ISOFORT", imagem: "img/isofort.png" },
+  { codigo: "ISF900N", nome: "ISOFORT POTE 900g NEUTRO", preco: 440.0, embalagem: 4, categoria: "isofort", categoriaNome: "ISOFORT", imagem: "img/isofort.png" },
+  { codigo: "IU900BA", nome: "ISOFORT ULTRA IMUNO POTE 900G BAUNILHA", preco: 440.0, embalagem: 4, categoria: "isofort_ultra_imuno", categoriaNome: "ISOFORT ULTRA IMUNO", imagem: "img/isofort_ultra_imuno.png" },
+  { codigo: "IU900CA", nome: "ISOFORT ULTRA IMUNO POTE 900G CACAU", preco: 440.0, embalagem: 4, categoria: "isofort_ultra_imuno", categoriaNome: "ISOFORT ULTRA IMUNO", imagem: "img/isofort_ultra_imuno.png" },
+  { codigo: "IFP450BC", nome: "ISOFORT PLANT 450g BANANA COM CANELA", preco: 168.0, embalagem: 6, categoria: "isofort_plant", categoriaNome: "ISOFORT PLANT", imagem: "img/isofort_plant.png" },
+  { codigo: "IFP450CA", nome: "ISOFORT PLANT 450g CACAU", preco: 168.0, embalagem: 6, categoria: "isofort_plant", categoriaNome: "ISOFORT PLANT", imagem: "img/isofort_plant.png" },
+  { codigo: "IFP450BA", nome: "ISOFORT PLANT 450g BAUNILHA", preco: 168.0, embalagem: 6, categoria: "isofort_plant", categoriaNome: "ISOFORT PLANT", imagem: "img/isofort_plant.png" },
+  { codigo: "IFP450PA", nome: "ISOFORT PLANT 450g PACOCA", preco: 168.0, embalagem: 6, categoria: "isofort_plant", categoriaNome: "ISOFORT PLANT", imagem: "img/isofort_plant.png" },
+  { codigo: "IFB450BA", nome: "ISOFORT BEAUTY 450g BAUNILHA", preco: 198.0, embalagem: 6, categoria: "isofort_beauty__for_a_e_beleza", categoriaNome: "ISOFORT BEAUTY- FORÇA E BELEZA PARA O SEU DIA A DI", imagem: "img/isofort_beauty__for_a_e_b.png" },
+  { codigo: "IFB450CA", nome: "ISOFORT BEAUTY 450g CACAU", preco: 198.0, embalagem: 6, categoria: "isofort_beauty__for_a_e_beleza", categoriaNome: "ISOFORT BEAUTY- FORÇA E BELEZA PARA O SEU DIA A DI", imagem: "img/isofort_beauty__for_a_e_b.png" },
+  { codigo: "IFB450AG", nome: "ISOFORT BEAUTY 450g ABACAXI COM GENGIBRE", preco: 198.0, embalagem: 6, categoria: "isofort_beauty__for_a_e_beleza", categoriaNome: "ISOFORT BEAUTY- FORÇA E BELEZA PARA O SEU DIA A DI", imagem: "img/isofort_beauty__for_a_e_b.png" },
+  { codigo: "IFB450CB", nome: "ISOFORT BEAUTY 450g CRANBERRY", preco: 198.0, embalagem: 6, categoria: "isofort_beauty__for_a_e_beleza", categoriaNome: "ISOFORT BEAUTY- FORÇA E BELEZA PARA O SEU DIA A DI", imagem: "img/isofort_beauty__for_a_e_b.png" },
+  { codigo: "IFB450N", nome: "ISOFORT BEAUTY 450g NEUTRO", preco: 198.0, embalagem: 6, categoria: "isofort_beauty__for_a_e_beleza", categoriaNome: "ISOFORT BEAUTY- FORÇA E BELEZA PARA O SEU DIA A DI", imagem: "img/isofort_beauty__for_a_e_b_1.png" },
+  { codigo: "IFB15AG", nome: "ISOFORT BEAUTY 15 SACHES 25g ABACAXI COM GENGIBRE", preco: 226.0, embalagem: 4, categoria: "isofort_beauty__for_a_e_beleza", categoriaNome: "ISOFORT BEAUTY- FORÇA E BELEZA PARA O SEU DIA A DI", imagem: "img/isofort_beauty__for_a_e_b_1.png" },
+  { codigo: "IFB15BA", nome: "ISOFORT BEAUTY 15 SACHES 25g BAUNILHA", preco: 226.0, embalagem: 4, categoria: "isofort_beauty__for_a_e_beleza", categoriaNome: "ISOFORT BEAUTY- FORÇA E BELEZA PARA O SEU DIA A DI", imagem: "img/isofort_beauty__for_a_e_b_1.png" },
+  { codigo: "IFB15CA", nome: "ISOFORT BEAUTY 15 SACHES 25g CACAU", preco: 226.0, embalagem: 4, categoria: "isofort_beauty__for_a_e_beleza", categoriaNome: "ISOFORT BEAUTY- FORÇA E BELEZA PARA O SEU DIA A DI", imagem: "img/isofort_beauty__for_a_e_b_1.png" },
+  { codigo: "IFB15CB", nome: "ISOFORT BEAUTY 15 SACHES 25g CRANBERRY", preco: 226.0, embalagem: 4, categoria: "isofort_beauty__for_a_e_beleza", categoriaNome: "ISOFORT BEAUTY- FORÇA E BELEZA PARA O SEU DIA A DI", imagem: "img/isofort_beauty__for_a_e_b.png" },
+  { codigo: "IFB15N", nome: "ISOFORT BEAUTY 15 SACHES 25G NEUTRO", preco: 226.0, embalagem: 4, categoria: "isofort_beauty__for_a_e_beleza", categoriaNome: "ISOFORT BEAUTY- FORÇA E BELEZA PARA O SEU DIA A DI", imagem: "img/isofort_beauty__for_a_e_b.png" },
+  { codigo: "KV30", nome: "KRILLVIT30CAPSULAS500mg", preco: 89.0, embalagem: 6, categoria: "krill_vit", categoriaNome: "KRILL VIT", imagem: "img/krill_vit.png" },
+  { codigo: "KV60", nome: "KRILLVIT60CAPSULAS500mg", preco: 158.0, embalagem: 6, categoria: "krill_vit", categoriaNome: "KRILL VIT", imagem: "img/krill_vit.png" },
+  { codigo: "LCZ60", nome: "LACZYME 60 CAPSULAS 470mg", preco: 108.0, embalagem: 6, categoria: "laczyme", categoriaNome: "LACZYME", imagem: "img/laczyme.png" },
+  { codigo: "LCT60", nome: "L CARNITINA 60 CAPSULAS 530mg", preco: 89.0, embalagem: 6, categoria: "l_carnitina", categoriaNome: "L-CARNITINA", imagem: "img/l_carnitina.png" },
+  { codigo: "LCT120", nome: "L CARNITINA 120 CAPSULAS DE 530mg", preco: 144.0, embalagem: 6, categoria: "l_carnitina", categoriaNome: "L-CARNITINA", imagem: "img/l_carnitina.png" },
+  { codigo: "LP120", nome: "LIPIX 120 CAPSULAS1 000mg", preco: 98.0, embalagem: 6, categoria: "lipix", categoriaNome: "LIPIX", imagem: "img/lipix.png" },
+  { codigo: "LPS60", nome: "LIPIX 6   60  CAPSULAS 1000mg", preco: 89.0, embalagem: 6, categoria: "lipix6___leo_de_cartamo__leo_s", categoriaNome: "LIPIX6- ÓLEO DE CARTAMO,ÓLEO SEMENTE DE UVA, DE CA", imagem: "img/lipix6___leo_de_cartamo__.png" },
+  { codigo: "LPS120", nome: "LIPIX 6 120 CAPSULAS 1000mg", preco: 149.0, embalagem: 6, categoria: "lipix6___leo_de_cartamo__leo_s", categoriaNome: "LIPIX6- ÓLEO DE CARTAMO,ÓLEO SEMENTE DE UVA, DE CA", imagem: "img/lipix6___leo_de_cartamo__.png" },
+  { codigo: "MGP90", nome: "MAGNESIO PLUS 90 CÁPSULAS 690mg", preco: 98.0, embalagem: 6, categoria: "magn_sio_plus", categoriaNome: "MAGNÉSIO PLUS", imagem: "img/magn_sio_plus.png" },
+  { codigo: "MCA250", nome: "MCT COM AGE FRASCO 250ML", preco: 98.0, embalagem: 6, categoria: "mct", categoriaNome: "MCT", imagem: "img/mct.png" },
+  { codigo: "MCT500", nome: "MCT FRASCO 500ML", preco: 196.0, embalagem: 6, categoria: "mct", categoriaNome: "MCT", imagem: "img/mct_1.png" },
+  { codigo: "MD60", nome: "MEGA DHA 60 CAPSULAS 1000mg", preco: 119.0, embalagem: 6, categoria: "mega_dha", categoriaNome: "MEGA DHA", imagem: "img/mega_dha.png" },
+  { codigo: "MD120", nome: "MEGA DHA 120 CAPSULAS 1000mg", preco: 214.0, embalagem: 12, categoria: "mega_dha", categoriaNome: "MEGA DHA", imagem: "img/mega_dha.png" },
+  { codigo: "ML20", nome: "MELATONINA GOTAS FRASCO 20ML", preco: 58.0, embalagem: 32, categoria: "melatonina", categoriaNome: "MELATONINA", imagem: "img/melatonina.png" },
+  { codigo: "NAC30", nome: "N ACETIL CISTEINA 30 CAPSULAS 750mg", preco: 65.0, embalagem: 6, categoria: "nac", categoriaNome: "NAC", imagem: "img/nac.png" },
+  { codigo: "NAC60", nome: "N ACETIL CISTEINA 60 CAPSULAS 750mg", preco: 104.0, embalagem: 6, categoria: "nac", categoriaNome: "NAC", imagem: "img/nac.png" },
+  { codigo: "OF60", nome: "OMEGA 3 EPA E DHA 60 CAPSULAS 1000mg", preco: 79.0, embalagem: 6, categoria: "_mega_3_epa_dha", categoriaNome: "ÔMEGA 3 EPA DHA", imagem: "img/_mega_3_epa_dha.png" },
+  { codigo: "OF120", nome: "OMEGA 3 EPA E DHA 120 CAPSULAS 1000mg", preco: 140.0, embalagem: 12, categoria: "_mega_3_epa_dha", categoriaNome: "ÔMEGA 3 EPA DHA", imagem: "img/_mega_3_epa_dha.png" },
+  { codigo: "OF240", nome: "OMEGA 3 EPA E DHA 240 CAPSULAS 1000mg", preco: 260.0, embalagem: 6, categoria: "_mega_3_epa_dha", categoriaNome: "ÔMEGA 3 EPA DHA", imagem: "img/_mega_3_epa_dha.png" },
+  { codigo: "OFP60", nome: "OMEGAFOR PLUS 60 CAPSULAS 1000mg", preco: 132.0, embalagem: 6, categoria: "omegafor_plus", categoriaNome: "OMEGAFOR PLUS", imagem: "img/omegafor_plus.png" },
+  { codigo: "OFP120", nome: "OMEGAFOR PLUS 120 CAPSULAS 1000mg", preco: 218.0, embalagem: 12, categoria: "omegafor_plus", categoriaNome: "OMEGAFOR PLUS", imagem: "img/omegafor_plus.png" },
+  { codigo: "OFP240", nome: "OMEGAFOR PLUS 240 CAPSULAS 1000mg", preco: 378.0, embalagem: 6, categoria: "omegafor_plus", categoriaNome: "OMEGAFOR PLUS", imagem: "img/omegafor_plus.png" },
+  { codigo: "OFF60", nome: "OMEGAFOR FAMILY 60 CAPSULAS 500mg", preco: 95.0, embalagem: 6, categoria: "omegafor_family__33__epa_22__d", categoriaNome: "OMEGAFOR FAMILY- 33% EPA 22% DHA COM VITAMINAS E M", imagem: "img/omegafor_family__33__epa_.png" },
+  { codigo: "OFF120", nome: "OMEGAFOR FAMILY 120 CAPSULAS 500mg", preco: 168.0, embalagem: 6, categoria: "omegafor_family__33__epa_22__d", categoriaNome: "OMEGAFOR FAMILY- 33% EPA 22% DHA COM VITAMINAS E M", imagem: "img/omegafor_family__33__epa_.png" },
+  { codigo: "OFF360", nome: "OMEGAFOR FAMILY 360 CAPSULAS 500mg", preco: 399.0, embalagem: 6, categoria: "omegafor_family__33__epa_22__d", categoriaNome: "OMEGAFOR FAMILY- 33% EPA 22% DHA COM VITAMINAS E M", imagem: "img/omegafor_family__33__epa_.png" },
+  { codigo: "OMV60", nome: "OMEGAFOR VISION 60 CAPSULAS 1000mg", preco: 145.0, embalagem: 6, categoria: "omegafor_vision", categoriaNome: "OMEGAFOR VISION", imagem: "img/omegafor_vision.png" },
+  { codigo: "OV60", nome: "OMEGAFOR VEGAN 60 CAPSULAS 700mg", preco: 145.0, embalagem: 6, categoria: "omegafor_vegan", categoriaNome: "OMEGAFOR VEGAN", imagem: "img/omegafor_vegan.png" },
+  { codigo: "OME60", nome: "OMEGAFOR MEMORY 60 CAPSULAS 1000mg", preco: 148.0, embalagem: 6, categoria: "omegafor_memory", categoriaNome: "OMEGAFOR MEMORY", imagem: "img/omegafor_memory.png" },
+  { codigo: "OFV60", nome: "OMEGAFOR VITAMINS 60 CAPSULAS 1000mg", preco: 88.0, embalagem: 6, categoria: "omegafor_vitamins", categoriaNome: "OMEGAFOR VITAMINS", imagem: "img/omegafor_vitamins.png" },
+  { codigo: "OFV120", nome: "OMEGAFOR VITAMINS 120 CAPSULAS 1000mg", preco: 154.0, embalagem: 12, categoria: "omegafor_vitamins", categoriaNome: "OMEGAFOR VITAMINS", imagem: "img/omegafor_vitamins.png" },
+  { codigo: "PA300", nome: "PALATINOSE POTE 300G", preco: 69.0, embalagem: 12, categoria: "palatinose__carboidrato_de_bai", categoriaNome: "PALATINOSE (CARBOIDRATO DE BAIXO ÍNDICE GLICÊMICO", imagem: "img/palatinose__carboidrato_d.png" },
+  { codigo: "PA600", nome: "PALATINOSE POUCH 600G", preco: 120.0, embalagem: 6, categoria: "palatinose_pouch_600g", categoriaNome: "PALATINOSE POUCH 600g", imagem: "img/palatinose_pouch_600g.png" },
+  { codigo: "PR60", nome: "PROFEM 60 CÁPSULAS 1000mg", preco: 89.0, embalagem: 6, categoria: "profem", categoriaNome: "PROFEM", imagem: "img/profem.png" },
+  { codigo: "PL20", nome: "PRÓPOLIS LIQUIDA GOTAS FRASCO 20ml", preco: 62.0, embalagem: 32, categoria: "pr_polis", categoriaNome: "PRÓPOLIS", imagem: "img/pr_polis.png" },
+  { codigo: "REP60", nome: "RESVERATROL PLUS 60 CAPSULAS 1000mg", preco: 168.0, embalagem: 6, categoria: "resveratrol_plus", categoriaNome: "RESVERATROL PLUS", imagem: "img/resveratrol_plus.png" },
+  { codigo: "SFM15", nome: "SIMFORT FEMME 15 CÁPSULAS 650mg", preco: 78.0, embalagem: 6, categoria: "simfort_femme", categoriaNome: "SIMFORT FEMME", imagem: "img/simfort_femme.png" },
+  { codigo: "SFM30", nome: "SIMFORT FEMME 30 CÁPSULAS 650MG", preco: 134.0, embalagem: 6, categoria: "simfort_femme", categoriaNome: "SIMFORT FEMME", imagem: "img/simfort_femme.png" },
+  { codigo: "SCP30", nome: "SIMCAPS POTE COM 30 CÁPSULAS", preco: 68.0, embalagem: 6, categoria: "simcaps", categoriaNome: "SIMCAPS", imagem: "img/simcaps.png" },
+  { codigo: "SCP60", nome: "SIMCAPS POTE COM 60 CÁPSULAS", preco: 99.0, embalagem: 6, categoria: "simcaps", categoriaNome: "SIMCAPS", imagem: "img/simcaps.png" },
+  { codigo: "SF10", nome: "SIMFORT 10 SACHÊS DE 2g", preco: 53.0, embalagem: 6, categoria: "simfort", categoriaNome: "SIMFORT", imagem: "img/simfort.png" },
+  { codigo: "SF30", nome: "SIMFORT 30 SACHÊS DE 2g", preco: 129.0, embalagem: 12, categoria: "simfort", categoriaNome: "SIMFORT", imagem: "img/simfort.png" },
+  { codigo: "SF60", nome: "SIMFORT 60 SACHÊS DE 2g", preco: 242.0, embalagem: 10, categoria: "simfort", categoriaNome: "SIMFORT", imagem: "img/simfort.png" },
+  { codigo: "SFF210", nome: "SIMFORT FIBRAS 210g", preco: 89.0, embalagem: 12, categoria: "simfort__fibras_alimentares_so", categoriaNome: "SIMFORT -FIBRAS ALIMENTARES SOLÚVEIS E INSOLÚVEIS", imagem: "img/simfort__fibras_alimentar.png" },
+  { codigo: "SFS10", nome: "SIMFORT PLUS 10 SACHES 2g", preco: 53.0, embalagem: 12, categoria: "simfort_plus", categoriaNome: "SIMFORT PLUS", imagem: "img/simfort_plus.png" },
+  { codigo: "SFS30", nome: "SIMFORT PLUS 30 SACHES 2g", preco: 129.0, embalagem: 12, categoria: "simfort_plus", categoriaNome: "SIMFORT PLUS", imagem: "img/simfort_plus.png" },
+  { codigo: "SFP30", nome: "SIMFORT PLUS 30 CÁPSULAS 390mg", preco: 89.0, embalagem: 6, categoria: "simfort_plus", categoriaNome: "SIMFORT PLUS", imagem: "img/simfort_plus_1.png" },
+  { codigo: "SFP60", nome: "SIMFORT PLUS 60 CAPSULAS 390mg", preco: 158.0, embalagem: 6, categoria: "simfort_plus", categoriaNome: "SIMFORT PLUS", imagem: "img/simfort_plus_1.png" },
+  { codigo: "SFU30", nome: "SIMFORT ULTRA 30 CAPSULAS 390mg", preco: 107.0, embalagem: 6, categoria: "simfort_ultra", categoriaNome: "SIMFORT ULTRA", imagem: "img/simfort_ultra.png" },
+  { codigo: "SFU60", nome: "SIMFORT ULTRA 60 CAPSULAS 390mg", preco: 198.0, embalagem: 6, categoria: "simfort_ultra", categoriaNome: "SIMFORT ULTRA", imagem: "img/simfort_ultra.png" },
+  { codigo: "SL30", nome: "SLEEPFOR 30 CAPSULAS 470mg", preco: 65.0, embalagem: 6, categoria: "sleepfor", categoriaNome: "SLEEPFOR", imagem: "img/sleepfor.png" },
+  { codigo: "SL60", nome: "SLEEPFOR 60 CAPSULAS 470mg", preco: 95.0, embalagem: 6, categoria: "sleepfor", categoriaNome: "SLEEPFOR", imagem: "img/sleepfor.png" },
+  { codigo: "SV400BA", nome: "SUSTEVIT LATA 400g BAUNILHA", preco: 62.0, embalagem: 12, categoria: "sustevit", categoriaNome: "SUSTEVIT", imagem: "img/sustevit.png" },
+  { codigo: "SV400MO", nome: "SUSTEVIT LATA 400g MORANGO", preco: 62.0, embalagem: 12, categoria: "sustevit", categoriaNome: "SUSTEVIT", imagem: "img/sustevit.png" },
+  { codigo: "SV400N", nome: "SUSTEVIT LATA 400G NEUTRO", preco: 62.0, embalagem: 12, categoria: "sustevit", categoriaNome: "SUSTEVIT", imagem: "img/sustevit.png" },
+  { codigo: "TA30", nome: "TAURINE 30 CAPSULAS 550mg", preco: 54.0, embalagem: 6, categoria: "taurine", categoriaNome: "TAURINE", imagem: "img/taurine.png" },
+  { codigo: "TA60", nome: "TAURINE 60 CAPSULAS 550mg", preco: 95.0, embalagem: 6, categoria: "taurine", categoriaNome: "TAURINE", imagem: "img/taurine.png" },
+  { codigo: "TP240TC", nome: "TERMO PLUS 240G TANGERINA COM CHA VERDE", preco: 176.0, embalagem: 12, categoria: "termoplus", categoriaNome: "TERMOPLUS", imagem: "img/termoplus.png" },
+  { codigo: "TP240FGC", nome: "TERMOPLUS 240G FRUTAS VERMELHAS COM GENGIBRE E CHÁ VERDE", preco: 176.0, embalagem: 12, categoria: "termoplus", categoriaNome: "TERMOPLUS", imagem: "img/termoplus.png" },
+  { codigo: "TP30TC", nome: "TERMO PLUS 30 SACHÊS 4G TANGERINA COM CHÁ VERDE", preco: 132.0, embalagem: 6, categoria: "termoplus", categoriaNome: "TERMOPLUS", imagem: "img/termoplus_1.png" },
+  { codigo: "TP30FGC", nome: "TERMO PLUS 30 SACHES 4G FRUTAS VERMELHAS E GENGIBRE COM CHÁ VERDE", preco: 132.0, embalagem: 6, categoria: "termoplus", categoriaNome: "TERMOPLUS", imagem: "img/termoplus_1.png" },
+  { codigo: "TPC90", nome: "TERMO PLUS 90 CAPSULAS 650mg", preco: 108.0, embalagem: 6, categoria: "termo_plus_capsulas", categoriaNome: "TERMO PLUS CAPSULAS", imagem: "img/termo_plus_capsulas.png" },
+  { codigo: "CFE220OR", nome: "V-COFFEE LATA 220G ORIGINAL", preco: 119.0, embalagem: 12, categoria: "v_coffee_energy_boost", categoriaNome: "V-COFFEE ENERGY BOOST", imagem: "img/v_coffee_energy_boost.png" },
+  { codigo: "VF240FV", nome: "V FORT 240g FRUTAS VERMELHAS", preco: 164.0, embalagem: 12, categoria: "v_fort_intenso_pr__treino_com_", categoriaNome: "V-FORT INTENSO PRÉ TREINO COM CREATINA MONOHIDRATA", imagem: "img/v_fort_intenso_pr__treino.png" },
+  { codigo: "VF240LI", nome: "V FORT 240g LIMAO", preco: 164.0, embalagem: 12, categoria: "v_fort_intenso_pr__treino_com_", categoriaNome: "V-FORT INTENSO PRÉ TREINO COM CREATINA MONOHIDRATA", imagem: "img/v_fort_intenso_pr__treino.png" },
+  { codigo: "VFU240LI", nome: "V FORT ULTRA POTE 240G LIMAO", preco: 164.0, embalagem: 12, categoria: "v__fort_ultra", categoriaNome: "V- FORT ULTRA", imagem: "img/v__fort_ultra.png" },
+  { codigo: "VFU240UV", nome: "V FORT ULTRA POTE 240G UVA", preco: 164.0, embalagem: 12, categoria: "v__fort_ultra", categoriaNome: "V- FORT ULTRA", imagem: "img/v__fort_ultra.png" },
+  { codigo: "VTT30", nome: "VITATEA 30 SACHES 2g", preco: 94.0, embalagem: 12, categoria: "vitatea", categoriaNome: "VITATEA", imagem: "img/vitatea.png" },
+  { codigo: "VTE30", nome: "VITATEA EQUILIBRIUM 30 SACHES DE 2g", preco: 94.0, embalagem: 12, categoria: "vitatea_equilibrium", categoriaNome: "VITATEA EQUILIBRIUM", imagem: "img/vitatea_equilibrium.png" },
+  { codigo: "VB60F", nome: "VITA BEAR 4g 60 GOMAS DE FRUTAS", preco: 130.0, embalagem: 6, categoria: "nutri__o_infantil_e_adultos", categoriaNome: "NUTRIÇÃO INFANTIL E ADULTOS", imagem: "img/nutri__o_infantil_e_adult.png" },
+  { codigo: "VC60", nome: "VITA C3 60 CAPSULAS 1000mg", preco: 71.0, embalagem: 6, categoria: "vita_c3___vitamina_c3___cido_a", categoriaNome: "VITA C3 – VITAMINA C3 (Ácido ascórbico, ascorbato", imagem: "img/vita_c3___vitamina_c3___c.png" },
+  { codigo: "VC120", nome: "VITA C3 120 CAPSULAS 1000mg", preco: 120.0, embalagem: 6, categoria: "vita_c3___vitamina_c3___cido_a", categoriaNome: "VITA C3 – VITAMINA C3 (Ácido ascórbico, ascorbato", imagem: "img/vita_c3___vitamina_c3___c.png" },
+  { codigo: "VD60", nome: "VITA D3 60 CAPSULAS 500mg", preco: 72.0, embalagem: 6, categoria: "vita_d3___2_000ui_vitamina_d3_", categoriaNome: "VITA D3 – 2.000UI VITAMINA D3 (colecalciferol) POR", imagem: "img/vita_d3___2_000ui_vitamin.png" },
+  { codigo: "VDZ30", nome: "VITA D3 + C + ZINCO 30 CAPSULAS 1000mg", preco: 59.0, embalagem: 6, categoria: "vita_d3__vit_c___zinco", categoriaNome: "VITA D3® VIT.C + ZINCO", imagem: "img/vita_d3__vit_c___zinco.png" },
+  { codigo: "VDZ60", nome: "VITA D3 + C + ZINCO 60 CAPSULAS 1000mg", preco: 88.0, embalagem: 6, categoria: "vita_d3__vit_c___zinco", categoriaNome: "VITA D3® VIT.C + ZINCO", imagem: "img/vita_d3__vit_c___zinco.png" },
+  { codigo: "VD10", nome: "VITA D3 GOTAS FRASCO 10 ML", preco: 69.0, embalagem: 32, categoria: "vita_d3___2_000ui_vitamina_d3_", categoriaNome: "VITA D3 – 2.000UI VITAMINA D3 (colecalciferol) LÍQ", imagem: "img/vita_d3___2_000ui_vitamin_1.png" },
+  { codigo: "VDK20ME", nome: "VITA D3 + K2 GOTAS FRASCO 20ML SABOR MENTA", preco: 93.0, embalagem: 32, categoria: "vita_d3___k2_gotas_frasco_20_m", categoriaNome: "VITA D3 + K2 GOTAS FRASCO 20 ML SABOR MENTA", imagem: "img/vita_d3___k2_gotas_frasco.png" },
+  { codigo: "B1220ME", nome: "VITAMINA B12 GOTAS FRASCO 20ML MENTA", preco: 49.0, embalagem: 32, categoria: "vitamina_b12_sabor_menta", categoriaNome: "VITAMINA B12 SABOR MENTA", imagem: "img/vitamina_b12_sabor_menta.png" },
+  { codigo: "WFT900BN", nome: "WHEY FORT 3W POTE 900G BANANA", preco: 298.0, embalagem: 4, categoria: "whey_fort", categoriaNome: "WHEY FORT", imagem: "img/whey_fort.png" },
+  { codigo: "WFT900BA", nome: "WHEY FORT 3W POTE 900G BAUNILHA", preco: 298.0, embalagem: 4, categoria: "whey_fort", categoriaNome: "WHEY FORT", imagem: "img/whey_fort.png" },
+  { codigo: "WFT900CH", nome: "WHEY FORT 3W POTE 900G CHOCOLATE", preco: 298.0, embalagem: 4, categoria: "whey_fort", categoriaNome: "WHEY FORT", imagem: "img/whey_fort.png" },
+  { codigo: "WFT900CC", nome: "WHEY FORT 3W POTE 900G COOKIES N CREAM", preco: 298.0, embalagem: 4, categoria: "whey_fort", categoriaNome: "WHEY FORT", imagem: "img/whey_fort.png" },
+  { codigo: "WFT900FV", nome: "WHEY FORT 3W POTE 900G FRUTAS VERMELHAS", preco: 298.0, embalagem: 4, categoria: "whey_fort", categoriaNome: "WHEY FORT", imagem: "img/whey_fort.png" },
+  { codigo: "WFT900MC", nome: "WHEY FORT 3W POTE 900G MOCHACCINO", preco: 298.0, embalagem: 4, categoria: "whey_fort", categoriaNome: "WHEY FORT", imagem: "img/whey_fort_1.png" },
+  { codigo: "WFT900N", nome: "WHEY FORT 3W POTE 900G NEUTRO", preco: 298.0, embalagem: 4, categoria: "whey_fort", categoriaNome: "WHEY FORT", imagem: "img/whey_fort_1.png" },
+  { codigo: "WFT900PA", nome: "WHEY FORT 3W POTE 900G PAÇOCA", preco: 298.0, embalagem: 4, categoria: "whey_fort", categoriaNome: "WHEY FORT", imagem: "img/whey_fort_1.png" },
+  { codigo: "WFT1800BA", nome: "WHEY FORT 3W POTE 1800G BAUNILHA", preco: 589.0, embalagem: 4, categoria: "whey_fort", categoriaNome: "WHEY FORT", imagem: "img/whey_fort_1.png" },
+  { codigo: "WFT1800CH", nome: "WHEY FORT 3W POTE 1800G CHOCOLATE", preco: 589.0, embalagem: 4, categoria: "whey_fort", categoriaNome: "WHEY FORT", imagem: "img/whey_fort.png" },
+  { codigo: "WPI250", nome: "WHEY PROTEIN ISOLATE 250g", preco: 160.0, embalagem: 12, categoria: "whey_protein_isolate", categoriaNome: "WHEY PROTEIN ISOLATE", imagem: "img/whey_protein_isolate.png" },
+  { codigo: "WPI15", nome: "WHEY PROTEIN ISOLATE 15 SACHES DE 15g", preco: 216.0, embalagem: 6, categoria: "whey_protein_isolate", categoriaNome: "WHEY PROTEIN ISOLATE", imagem: "img/whey_protein_isolate.png" },
+  { codigo: "WP900BA", nome: "WHEY PROTEIN WPC POUCH 900G BAUNILHA", preco: 197.0, embalagem: 4, categoria: "whey_protein_wpc_pouch", categoriaNome: "WHEY PROTEIN WPC POUCH", imagem: "img/whey_protein_wpc_pouch.png" },
+  { codigo: "WP900MO", nome: "WHEY PROTEIN WPC POUCH 900G MORANGO", preco: 197.0, embalagem: 4, categoria: "whey_protein_wpc_pouch", categoriaNome: "WHEY PROTEIN WPC POUCH", imagem: "img/whey_protein_wpc_pouch.png" },
+  { codigo: "WP900BJ", nome: "WHEY PROTEIN WPC POUCH 900G BEIJINHO", preco: 197.0, embalagem: 4, categoria: "whey_protein_wpc_pouch", categoriaNome: "WHEY PROTEIN WPC POUCH", imagem: "img/whey_protein_wpc_pouch_1.png" },
+  { codigo: "WP900MM", nome: "WHEY PROTEIN WPC POUCH 900G MOUSSE DE MARACUJÁ", preco: 197.0, embalagem: 4, categoria: "whey_protein_wpc_pouch", categoriaNome: "WHEY PROTEIN WPC POUCH", imagem: "img/whey_protein_wpc_pouch.png" },
+  { codigo: "XLF300", nome: "XILITOL FAMILY POUCH 300g", preco: 69.0, embalagem: 6, categoria: "xilitol_family", categoriaNome: "XILITOL FAMILY", imagem: "img/xilitol_family.png" },
+  { codigo: "ACA90", nome: "ACANTHOPANAX 90 CÁPSULAS", preco: 98.0, embalagem: 6, categoria: "acanthopanax", categoriaNome: "ACANTHOPANAX", imagem: "img/acanthopanax.png" },
+  { codigo: "BCO100", nome: "BUPLEURUM COMBINATION 100 CÁPSULAS 400mg", preco: 179.0, embalagem: 6, categoria: "bupleurum_combination_100_c_ps", categoriaNome: "BUPLEURUM COMBINATION 100 CÁPSULAS 400mg", imagem: "img/bupleurum_combination_100.png" },
+  { codigo: "CNP90", nome: "CINNAMON & PORIA 90 CÁPSULAS", preco: 116.0, embalagem: 6, categoria: "cinnamon___poria", categoriaNome: "CINNAMON & PORIA", imagem: "img/cinnamon___poria.png" },
+  { codigo: "CRD90", nome: "CORDYCEPS 90 CÁPSULAS", preco: 125.0, embalagem: 6, categoria: "cordyceps", categoriaNome: "CORDYCEPS", imagem: "img/cordyceps.png" },
+  { codigo: "ECH90", nome: "ECHINACEA 90 CÁPSULAS", preco: 89.0, embalagem: 6, categoria: "echinacea", categoriaNome: "ECHINACEA", imagem: "img/echinacea.png" },
+  { codigo: "HLO36", nome: "HYPERICUM & LONICERA 36 CÁPSULAS", preco: 78.0, embalagem: 6, categoria: "hypericum___lonicera", categoriaNome: "HYPERICUM & LONICERA", imagem: "img/hypericum___lonicera.png" },
+  { codigo: "REF100", nome: "REHMANNIA EIGHT FÓRMULA 100 CÁPSULAS", preco: 116.0, embalagem: 6, categoria: "rehmannia_eight_f_rmula___guif", categoriaNome: "REHMANNIA EIGHT FÓRMULA – GUIFU DIHUANG JIAONANG", imagem: "img/rehmannia_eight_f_rmula__.png" },
+  { codigo: "REH100", nome: "REHMANNIA & EPIMEDII 100 CÁPSULAS 350mg", preco: 152.0, embalagem: 6, categoria: "rehmannia___epimedii_100_c_psu", categoriaNome: "REHMANNIA & EPIMEDII 100 CÁPSULAS", imagem: "img/rehmannia___epimedii_100_.png" },
+  { codigo: "RHD60", nome: "RHODIOLA 60 CÁPSULAS", preco: 89.0, embalagem: 6, categoria: "rhodiola", categoriaNome: "RHODIOLA", imagem: "img/rhodiola.png" },
+  { codigo: "SFT60", nome: "SIX FLAVOR TEA 60 CÁPSULAS", preco: 98.0, embalagem: 6, categoria: "six_flavor", categoriaNome: "SIX FLAVOR", imagem: "img/six_flavor.png" },
+  { codigo: "VPI1005TR", nome: "VITAPOWER INTEGRAL POTE 1005G SABOR TRADICIONAL", preco: 48.0, embalagem: 6, categoria: "linha_integral", categoriaNome: "LINHA INTEGRAL", imagem: "img/linha_integral.png" },
+  { codigo: "VPI1005CR", nome: "VITAPOWER INTEGRAL POTE 1005G SABOR CROCANTE", preco: 48.0, embalagem: 6, categoria: "linha_integral", categoriaNome: "LINHA INTEGRAL", imagem: "img/linha_integral.png" },
+  { codigo: "VPI450TR", nome: "VITAPOWER INTEGRAL POTE 450G SABOR TRADICIONAL", preco: 25.0, embalagem: 8, categoria: "linha_integral", categoriaNome: "LINHA INTEGRAL", imagem: "img/linha_integral.png" },
+  { codigo: "VPI450CR", nome: "VITAPOWER INTEGRAL POTE 450G SABOR CROCANTE", preco: 30.0, embalagem: 8, categoria: "linha_integral", categoriaNome: "LINHA INTEGRAL", imagem: "img/linha_integral_1.png" },
+  { codigo: "VPI1005CC", nome: "VITAPOWER INTEGRAL POTE 1005G SABOR COOKIES & CREAM", preco: 88.0, embalagem: 6, categoria: "linha_gourmet", categoriaNome: "LINHA GOURMET", imagem: "img/linha_integral_1.png" },
+  { codigo: "VPI1005SP", nome: "VITAPOWER INTEGRAL POTE 1005G SABOR SHOT PROTEIN", preco: 88.0, embalagem: 6, categoria: "linha_gourmet", categoriaNome: "LINHA GOURMET", imagem: "img/linha_integral_1.png" },
+  { codigo: "VPI1005BR", nome: "VITAPOWER INTEGRAL POTE 1005G SABOR BROWNIE CREAM", preco: 88.0, embalagem: 6, categoria: "linha_gourmet", categoriaNome: "LINHA GOURMET", imagem: "img/linha_integral_1.png" },
+  { codigo: "VPP1005BB", nome: "VITAPOWER PROTEIN POTE 1005G SABOR BEEZ BRANCO", preco: 75.9, embalagem: 6, categoria: "linha_gourmet", categoriaNome: "LINHA GOURMET", imagem: "img/linha_integral_1.png" },
+  { codigo: "VPI450CC", nome: "VITAPOWER INTEGRAL POTE 450G SABOR COOKIES & CREAM", preco: 45.0, embalagem: 8, categoria: "linha_gourmet", categoriaNome: "LINHA GOURMET", imagem: "img/linha_integral_1.png" },
+  { codigo: "VPI450SP", nome: "VITAPOWER INTEGRAL POTE 450G SABOR SHOT PROTEIN", preco: 55.0, embalagem: 8, categoria: "linha_gourmet", categoriaNome: "LINHA GOURMET", imagem: "img/linha_integral_1.png" },
+  { codigo: "VPI450BR", nome: "VITAPOWER INTEGRAL POTE 450G SABOR BROWNIE CREAM", preco: 45.0, embalagem: 8, categoria: "linha_gourmet", categoriaNome: "LINHA GOURMET", imagem: "img/linha_integral_1.png" },
+  { codigo: "VPP450BB", nome: "VITAPOWER PROTEIN POTE 450G SABOR BEEZ BRANCO", preco: 43.9, embalagem: 8, categoria: "linha_gourmet", categoriaNome: "LINHA GOURMET", imagem: "img/linha_integral_1.png" },
+  { codigo: "VPA600MT", nome: "VITAPOWER AIR POTE 600G SABOR SORVETE MORANGO TRUFADO", preco: 74.9, embalagem: 6, categoria: "linha_exclusiva_air_com_whey", categoriaNome: "LINHA EXCLUSIVA AIR COM WHEY", imagem: "img/linha_exclusiva_air_com_w.png" },
+  { codigo: "VPA600LT", nome: "VITAPOWER AIR POTE 600G SABOR SORVETE LEITINHO TRUFADO", preco: 74.9, embalagem: 6, categoria: "linha_exclusiva_air_com_whey", categoriaNome: "LINHA EXCLUSIVA AIR COM WHEY", imagem: "img/linha_exclusiva_air_com_w.png" },
+  { codigo: "VPA600CCT", nome: "VITAPOWER AIR POTE 600G SABOR CHOCOLATE CROCANTE TRUFADO (LANÇAMENTO)", preco: 74.9, embalagem: 6, categoria: "linha_exclusiva_air_com_whey", categoriaNome: "LINHA EXCLUSIVA AIR COM WHEY", imagem: "img/linha_exclusiva_air_com_w.png" },
+  { codigo: "VPA600BT", nome: "VITAPOWER AIR POTE 600G SABOR SORVETE BUENNA TRUFADO", preco: 74.9, embalagem: 6, categoria: "linha_exclusiva_air_com_whey", categoriaNome: "LINHA EXCLUSIVA AIR COM WHEY", imagem: "img/linha_exclusiva_air_com_w.png" },
+  { codigo: "VPA600SC", nome: "VITAPOWER AIR POTE 600G SABOR SUPER CRUNCHY", preco: 74.9, embalagem: 6, categoria: "linha_exclusiva_air_com_whey", categoriaNome: "LINHA EXCLUSIVA AIR COM WHEY", imagem: "img/linha_exclusiva_air_com_w.png" },
+  { codigo: "VPA600SM", nome: "VITAPOWER AIR POTE 600G SABOR SUPER CREAMY", preco: 74.9, embalagem: 6, categoria: "linha_exclusiva_air_com_whey", categoriaNome: "LINHA EXCLUSIVA AIR COM WHEY", imagem: "img/linha_exclusiva_air_com_w.png" },
+  { codigo: "VPA280SC", nome: "VITAPOWER AIR POTE 280G SABOR SUPER CRUNCHY", preco: 36.9, embalagem: 16, categoria: "linha_exclusiva_air_com_whey", categoriaNome: "LINHA EXCLUSIVA AIR COM WHEY", imagem: "img/linha_exclusiva_air_com_w.png" },
+  { codigo: "VPA280SM", nome: "VITAPOWER AIR POTE 280G SABOR SUPER CREAMY", preco: 36.9, embalagem: 16, categoria: "linha_exclusiva_air_com_whey", categoriaNome: "LINHA EXCLUSIVA AIR COM WHEY", imagem: "img/linha_exclusiva_air_com_w.png" },
+  { codigo: "VPA280CCT", nome: "VITAPOWER AIR POTE 280G SABOR CHOCOLATE CROCANTE TRUFADO (LANÇAMENTO)", preco: 36.9, embalagem: 16, categoria: "linha_exclusiva_air_com_whey", categoriaNome: "LINHA EXCLUSIVA AIR COM WHEY", imagem: "img/linha_exclusiva_air_com_w.png" },
+  { codigo: "VPA280MT", nome: "VITAPOWER AIR POTE 280G SABOR SORVETE MORANGO TRUFADO", preco: 36.9, embalagem: 16, categoria: "linha_exclusiva_air_com_whey", categoriaNome: "LINHA EXCLUSIVA AIR COM WHEY", imagem: "img/linha_exclusiva_air_com_w.png" },
+  { codigo: "VPA280LT", nome: "VITAPOWER AIR POTE 280G SABOR SORVETE LEITINHO TRUFADO", preco: 36.9, embalagem: 16, categoria: "linha_exclusiva_air_com_whey", categoriaNome: "LINHA EXCLUSIVA AIR COM WHEY", imagem: "img/linha_exclusiva_air_com_w.png" },
+  { codigo: "VPA280BT", nome: "VITAPOWER AIR POTE 280G SABOR SORVETE BUENNA TRUFADO", preco: 36.9, embalagem: 16, categoria: "linha_exclusiva_air_com_whey", categoriaNome: "LINHA EXCLUSIVA AIR COM WHEY", imagem: "img/linha_exclusiva_air_com_w.png" },
 ];
