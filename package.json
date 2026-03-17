@@ -1,0 +1,8 @@
+{
+  "name": "compras-coletivas-vida-forte",
+  "version": "3.0.0",
+  "private": true,
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.0"
+  }
+}
