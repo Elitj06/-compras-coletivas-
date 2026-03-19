@@ -2,7 +2,6 @@ import { neon } from '@neondatabase/serverless';
 
 const sql = neon(process.env.DATABASE_URL);
 
-// Helper: CORS headers
 const headers = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
@@ -14,33 +13,7 @@ function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers });
 }
 
-// Init DB tables on first call
-async function initDB() {
-  await sql`CREATE TABLE IF NOT EXISTS pedidos (
-    id SERIAL PRIMARY KEY,
-    usuario TEXT NOT NULL,
-    codigo TEXT NOT NULL,
-    nome_produto TEXT NOT NULL,
-    quantidade INTEGER NOT NULL DEFAULT 1,
-    preco_bruto NUMERIC(10,2) NOT NULL,
-    preco_desconto NUMERIC(10,2) NOT NULL,
-    categoria TEXT,
-    created_at TIMESTAMP DEFAULT NOW()
-  )`;
-  await sql`CREATE TABLE IF NOT EXISTS descontos (
-    id SERIAL PRIMARY KEY,
-    categoria TEXT NOT NULL UNIQUE,
-    percentual NUMERIC(5,2) NOT NULL DEFAULT 0,
-    updated_at TIMESTAMP DEFAULT NOW()
-  )`;
-  await sql`CREATE TABLE IF NOT EXISTS config (
-    chave TEXT PRIMARY KEY,
-    valor TEXT NOT NULL
-  )`;
-}
-
 export default async function handler(req) {
-  // CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers });
   }
@@ -49,79 +22,109 @@ export default async function handler(req) {
   const path = url.pathname.replace('/api/db', '').replace(/^\//, '');
 
   try {
-    await initDB();
 
     // ===== GET ROUTES =====
     if (req.method === 'GET') {
-      // Get all orders
-      if (path === 'pedidos') {
-        const rows = await sql`SELECT * FROM pedidos ORDER BY created_at DESC`;
+
+      if (path === '' || path === 'health') {
+        const result = await sql`SELECT COUNT(*) as tabelas FROM information_schema.tables WHERE table_schema = 'public'`;
+        return json({
+          success: true,
+          message: 'Compras Coletivas API online',
+          tabelas: result[0].tabelas,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      if (path === 'tables') {
+        const rows = await sql`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name`;
         return json({ success: true, data: rows });
       }
 
-      // Get orders grouped by user
+      if (path === 'pedidos') {
+        const rows = await sql`
+          SELECT ip.*, p.usuario, p.status, p.created_at as pedido_data
+          FROM itens_pedido ip
+          JOIN pedidos p ON ip.pedido_id = p.id
+          WHERE p.status != 'cancelado'
+          ORDER BY p.created_at DESC
+        `;
+        return json({ success: true, data: rows });
+      }
+
       if (path === 'pedidos/por-usuario') {
         const rows = await sql`
-          SELECT usuario,
-                 json_agg(json_build_object(
-                   'codigo', codigo,
-                   'nome', nome_produto,
-                   'quantidade', quantidade,
-                   'preco_bruto', preco_bruto,
-                   'preco_desconto', preco_desconto,
-                   'categoria', categoria
-                 )) as itens,
-                 SUM(quantidade) as total_itens,
-                 SUM(preco_bruto * quantidade) as total_bruto,
-                 SUM(preco_desconto * quantidade) as total_desconto
-          FROM pedidos
-          GROUP BY usuario
-          ORDER BY usuario
+          SELECT 
+            p.usuario,
+            json_agg(json_build_object(
+              'codigo', ip.codigo,
+              'nome', ip.nome_produto,
+              'quantidade', ip.quantidade,
+              'preco_bruto', ip.preco_unitario,
+              'preco_desconto', ip.preco_com_desconto,
+              'categoria', ip.categoria
+            )) as itens,
+            SUM(ip.quantidade) as total_itens,
+            SUM(ip.subtotal_bruto) as total_bruto,
+            SUM(ip.subtotal_final) as total_desconto
+          FROM pedidos p
+          JOIN itens_pedido ip ON ip.pedido_id = p.id
+          WHERE p.status != 'cancelado'
+          GROUP BY p.usuario
+          ORDER BY p.usuario
         `;
         return json({ success: true, data: rows });
       }
 
-      // Get consolidated report (total by product)
       if (path === 'pedidos/consolidado') {
-        const rows = await sql`
-          SELECT codigo,
-                 nome_produto as nome,
-                 categoria,
-                 SUM(quantidade) as quantidade_total,
-                 AVG(preco_bruto) as preco_bruto,
-                 AVG(preco_desconto) as preco_desconto,
-                 SUM(preco_bruto * quantidade) as total_bruto,
-                 SUM(preco_desconto * quantidade) as total_desconto
-          FROM pedidos
-          GROUP BY codigo, nome_produto, categoria
-          ORDER BY nome_produto
-        `;
+        const rows = await sql`SELECT * FROM vw_relatorio_produtos`;
         return json({ success: true, data: rows });
       }
 
-      // Get stats
       if (path === 'stats') {
-        const stats = await sql`
-          SELECT
-            COUNT(DISTINCT usuario) as compradores,
-            COUNT(DISTINCT codigo) as produtos_distintos,
-            COALESCE(SUM(quantidade), 0) as total_itens,
-            COALESCE(SUM(preco_bruto * quantidade), 0) as total_bruto,
-            COALESCE(SUM(preco_desconto * quantidade), 0) as total_desconto
-          FROM pedidos
-        `;
+        const stats = await sql`SELECT * FROM vw_dashboard_stats`;
         return json({ success: true, data: stats[0] });
       }
 
-      // Get discounts
       if (path === 'descontos') {
-        const rows = await sql`SELECT * FROM descontos ORDER BY categoria`;
+        const rows = await sql`SELECT * FROM descontos WHERE ativo = TRUE ORDER BY categoria`;
         return json({ success: true, data: rows });
       }
 
-      // Health check
-      if (path === '' || path === 'health') {
-        return json({ success: true, message: 'Compras Coletivas API online', timestamp: new Date().toISOString() });
+      if (path === 'categorias') {
+        const rows = await sql`SELECT * FROM categorias ORDER BY nome`;
+        return json({ success: true, data: rows });
+      }
+
+      if (path === 'compradores') {
+        const rows = await sql`SELECT * FROM vw_relatorio_compradores`;
+        return json({ success: true, data: rows });
+      }
+
+      if (path === 'exportar-csv') {
+        const rows = await sql`
+          SELECT p.usuario AS comprador, ip.codigo, ip.nome_produto AS produto,
+            ip.quantidade, ip.preco_unitario, ip.desconto_percentual,
+            ip.preco_com_desconto, ip.subtotal_bruto, ip.subtotal_final,
+            p.created_at AS data_pedido
+          FROM itens_pedido ip
+          JOIN pedidos p ON ip.pedido_id = p.id
+          WHERE p.status != 'cancelado'
+          ORDER BY p.usuario, ip.nome_produto
+        `;
+        let csv = 'Comprador;Código;Produto;Qtd;Preço Unit.;Desconto %;Preço c/ Desc.;Total Bruto;Total Final;Data\n';
+        for (const r of rows) {
+          const data = new Date(r.data_pedido).toLocaleDateString('pt-BR');
+          csv += `${r.comprador};${r.codigo};${r.produto};${r.quantidade};${String(r.preco_unitario).replace('.', ',')};${r.desconto_percentual}%;${String(r.preco_com_desconto).replace('.', ',')};${String(r.subtotal_bruto).replace('.', ',')};${String(r.subtotal_final).replace('.', ',')};${data}\n`;
+        }
+        return new Response('\uFEFF' + csv, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/csv; charset=utf-8',
+            'Content-Disposition': 'attachment; filename=relatorio_compras_coletivas.csv',
+            'Access-Control-Allow-Origin': '*',
+          }
+        });
       }
     }
 
@@ -129,46 +132,70 @@ export default async function handler(req) {
     if (req.method === 'POST') {
       const body = await req.json();
 
-      // Submit order
       if (path === 'pedidos') {
         const { usuario, itens } = body;
         if (!usuario || !itens || !itens.length) {
           return json({ success: false, error: 'Dados incompletos' }, 400);
         }
 
+        const pedidoResult = await sql`
+          INSERT INTO pedidos (usuario, status) VALUES (${usuario}, 'pendente') RETURNING id
+        `;
+        const pedidoId = pedidoResult[0].id;
+
+        let totalBruto = 0;
+        let totalFinal = 0;
+
         for (const item of itens) {
+          const precoBruto = parseFloat(item.preco_bruto) || 0;
+          const precoDesconto = parseFloat(item.preco_desconto) || precoBruto;
+          const qty = parseInt(item.quantidade) || 1;
+          const subtBruto = precoBruto * qty;
+          const subtFinal = precoDesconto * qty;
+
           await sql`
-            INSERT INTO pedidos (usuario, codigo, nome_produto, quantidade, preco_bruto, preco_desconto, categoria)
-            VALUES (${usuario}, ${item.codigo}, ${item.nome}, ${item.quantidade}, ${item.preco_bruto}, ${item.preco_desconto}, ${item.categoria || ''})
+            INSERT INTO itens_pedido (
+              pedido_id, codigo, nome_produto, quantidade,
+              preco_unitario, preco_bruto, preco_com_desconto, preco_desconto,
+              desconto_percentual, subtotal_bruto, subtotal_final, categoria
+            ) VALUES (
+              ${pedidoId}, ${item.codigo}, ${item.nome}, ${qty},
+              ${precoBruto}, ${precoBruto}, ${precoDesconto}, ${precoDesconto},
+              ${item.desconto || 0}, ${subtBruto}, ${subtFinal}, ${item.categoria || ''}
+            )
           `;
+          totalBruto += subtBruto;
+          totalFinal += subtFinal;
         }
 
-        return json({ success: true, message: `Pedido de ${usuario} registrado com ${itens.length} itens` });
+        await sql`
+          UPDATE pedidos SET 
+            total_bruto = ${totalBruto},
+            total_final = ${totalFinal},
+            total_desconto = ${totalBruto - totalFinal}
+          WHERE id = ${pedidoId}
+        `;
+
+        return json({
+          success: true,
+          message: `Pedido de ${usuario} registrado com ${itens.length} itens`,
+          pedido_id: pedidoId
+        });
       }
 
-      // Set discount
       if (path === 'descontos') {
         const { categoria, percentual } = body;
         if (categoria === undefined || percentual === undefined) {
           return json({ success: false, error: 'Dados incompletos' }, 400);
         }
-
-        await sql`
-          INSERT INTO descontos (categoria, percentual, updated_at)
-          VALUES (${categoria}, ${percentual}, NOW())
-          ON CONFLICT (categoria) DO UPDATE SET percentual = ${percentual}, updated_at = NOW()
-        `;
-
+        await sql`SELECT aplicar_desconto(${categoria}, ${percentual})`;
         return json({ success: true, message: `Desconto de ${percentual}% aplicado em ${categoria}` });
       }
 
-      // Admin login
       if (path === 'admin/login') {
         const { senha } = body;
-        // Get admin password from config or use default
-        const config = await sql`SELECT valor FROM config WHERE chave = 'admin_password'`;
+        const config = await sql`SELECT valor FROM configuracoes WHERE chave = 'admin_senha'`;
         const adminPwd = config.length > 0 ? config[0].valor : 'admin123';
-
         if (senha === adminPwd) {
           return json({ success: true, message: 'Login autorizado' });
         }
@@ -178,16 +205,14 @@ export default async function handler(req) {
 
     // ===== DELETE ROUTES =====
     if (req.method === 'DELETE') {
-      // Clear all orders
       if (path === 'pedidos') {
+        await sql`DELETE FROM itens_pedido`;
         await sql`DELETE FROM pedidos`;
         return json({ success: true, message: 'Todos os pedidos foram apagados' });
       }
-
-      // Clear discounts
       if (path === 'descontos') {
-        await sql`DELETE FROM descontos`;
-        return json({ success: true, message: 'Descontos removidos' });
+        await sql`UPDATE descontos SET ativo = FALSE`;
+        return json({ success: true, message: 'Descontos desativados' });
       }
     }
 
