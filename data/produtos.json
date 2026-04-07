@@ -1,0 +1,1715 @@
+{
+  "vita": [
+    {
+      "linha": 20,
+      "codigo": "AM240LI",
+      "produto": "AMINOVITA POTE 240g LIMÃO",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 21,
+      "codigo": "AM240MR",
+      "produto": "AMINOVITA POTE 240G MARACUJÁ",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 23,
+      "codigo": "AM30LI",
+      "produto": "AMINOVITA 30 SACHES 10G LIMAO",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 24,
+      "codigo": "AM30MR",
+      "produto": "AMINOVITA 30 SACHES 10G MARACUJÁ",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 30,
+      "codigo": "AGF30",
+      "produto": "ARGINOFOR 30 CAPSULAS 780mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 31,
+      "codigo": "AGF60",
+      "produto": "ARGINOFOR 60 CAPSULAS 780mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 32,
+      "codigo": "AGF120",
+      "produto": "ARGINOFOR 120 CAPSULAS 780mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 38,
+      "codigo": "BF210LI",
+      "produto": "BCAA FORT 210G LIMAO",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 39,
+      "codigo": "BF210TA",
+      "produto": "BCAA FORT 210G TANGERINA",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 41,
+      "codigo": "BF120",
+      "produto": "BCAA FORT 120 CÁPSULAS 950mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 47,
+      "codigo": "BA120",
+      "produto": "BETA ALANINA 120 CAPSULAS 500mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 48,
+      "codigo": "BA240",
+      "produto": "BETA ALANINA 240 CAPSULAS 500mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 50,
+      "codigo": "BAP120",
+      "produto": "BETA ALANINA POTE 120g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 57,
+      "codigo": "CP90",
+      "produto": "CALCIO PLUS CAPSULA 800mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 64,
+      "codigo": "BM30",
+      "produto": "BORAPRIM 30 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 65,
+      "codigo": "BM60",
+      "produto": "BORAPRIM 60 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 71,
+      "codigo": "CF400",
+      "produto": "CARBOFOR 400g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 74,
+      "codigo": "CF20",
+      "produto": "CARBOFOR 20 SACHES 25g",
+      "qtd_caixa": "",
+      "preco_bruto": ""
+    },
+    {
+      "linha": 80,
+      "codigo": "CCF240",
+      "produto": "CHOCO FAMILY POUCH 240G",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 86,
+      "codigo": "CLK300AB",
+      "produto": "COLAGENTEK POTE 300g ABACAXI",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 87,
+      "codigo": "CLK300LA",
+      "produto": "COLAGENTEK POTE 300g LARANJA COM ACEROLA",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 88,
+      "codigo": "CLK300LI",
+      "produto": "COLAGENTEK POTE 300g LIMAO",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 89,
+      "codigo": "CLK300N",
+      "produto": "COLAGENTEK POTE 300g NEUTRO",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 90,
+      "codigo": "CLK300MV",
+      "produto": "COLAGENTEK POTE 300g MACA VERDE",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 91,
+      "codigo": "CLK300TA",
+      "produto": "COLAGENTEK POTE 300g TANGERINA",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 92,
+      "codigo": "CLK300CR",
+      "produto": "COLAGENTEK POTE 300g CRANBERRY",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 95,
+      "codigo": "CLK30S",
+      "produto": "COLAGENTEK 30 SACHÊS DE 10g - SORTIDOS",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 102,
+      "codigo": "CLB30AH",
+      "produto": "COLAGENTEK BEAUTY 30 SACHES DE 3,5g ABACAXI COM HORTELA",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 104,
+      "codigo": "CLB30MC",
+      "produto": "COLAGENTEK BEAUTY 30 SACHES DE 3,5g MACA COM CANELA",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 110,
+      "codigo": "CG30",
+      "produto": "COLAGENTEK TIPO II 30 CAPSULAS 790MG",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 111,
+      "codigo": "CG60",
+      "produto": "COLAGENTEK TIPO II 60 CAPSULAS 790MG",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 112,
+      "codigo": "CG120",
+      "produto": "COLAGENTEK TIPO II 120 CAPSULAS 790MG",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 119,
+      "codigo": "CKP460MO",
+      "produto": "COLAGENTEK PROTEIN LATA 460g SABOR MORANGO",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 120,
+      "codigo": "CKP460N",
+      "produto": "COLAGENTEK PROTEIN LATA 460g SABOR NEUTRO",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 121,
+      "codigo": "CKP460CA",
+      "produto": "COLAGENTEK PROTEIN LATA 460g SABOR CACAU",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 122,
+      "codigo": "CKP460TA",
+      "produto": "COLAGENTEK PROTEIN LATA 460g SABOR TANGERINA",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 129,
+      "codigo": "CQ30",
+      "produto": "COENZIMA Q10 30 CAPSULAS 500mg = 200mg POR PORÇÃO",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 130,
+      "codigo": "CQ60",
+      "produto": "COENZIMA Q10 60 CAPSULAS 500mg = 200mg POR PORÇÃO",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 131,
+      "codigo": "CQ120",
+      "produto": "COENZIMA Q10 120 CAPSULAS 500mg = 200mg POR PORÇÃO",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 138,
+      "codigo": "COQ60",
+      "produto": "COENZIMA Q10 60 CAPSULAS 500mg = 100mg POR PORÇÃO",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 145,
+      "codigo": "CLF120",
+      "produto": "COLOSFORT POTE 120G",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 151,
+      "codigo": "CLF30",
+      "produto": "COLOSFORT LACTOFERRIN PLUS 30 CÁPSULAS DE 400mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 158,
+      "codigo": "CE100",
+      "produto": "CREATINE POTE 100g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 159,
+      "codigo": "CE300",
+      "produto": "CREATINE POTE 300g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 160,
+      "codigo": "CE600",
+      "produto": "CREATINE POTE 600g",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 167,
+      "codigo": "CR300",
+      "produto": "CREAFORT POTE 300g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 168,
+      "codigo": "CR30",
+      "produto": "CREAFORT CAIXA 30 SACHES 3g",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 176,
+      "codigo": "CMP30",
+      "produto": "CURCUMA PLUS 30 CAPSULAS 500mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 177,
+      "codigo": "CMP60",
+      "produto": "CURCUMA PLUS 60 CAPSULAS 500mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 183,
+      "codigo": "DR150",
+      "produto": "D RIBOSE POTE 150G",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 189,
+      "codigo": "EG12LI",
+      "produto": "END CAFFEINE GEL 12 SACHES DE 30g LIMAO",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 190,
+      "codigo": "EG12MC",
+      "produto": "END CAFFEINE GEL 12 SACHES DE 30g MOCHA",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 191,
+      "codigo": "EG12CB",
+      "produto": "END CAFFEINE GEL 12 SACHES DE 30g CHOCOLATE BELGA",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 198,
+      "codigo": "EG12BN",
+      "produto": "END ENERGY GEL 12 SACHES DE 30g BANANA",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 199,
+      "codigo": "EG12BA",
+      "produto": "END ENERGY GEL 12 SACHES DE 30g BAUNILHA",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 200,
+      "codigo": "EG12TA",
+      "produto": "END ENERGY GEL 12 SACHES DE 30g TANGERINA",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 201,
+      "codigo": "EG12PA",
+      "produto": "END ENERGY GEL 12 SACHÊS 30G PAÇOCA",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 208,
+      "codigo": "EXE1000AB",
+      "produto": "ENDURANCE EXTREME ENERGY POTE 1000G ABACAXI",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 209,
+      "codigo": "EXE1000LA",
+      "produto": "ENDURANCE EXTREME ENERGY POTE 1000G LARANJA",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 216,
+      "codigo": "EC800BA",
+      "produto": "ENTERAL COMP POTE 800g BAUNILHA",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 223,
+      "codigo": "ECF800BA",
+      "produto": "ENTERAL COMP FIBRAS POTE 800g BAUNILHA",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 230,
+      "codigo": "EZ10",
+      "produto": "ENZYFOR 10 SACHES 3g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 231,
+      "codigo": "EZ30",
+      "produto": "ENZYFOR 30 SACHES 3g",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 238,
+      "codigo": "FEP30",
+      "produto": "FERRO PLUS 30 CÁPSULAS 500mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 245,
+      "codigo": "EF20",
+      "produto": "ESPEFOR 20 SACHES 4g",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 246,
+      "codigo": "EF250",
+      "produto": "ESPEFOR 250g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 253,
+      "codigo": "FBF10",
+      "produto": "FIBERFOR 10 SACHES DE 5g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 254,
+      "codigo": "FBF400",
+      "produto": "FIBERFOR POTE COM 400g",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 262,
+      "codigo": "FV250",
+      "produto": "FOSVITA 250g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 263,
+      "codigo": "FV30",
+      "produto": "FOSVITA 30 SACHES 7g",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 269,
+      "codigo": "FZ12BF",
+      "produto": "FITZEI DISPLAY C/ 12 BARRAS 40G BANOFFE",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 274,
+      "codigo": "FZ12FV",
+      "produto": "FITZEI DISPLAY C/ 12 BARRAS 40G FRUTAS VERMELHAS",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 279,
+      "codigo": "FZ12PA",
+      "produto": "FITZEI DISPLAY C/ 12 BARRAS 40G PACOCA",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 285,
+      "codigo": "FZ12CO",
+      "produto": "FITZEI DISPLAY C/ 12 BARRAS 40G COCO",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 290,
+      "codigo": "FZ12CA",
+      "produto": "FITZEI DISPLAY C/ 12 BARRAS 40G CARAMELO E AMENDOIM",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 298,
+      "codigo": "FZS45CG",
+      "produto": "FITZEI SNACK PACOTE 45g CRISPY GARLIC",
+      "qtd_caixa": "",
+      "preco_bruto": "10"
+    },
+    {
+      "linha": 305,
+      "codigo": "FZS45CH",
+      "produto": "FITZEI SNACK PACOTE 45g CHURRASCO",
+      "qtd_caixa": "",
+      "preco_bruto": "10"
+    },
+    {
+      "linha": 312,
+      "codigo": "FZS45EFQ",
+      "produto": "FITZEI SNACK PACOTE 45g ERVAS FINAS COM QUEIJO",
+      "qtd_caixa": "",
+      "preco_bruto": "10"
+    },
+    {
+      "linha": 323,
+      "codigo": "MTS90",
+      "produto": "GLP-1 MULTIVITAMÍNICO 90 CÁPSULAS 620mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 331,
+      "codigo": "GM150",
+      "produto": "GLUTAMAX POTE 150g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 332,
+      "codigo": "GM300",
+      "produto": "GLUTAMAX POTE 300g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 333,
+      "codigo": "GMS30",
+      "produto": "GLUTAMAX 30 SACHES 5g",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 334,
+      "codigo": "GM30",
+      "produto": "GLUTAMAX 30 SACHES 10g",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 340,
+      "codigo": "GM600",
+      "produto": "GLUTAMAX POUCH 600G",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 347,
+      "codigo": "HF60",
+      "produto": "HEPATOFOR 60 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 353,
+      "codigo": "HH60",
+      "produto": "HYALURONIC HAIR 60 CÁPSULAS 500MG",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 360,
+      "codigo": "IMT60",
+      "produto": "IMUNOMULT MULTIVITAMINICO 60 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 361,
+      "codigo": "IMT120",
+      "produto": "IMUNOMULT MULTIVITAMINICO 120 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 369,
+      "codigo": "ISC60N",
+      "produto": "ISOCRISP NEUTRO POTE 60g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 370,
+      "codigo": "ISC240N",
+      "produto": "ISOCRISP WHEY NEUTRO POUCH 240G",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 379,
+      "codigo": "ISP60",
+      "produto": "ISOCRISP PLANT POTE 60g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 380,
+      "codigo": "ISP240",
+      "produto": "ISOCRISP PLANT  POUCH 240g",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 381,
+      "codigo": "ICP240",
+      "produto": "ISOCRISP PLANT POTE 240g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 389,
+      "codigo": "ISF15BA",
+      "produto": "ISOFORT 15 SACHES 30g BAUNILHA",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 390,
+      "codigo": "ISF15CH",
+      "produto": "ISOFORT 15 SACHES 30g CHOCOLATE",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 391,
+      "codigo": "ISF15FV",
+      "produto": "ISOFORT 15 SACHES 30g FRUTAS VERMELHAS",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 392,
+      "codigo": "ISF15N",
+      "produto": "ISOFORT 15 SACHES 30g NEUTRO",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 395,
+      "codigo": "ISF900BA",
+      "produto": "ISOFORT POTE 900g BAUNILHA",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 396,
+      "codigo": "ISF900CH",
+      "produto": "ISOFORT POTE 900g CHOCOLATE",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 397,
+      "codigo": "ISF900FV",
+      "produto": "ISOFORT POTE 900g FRUTAS VERMELHAS",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 398,
+      "codigo": "ISF900N",
+      "produto": "ISOFORT POTE 900g NEUTRO",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 405,
+      "codigo": "IU900BA",
+      "produto": "ISOFORT ULTRA IMUNO POTE 900G BAUNILHA",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 406,
+      "codigo": "IU900CA",
+      "produto": "ISOFORT ULTRA IMUNO POTE 900G CACAU",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 413,
+      "codigo": "IFP450BC",
+      "produto": "ISOFORT PLANT 450g BANANA COM CANELA",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 414,
+      "codigo": "IFP450CA",
+      "produto": "ISOFORT PLANT 450g CACAU",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 415,
+      "codigo": "IFP450BA",
+      "produto": "ISOFORT PLANT 450g BAUNILHA",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 416,
+      "codigo": "IFP450PA",
+      "produto": "ISOFORT PLANT 450g PACOCA",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 423,
+      "codigo": "IFB450BA",
+      "produto": "ISOFORT BEAUTY 450g BAUNILHA",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 424,
+      "codigo": "IFB450CA",
+      "produto": "ISOFORT BEAUTY 450g CACAU",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 425,
+      "codigo": "IFB450AG",
+      "produto": "ISOFORT BEAUTY 450g ABACAXI COM GENGIBRE",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 426,
+      "codigo": "IFB450CB",
+      "produto": "ISOFORT BEAUTY 450g CRANBERRY",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 427,
+      "codigo": "IFB450N",
+      "produto": "ISOFORT BEAUTY 450g NEUTRO",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 429,
+      "codigo": "IFB15AG",
+      "produto": "ISOFORT BEAUTY 15 SACHES 25g ABACAXI COM GENGIBRE",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 430,
+      "codigo": "IFB15BA",
+      "produto": "ISOFORT BEAUTY 15 SACHES 25g BAUNILHA",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 431,
+      "codigo": "IFB15CA",
+      "produto": "ISOFORT BEAUTY 15 SACHES 25g CACAU",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 432,
+      "codigo": "IFB15CB",
+      "produto": "ISOFORT BEAUTY 15 SACHES 25g CRANBERRY",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 433,
+      "codigo": "IFB15N",
+      "produto": "ISOFORT BEAUTY 15 SACHES 25G NEUTRO",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 440,
+      "codigo": "KV30",
+      "produto": "KRILLVIT30CAPSULAS500mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 441,
+      "codigo": "KV60",
+      "produto": "KRILLVIT60CAPSULAS500mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 448,
+      "codigo": "LCZ60",
+      "produto": "LACZYME 60 CAPSULAS 470mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 454,
+      "codigo": "LCT60",
+      "produto": "L CARNITINA 60 CAPSULAS 530mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 455,
+      "codigo": "LCT120",
+      "produto": "L CARNITINA 120 CAPSULAS DE 530mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 462,
+      "codigo": "LP120",
+      "produto": "LIPIX 120 CAPSULAS1 000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 468,
+      "codigo": "LPS60",
+      "produto": "LIPIX 6   60  CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 469,
+      "codigo": "LPS120",
+      "produto": "LIPIX 6 120 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 476,
+      "codigo": "MGP90",
+      "produto": "MAGNESIO PLUS 90 CÁPSULAS 690mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 482,
+      "codigo": "MCA250",
+      "produto": "MCT COM AGE FRASCO 250ML",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 488,
+      "codigo": "MCT500",
+      "produto": "MCT FRASCO 500ML",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 494,
+      "codigo": "MD60",
+      "produto": "MEGA DHA 60 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 495,
+      "codigo": "MD120",
+      "produto": "MEGA DHA 120 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 502,
+      "codigo": "ML20",
+      "produto": "MELATONINA GOTAS FRASCO 20ML",
+      "qtd_caixa": "",
+      "preco_bruto": "32"
+    },
+    {
+      "linha": 508,
+      "codigo": "NAC30",
+      "produto": "N ACETIL CISTEINA 30 CAPSULAS 750mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 509,
+      "codigo": "NAC60",
+      "produto": "N ACETIL CISTEINA 60 CAPSULAS 750mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 515,
+      "codigo": "OF60",
+      "produto": "OMEGA 3 EPA E DHA 60 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 516,
+      "codigo": "OF120",
+      "produto": "OMEGA 3 EPA E DHA 120 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 517,
+      "codigo": "OF240",
+      "produto": "OMEGA 3 EPA E DHA 240 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 524,
+      "codigo": "OFP60",
+      "produto": "OMEGAFOR PLUS 60 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 525,
+      "codigo": "OFP120",
+      "produto": "OMEGAFOR PLUS 120 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 526,
+      "codigo": "OFP240",
+      "produto": "OMEGAFOR PLUS 240 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 533,
+      "codigo": "OFF60",
+      "produto": "OMEGAFOR FAMILY 60 CAPSULAS 500mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 534,
+      "codigo": "OFF120",
+      "produto": "OMEGAFOR FAMILY 120 CAPSULAS 500mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 535,
+      "codigo": "OFF360",
+      "produto": "OMEGAFOR FAMILY 360 CAPSULAS 500mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 542,
+      "codigo": "OMV60",
+      "produto": "OMEGAFOR VISION 60 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 548,
+      "codigo": "OV60",
+      "produto": "OMEGAFOR VEGAN 60 CAPSULAS 700mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 554,
+      "codigo": "OME60",
+      "produto": "OMEGAFOR MEMORY 60 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 561,
+      "codigo": "OFV60",
+      "produto": "OMEGAFOR VITAMINS 60 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 562,
+      "codigo": "OFV120",
+      "produto": "OMEGAFOR VITAMINS 120 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 568,
+      "codigo": "PA300",
+      "produto": "PALATINOSE POTE 300G",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 575,
+      "codigo": "PA600",
+      "produto": "PALATINOSE POUCH 600G",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 582,
+      "codigo": "PR60",
+      "produto": "PROFEM 60 CÁPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 588,
+      "codigo": "PL20",
+      "produto": "PRÓPOLIS LIQUIDA GOTAS FRASCO 20ml",
+      "qtd_caixa": "",
+      "preco_bruto": "32"
+    },
+    {
+      "linha": 594,
+      "codigo": "REP60",
+      "produto": "RESVERATROL PLUS 60 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 600,
+      "codigo": "SFM15",
+      "produto": "SIMFORT FEMME 15 CÁPSULAS 650mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 601,
+      "codigo": "SFM30",
+      "produto": "SIMFORT FEMME 30 CÁPSULAS 650MG",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 607,
+      "codigo": "SCP30",
+      "produto": "SIMCAPS POTE COM 30 CÁPSULAS",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 608,
+      "codigo": "SCP60",
+      "produto": "SIMCAPS POTE COM 60 CÁPSULAS",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 614,
+      "codigo": "SF10",
+      "produto": "SIMFORT 10 SACHÊS DE 2g",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 615,
+      "codigo": "SF30",
+      "produto": "SIMFORT 30 SACHÊS DE 2g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 616,
+      "codigo": "SF60",
+      "produto": "SIMFORT 60 SACHÊS DE 2g",
+      "qtd_caixa": "",
+      "preco_bruto": "10"
+    },
+    {
+      "linha": 623,
+      "codigo": "SFF210",
+      "produto": "SIMFORT FIBRAS 210g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 629,
+      "codigo": "SFS10",
+      "produto": "SIMFORT PLUS 10 SACHES 2g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 630,
+      "codigo": "SFS30",
+      "produto": "SIMFORT PLUS 30 SACHES 2g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 633,
+      "codigo": "SFP30",
+      "produto": "SIMFORT PLUS 30 CÁPSULAS 390mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 634,
+      "codigo": "SFP60",
+      "produto": "SIMFORT PLUS 60 CAPSULAS 390mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 643,
+      "codigo": "SFU30",
+      "produto": "SIMFORT ULTRA 30 CAPSULAS 390mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 644,
+      "codigo": "SFU60",
+      "produto": "SIMFORT ULTRA 60 CAPSULAS 390mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 651,
+      "codigo": "SL30",
+      "produto": "SLEEPFOR 30 CAPSULAS 470mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 652,
+      "codigo": "SL60",
+      "produto": "SLEEPFOR 60 CAPSULAS 470mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 658,
+      "codigo": "SV400BA",
+      "produto": "SUSTEVIT LATA 400g BAUNILHA",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 659,
+      "codigo": "SV400MO",
+      "produto": "SUSTEVIT LATA 400g MORANGO",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 660,
+      "codigo": "SV400N",
+      "produto": "SUSTEVIT LATA 400G NEUTRO",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 667,
+      "codigo": "TA30",
+      "produto": "TAURINE 30 CAPSULAS 550mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 668,
+      "codigo": "TA60",
+      "produto": "TAURINE 60 CAPSULAS 550mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 674,
+      "codigo": "TP240TC",
+      "produto": "TERMO PLUS 240G TANGERINA COM CHA VERDE",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 675,
+      "codigo": "TP240FGC",
+      "produto": "TERMOPLUS 240G FRUTAS VERMELHAS COM GENGIBRE E CHÁ VERDE",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 677,
+      "codigo": "TP30TC",
+      "produto": "TERMO PLUS 30 SACHÊS 4G TANGERINA COM CHÁ VERDE",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 679,
+      "codigo": "TP30FGC",
+      "produto": "TERMO PLUS 30 SACHES 4G FRUTAS VERMELHAS E GENGIBRE COM CHÁ VERDE",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 686,
+      "codigo": "TPC90",
+      "produto": "TERMO PLUS 90 CAPSULAS 650mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 692,
+      "codigo": "CFE220OR",
+      "produto": "V-COFFEE LATA 220G ORIGINAL",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 699,
+      "codigo": "VF240FV",
+      "produto": "V FORT 240g FRUTAS VERMELHAS",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 700,
+      "codigo": "VF240LI",
+      "produto": "V FORT 240g LIMAO",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 706,
+      "codigo": "VFU240LI",
+      "produto": "V FORT ULTRA POTE 240G LIMAO",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 707,
+      "codigo": "VFU240UV",
+      "produto": "V FORT ULTRA POTE 240G UVA",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 713,
+      "codigo": "VTT30",
+      "produto": "VITATEA 30 SACHES 2g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 719,
+      "codigo": "VTE30",
+      "produto": "VITATEA EQUILIBRIUM 30 SACHES DE 2g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 725,
+      "codigo": "VB60F",
+      "produto": "VITA BEAR 4g 60 GOMAS DE FRUTAS",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 731,
+      "codigo": "VC60",
+      "produto": "VITA C3 60 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 732,
+      "codigo": "VC120",
+      "produto": "VITA C3 120 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 739,
+      "codigo": "VD60",
+      "produto": "VITA D3 60 CAPSULAS 500mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 746,
+      "codigo": "VDZ30",
+      "produto": "VITA D3 + C + ZINCO 30 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 747,
+      "codigo": "VDZ60",
+      "produto": "VITA D3 + C + ZINCO 60 CAPSULAS 1000mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 753,
+      "codigo": "VD10",
+      "produto": "VITA D3 GOTAS FRASCO 10 ML",
+      "qtd_caixa": "",
+      "preco_bruto": "32"
+    },
+    {
+      "linha": 760,
+      "codigo": "VDK20ME",
+      "produto": "VITA D3 + K2 GOTAS FRASCO 20ML SABOR MENTA",
+      "qtd_caixa": "",
+      "preco_bruto": "32"
+    },
+    {
+      "linha": 773,
+      "codigo": "WFT900BN",
+      "produto": "WHEY FORT 3W POTE 900G BANANA",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 774,
+      "codigo": "WFT900BA",
+      "produto": "WHEY FORT 3W POTE 900G BAUNILHA",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 775,
+      "codigo": "WFT900CH",
+      "produto": "WHEY FORT 3W POTE 900G CHOCOLATE",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 776,
+      "codigo": "WFT900CC",
+      "produto": "WHEY FORT 3W POTE 900G COOKIES N CREAM",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 777,
+      "codigo": "WFT900FV",
+      "produto": "WHEY FORT 3W POTE 900G FRUTAS VERMELHAS",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 778,
+      "codigo": "WFT900MC",
+      "produto": "WHEY FORT 3W POTE 900G MOCHACCINO",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 779,
+      "codigo": "WFT900N",
+      "produto": "WHEY FORT 3W POTE 900G NEUTRO",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 780,
+      "codigo": "WFT900PA",
+      "produto": "WHEY FORT 3W POTE 900G PAÇOCA",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 782,
+      "codigo": "WFT1800BA",
+      "produto": "WHEY FORT 3W POTE 1800G BAUNILHA",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 783,
+      "codigo": "WFT1800CH",
+      "produto": "WHEY FORT 3W POTE 1800G CHOCOLATE",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 789,
+      "codigo": "WPI250",
+      "produto": "WHEY PROTEIN ISOLATE 250g",
+      "qtd_caixa": "",
+      "preco_bruto": "12"
+    },
+    {
+      "linha": 790,
+      "codigo": "WPI15",
+      "produto": "WHEY PROTEIN ISOLATE 15 SACHES DE 15g",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 797,
+      "codigo": "WP900BA",
+      "produto": "WHEY PROTEIN WPC POUCH 900G BAUNILHA",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 798,
+      "codigo": "WP900MO",
+      "produto": "WHEY PROTEIN WPC POUCH 900G MORANGO",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 799,
+      "codigo": "WP900BJ",
+      "produto": "WHEY PROTEIN WPC POUCH 900G BEIJINHO",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 800,
+      "codigo": "WP900MM",
+      "produto": "WHEY PROTEIN WPC POUCH 900G MOUSSE DE MARACUJÁ",
+      "qtd_caixa": "",
+      "preco_bruto": "4"
+    },
+    {
+      "linha": 806,
+      "codigo": "XLF300",
+      "produto": "XILITOL FAMILY POUCH 300g",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 816,
+      "codigo": "ACA90",
+      "produto": "ACANTHOPANAX 90 CÁPSULAS",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 824,
+      "codigo": "BCO100",
+      "produto": "BUPLEURUM COMBINATION 100 CÁPSULAS 400mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 834,
+      "codigo": "CNP90",
+      "produto": "CINNAMON & PORIA 90 CÁPSULAS",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 843,
+      "codigo": "CRD90",
+      "produto": "CORDYCEPS 90 CÁPSULAS",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 851,
+      "codigo": "ECH90",
+      "produto": "ECHINACEA 90 CÁPSULAS",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 859,
+      "codigo": "HLO36",
+      "produto": "HYPERICUM & LONICERA 36 CÁPSULAS",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 868,
+      "codigo": "REF100",
+      "produto": "REHMANNIA EIGHT FÓRMULA 100 CÁPSULAS",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 878,
+      "codigo": "REH100",
+      "produto": "REHMANNIA & EPIMEDII 100 CÁPSULAS 350mg",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 887,
+      "codigo": "RHD60",
+      "produto": "RHODIOLA 60 CÁPSULAS",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    },
+    {
+      "linha": 895,
+      "codigo": "SFT60",
+      "produto": "SIX FLAVOR TEA 60 CÁPSULAS",
+      "qtd_caixa": "",
+      "preco_bruto": "6"
+    }
+  ],
+  "vitapower": [
+    {
+      "linha": 15,
+      "codigo": "VPI1005TR",
+      "produto": "VITAPOWER INTEGRAL POTE 1005G SABOR TRADICIONAL",
+      "preco_caixa": "288",
+      "preco_unit": "48"
+    },
+    {
+      "linha": 16,
+      "codigo": "VPI1005CR",
+      "produto": "VITAPOWER INTEGRAL POTE 1005G SABOR CROCANTE",
+      "preco_caixa": "288",
+      "preco_unit": "48"
+    },
+    {
+      "linha": 17,
+      "codigo": "VPI450TR",
+      "produto": "VITAPOWER INTEGRAL POTE 450G SABOR TRADICIONAL",
+      "preco_caixa": "200",
+      "preco_unit": "25"
+    },
+    {
+      "linha": 18,
+      "codigo": "VPI450CR",
+      "produto": "VITAPOWER INTEGRAL POTE 450G SABOR CROCANTE",
+      "preco_caixa": "240",
+      "preco_unit": "30"
+    },
+    {
+      "linha": 21,
+      "codigo": "VPI1005CC",
+      "produto": "VITAPOWER INTEGRAL POTE 1005G SABOR COOKIES & CREAM",
+      "preco_caixa": "528",
+      "preco_unit": "88"
+    },
+    {
+      "linha": 22,
+      "codigo": "VPI1005SP",
+      "produto": "VITAPOWER INTEGRAL POTE 1005G SABOR SHOT PROTEIN",
+      "preco_caixa": "528",
+      "preco_unit": "88"
+    },
+    {
+      "linha": 23,
+      "codigo": "VPI1005BR",
+      "produto": "VITAPOWER INTEGRAL POTE 1005G SABOR BROWNIE CREAM",
+      "preco_caixa": "528",
+      "preco_unit": "88"
+    },
+    {
+      "linha": 24,
+      "codigo": "VPP1005BB",
+      "produto": "VITAPOWER PROTEIN POTE 1005G SABOR BEEZ BRANCO",
+      "preco_caixa": "455.40000000000003",
+      "preco_unit": "75.9"
+    },
+    {
+      "linha": 25,
+      "codigo": "VPI450CC",
+      "produto": "VITAPOWER INTEGRAL POTE 450G SABOR COOKIES & CREAM",
+      "preco_caixa": "360",
+      "preco_unit": "45"
+    },
+    {
+      "linha": 26,
+      "codigo": "VPI450SP",
+      "produto": "VITAPOWER INTEGRAL POTE 450G SABOR SHOT PROTEIN",
+      "preco_caixa": "440",
+      "preco_unit": "55"
+    },
+    {
+      "linha": 27,
+      "codigo": "VPI450BR",
+      "produto": "VITAPOWER INTEGRAL POTE 450G SABOR BROWNIE CREAM",
+      "preco_caixa": "360",
+      "preco_unit": "45"
+    },
+    {
+      "linha": 28,
+      "codigo": "VPP450BB",
+      "produto": "VITAPOWER PROTEIN POTE 450G SABOR BEEZ BRANCO",
+      "preco_caixa": "351.2",
+      "preco_unit": "43.9"
+    },
+    {
+      "linha": 30,
+      "codigo": "VPA600MT",
+      "produto": "VITAPOWER AIR POTE 600G SABOR SORVETE MORANGO TRUFADO",
+      "preco_caixa": "449.40000000000003",
+      "preco_unit": "74.9"
+    },
+    {
+      "linha": 31,
+      "codigo": "VPA600LT",
+      "produto": "VITAPOWER AIR POTE 600G SABOR SORVETE LEITINHO TRUFADO",
+      "preco_caixa": "449.40000000000003",
+      "preco_unit": "74.9"
+    },
+    {
+      "linha": 32,
+      "codigo": "VPA600CCT",
+      "produto": "VITAPOWER AIR POTE 600G SABOR CHOCOLATE CROCANTE TRUFADO (LANÇAMENTO)",
+      "preco_caixa": "449.40000000000003",
+      "preco_unit": "74.9"
+    },
+    {
+      "linha": 33,
+      "codigo": "VPA600BT",
+      "produto": "VITAPOWER AIR POTE 600G SABOR SORVETE BUENNA TRUFADO",
+      "preco_caixa": "449.40000000000003",
+      "preco_unit": "74.9"
+    },
+    {
+      "linha": 34,
+      "codigo": "VPA600SC",
+      "produto": "VITAPOWER AIR POTE 600G SABOR SUPER CRUNCHY",
+      "preco_caixa": "449.40000000000003",
+      "preco_unit": "74.9"
+    },
+    {
+      "linha": 35,
+      "codigo": "VPA600SM",
+      "produto": "VITAPOWER AIR POTE 600G SABOR SUPER CREAMY",
+      "preco_caixa": "449.40000000000003",
+      "preco_unit": "74.9"
+    },
+    {
+      "linha": 36,
+      "codigo": "VPA280SC",
+      "produto": "VITAPOWER AIR POTE 280G SABOR SUPER CRUNCHY",
+      "preco_caixa": "590.4",
+      "preco_unit": "36.9"
+    },
+    {
+      "linha": 37,
+      "codigo": "VPA280SM",
+      "produto": "VITAPOWER AIR POTE 280G SABOR SUPER CREAMY",
+      "preco_caixa": "590.4",
+      "preco_unit": "36.9"
+    },
+    {
+      "linha": 38,
+      "codigo": "VPA280CCT",
+      "produto": "VITAPOWER AIR POTE 280G SABOR CHOCOLATE CROCANTE TRUFADO (LANÇAMENTO)",
+      "preco_caixa": "590.4",
+      "preco_unit": "36.9"
+    },
+    {
+      "linha": 39,
+      "codigo": "VPA280MT",
+      "produto": "VITAPOWER AIR POTE 280G SABOR SORVETE MORANGO TRUFADO",
+      "preco_caixa": "590.4",
+      "preco_unit": "36.9"
+    },
+    {
+      "linha": 40,
+      "codigo": "VPA280LT",
+      "produto": "VITAPOWER AIR POTE 280G SABOR SORVETE LEITINHO TRUFADO",
+      "preco_caixa": "590.4",
+      "preco_unit": "36.9"
+    },
+    {
+      "linha": 41,
+      "codigo": "VPA280BT",
+      "produto": "VITAPOWER AIR POTE 280G SABOR SORVETE BUENNA TRUFADO",
+      "preco_caixa": "590.4",
+      "preco_unit": "36.9"
+    }
+  ],
+  "total": 244
+}

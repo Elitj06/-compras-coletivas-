@@ -1,6 +1,7 @@
 // ============================================================
-// App Compras Coletivas — Vida Forte v4.0
+// App Compras Coletivas — Vida Forte v5.1
 // Backend: Neon PostgreSQL via Vercel Serverless
+// Novo: Interface de categorias melhorada + paginação
 // ============================================================
 const API = '/api/db';
 
@@ -12,17 +13,22 @@ const app = {
     isAdminLoggedIn: false,
     currentCat: 'todos',
     discounts: {},
-    useServer: true, // will fallback to localStorage if API unavailable
+    useServer: true,
+    
+    // Novo: Paginação e categorias
+    currentPage: 1,
+    itemsPerPage: 24,
+    categoriesExpanded: false,
 
     async init() {
         this.loadLocal();
         this.setupEventListeners();
+        this.renderCategoryGrid();
         this.renderCategoryPills();
         this.renderProducts();
         this.updateCartBar();
         const saved = localStorage.getItem('currentUser');
         if (saved) { this.currentUser = saved; this.setUserInputs(saved); }
-        // Load discounts from server
         await this.loadDiscountsFromServer();
     },
 
@@ -65,7 +71,13 @@ const app = {
     // ===== EVENTS =====
     setupEventListeners() {
         document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', e => this.switchTab(e.currentTarget.dataset.tab)));
-        let st; document.getElementById('searchInput').addEventListener('input', e => { clearTimeout(st); st = setTimeout(() => this.renderProducts(e.target.value), 150); });
+        let st; document.getElementById('searchInput').addEventListener('input', e => { 
+            clearTimeout(st); 
+            st = setTimeout(() => {
+                this.currentPage = 1; // Reset página ao buscar
+                this.renderProducts(e.target.value);
+            }, 150); 
+        });
         const d = document.getElementById('userName'), m = document.getElementById('userNameMobile');
         [d, m].forEach(el => { if (el) { el.addEventListener('change', e => this.handleUserNameChange(e.target.value)); el.addEventListener('blur', e => this.handleUserNameChange(e.target.value)); } });
     },
@@ -90,37 +102,206 @@ const app = {
         return pct > 0 ? preco * (1 - pct / 100) : preco;
     },
 
-    // ===== CATEGORIAS =====
+    // ===== CATEGORIAS GRID =====
+    getCategories() {
+        const seen = new Set();
+        const cats = [];
+        PRODUTOS.forEach(p => {
+            if (!seen.has(p.categoria)) {
+                seen.add(p.categoria);
+                cats.push({ 
+                    id: p.categoria, 
+                    nome: p.categoriaNome,
+                    count: PRODUTOS.filter(x => x.categoria === p.categoria).length
+                });
+            }
+        });
+        return cats.sort((a, b) => a.nome.localeCompare(b.nome));
+    },
+
+    getCategoryIcon(catId) {
+        const icons = {
+            'whey_fort': '💪', 'whey_protein_isolate': '💪', 'creatine': '💪', 'creafort': '💪',
+            'aminovita': '⚡', 'bcaafort': '⚡', 'arginofor': '⚡', 'glutamax': '⚡',
+            'colagentek': '✨', 'colagentek_beauty': '✨', 'hyaluronic_hair': '✨',
+            'omegafor': '🐟', 'mega_dha': '🐟', 'omegafor_plus': '🐟',
+            'vita_d3': '☀️', 'vita_c3': '🍊', 'vitamina_b12': '💊',
+            'termoplus': '🔥', 'v_fort_intenso': '🔥', 'endurance': '🔥',
+            'simfort': '🌿', 'colosfort': '🌿', 'enzyfor': '🌿',
+            'isofort': '🥛', 'isofort_plant': '🥛', 'sustevit': '🥛',
+            'carbofor': '🏃', 'palatinose': '🏃', 'mct': '🏃',
+            'fitzei': '🍎', 'choco_family': '🍫', 'xilitol_family': '🍫'
+        };
+        return icons[catId] || '📦';
+    },
+
+    toggleCategories() {
+        this.categoriesExpanded = !this.categoriesExpanded;
+        const grid = document.getElementById('categoryGrid');
+        const btn = document.getElementById('toggleCatBtn');
+        if (grid) grid.classList.toggle('hidden', !this.categoriesExpanded);
+        if (btn) btn.textContent = this.categoriesExpanded ? '📂 Ocultar' : '📂 Categorias';
+    },
+
+    renderCategoryGrid() {
+        const grid = document.getElementById('categoryGrid');
+        if (!grid) return;
+        
+        const cats = this.getCategories();
+        let html = `<div class="cat-card ${this.currentCat === 'todos' ? 'active' : ''}" onclick="app.selectCatFromGrid('todos')">
+            <div class="cat-card-icon">📦</div>
+            <div class="cat-card-name">Todos</div>
+            <div class="cat-card-count">${PRODUTOS.length} produtos</div>
+        </div>`;
+        
+        cats.forEach(cat => {
+            html += `<div class="cat-card ${this.currentCat === cat.id ? 'active' : ''}" onclick="app.selectCatFromGrid('${cat.id}')">
+                <div class="cat-card-icon">${this.getCategoryIcon(cat.id)}</div>
+                <div class="cat-card-name">${cat.nome}</div>
+                <div class="cat-card-count">${cat.count} produtos</div>
+            </div>`;
+        });
+        
+        grid.innerHTML = html;
+    },
+
+    selectCatFromGrid(id) {
+        this.currentCat = id;
+        this.currentPage = 1;
+        this.renderCategoryGrid();
+        this.renderCategoryPills();
+        this.renderProducts(document.getElementById('searchInput').value);
+        
+        // Scroll para produtos
+        document.getElementById('productsGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+
+    // ===== CATEGORIAS PILLS (mantido para compatibilidade) =====
     renderCategoryPills() {
         const c = document.getElementById('catPills'); if (!c) return;
-        const seen = new Set();
-        const cats = [{ id: 'todos', nome: 'Todos' }];
-        PRODUTOS.forEach(p => { if (!seen.has(p.categoria)) { seen.add(p.categoria); cats.push({ id: p.categoria, nome: p.categoriaNome }); } });
-        c.innerHTML = cats.map(cat => `<button class="cat-pill ${this.currentCat === cat.id ? 'active' : ''}" onclick="app.selectCat('${cat.id}')">${cat.nome}</button>`).join('');
+        const cats = this.getCategories();
+        let html = `<button class="cat-pill ${this.currentCat === 'todos' ? 'active' : ''}" onclick="app.selectCat('todos')">Todos (${PRODUTOS.length})</button>`;
+        cats.forEach(cat => {
+            html += `<button class="cat-pill ${this.currentCat === cat.id ? 'active' : ''}" onclick="app.selectCat('${cat.id}')">${cat.nome}</button>`;
+        });
+        c.innerHTML = html;
     },
-    selectCat(id) { this.currentCat = id; this.renderCategoryPills(); this.renderProducts(document.getElementById('searchInput').value); },
 
-    // ===== PRODUTOS =====
+    selectCat(id) { 
+        this.currentCat = id; 
+        this.currentPage = 1;
+        this.renderCategoryGrid();
+        this.renderCategoryPills(); 
+        this.renderProducts(document.getElementById('searchInput').value); 
+    },
+
+    // ===== PRODUTOS COM PAGINAÇÃO =====
     renderProducts(search = '') {
         const grid = document.getElementById('productsGrid');
         const countEl = document.getElementById('searchCount');
+        
+        // Filtrar
         let filtered = PRODUTOS.filter(p => {
             const s = search.toLowerCase();
             return (!s || p.nome.toLowerCase().includes(s) || p.codigo.toLowerCase().includes(s)) &&
                    (this.currentCat === 'todos' || p.categoria === this.currentCat);
         });
-        if (countEl) countEl.textContent = `${filtered.length} produto${filtered.length !== 1 ? 's' : ''} encontrado${filtered.length !== 1 ? 's' : ''}`;
-        if (!filtered.length) { grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">🔍</div><h3>Nenhum produto encontrado</h3></div>`; return; }
+        
+        // Total
+        const total = filtered.length;
+        if (countEl) countEl.textContent = `${total} produto${total !== 1 ? 's' : ''} encontrado${total !== 1 ? 's' : ''}`;
+        
+        if (!total) { 
+            grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">🔍</div><h3>Nenhum produto encontrado</h3><p>Tente outra busca ou categoria</p></div>`;
+            document.getElementById('pagination').innerHTML = '';
+            return; 
+        }
 
-        grid.innerHTML = filtered.map((p, i) => {
+        // Paginar
+        const totalPages = Math.ceil(total / this.itemsPerPage);
+        const start = (this.currentPage - 1) * this.itemsPerPage;
+        const end = start + this.itemsPerPage;
+        const pageItems = filtered.slice(start, end);
+
+        // Renderizar cards
+        grid.innerHTML = pageItems.map((p, i) => {
             const qty = this.cart[p.codigo] || 0;
             const disc = this.getDiscount(p.categoria);
             const dp = this.getDiscountedPrice(p.preco, p.categoria);
             const hasDisc = disc > 0;
-            const imgH = p.imagem && !p.imagem.endsWith('/') ? `<img class="product-img" src="${p.imagem}" alt="${p.nome}" onerror="this.outerHTML='<div class=no-img>📦</div>'" loading="lazy"/>` : `<div class="no-img">📦</div>`;
-            let prH = hasDisc ? `<span class="price-full struck">R$ ${p.preco.toFixed(2)}</span><span class="price-discount">R$ ${dp.toFixed(2)}</span><span class="discount-badge">-${disc}%</span>` : `<span class="price-full">R$ ${p.preco.toFixed(2)}</span>`;
-            return `<div class="product-card ${qty > 0 ? 'has-qty' : ''}" style="animation-delay:${Math.min(i*.025,.25)}s">${imgH}<div class="product-body"><div class="product-card-header"><span class="product-code">${p.codigo}</span><span class="product-emb">Emb: ${p.embalagem}</span></div><div class="product-name">${p.nome}</div><div class="product-prices">${prH}</div><div class="quantity-control"><button class="qty-btn" onclick="app.updateQty('${p.codigo}',-1)">−</button><input type="number" class="qty-input" value="${qty}" min="0" onchange="app.setQty('${p.codigo}',this.value)"><button class="qty-btn" onclick="app.updateQty('${p.codigo}',1)">+</button></div></div></div>`;
+            const hasImg = p.imagem && !p.imagem.endsWith('/') && p.imagem.length > 100;
+            
+            // Card com ou sem imagem
+            let imgH;
+            if (hasImg) {
+                imgH = `<img class="product-img" src="${p.imagem}" alt="${p.nome}" onerror="this.parentElement.classList.add('no-image');this.outerHTML='<div class=product-no-img><div class=product-no-img-code>${p.codigo}</div><div class=product-no-img-name>${p.nome.substring(0,40)}</div></div>'" loading="lazy"/>`;
+            } else {
+                imgH = `<div class="product-no-img"><div class="product-no-img-code">${p.codigo}</div><div class="product-no-img-name">${p.nome.substring(0,40)}</div></div>`;
+            }
+            
+            let prH = hasDisc 
+                ? `<span class="price-full struck">R$ ${p.preco.toFixed(2)}</span><span class="price-discount">R$ ${dp.toFixed(2)}</span><span class="discount-badge">-${disc}%</span>`
+                : `<span class="price-full">R$ ${p.preco.toFixed(2)}</span>`;
+            
+            return `<div class="product-card ${qty > 0 ? 'has-qty' : ''} ${!hasImg ? 'no-image' : ''}" style="animation-delay:${Math.min(i*.03,.3)}s">
+                ${imgH}
+                <div class="product-body">
+                    <div class="product-card-header">
+                        <span class="product-code">${p.codigo}</span>
+                        <span class="product-emb">Emb: ${p.embalagem}</span>
+                    </div>
+                    <div class="product-name">${p.nome}</div>
+                    <div class="product-prices">${prH}</div>
+                    <div class="quantity-control">
+                        <button class="qty-btn" onclick="app.updateQty('${p.codigo}',-1)">−</button>
+                        <input type="number" class="qty-input" value="${qty}" min="0" onchange="app.setQty('${p.codigo}',this.value)">
+                        <button class="qty-btn" onclick="app.updateQty('${p.codigo}',1)">+</button>
+                    </div>
+                </div>
+            </div>`;
         }).join('');
+
+        // Renderizar paginação
+        this.renderPagination(totalPages);
+    },
+
+    renderPagination(totalPages) {
+        const pag = document.getElementById('pagination');
+        if (!pag || totalPages <= 1) { if (pag) pag.innerHTML = ''; return; }
+
+        let html = `<button class="page-btn" onclick="app.goToPage(${this.currentPage - 1})" ${this.currentPage === 1 ? 'disabled' : ''}>←</button>`;
+        
+        // Mostrar páginas ao redor
+        const start = Math.max(1, this.currentPage - 2);
+        const end = Math.min(totalPages, this.currentPage + 2);
+        
+        if (start > 1) html += `<button class="page-btn" onclick="app.goToPage(1)">1</button>`;
+        if (start > 2) html += `<span class="page-info">...</span>`;
+        
+        for (let i = start; i <= end; i++) {
+            html += `<button class="page-btn ${i === this.currentPage ? 'active' : ''}" onclick="app.goToPage(${i})">${i}</button>`;
+        }
+        
+        if (end < totalPages - 1) html += `<span class="page-info">...</span>`;
+        if (end < totalPages) html += `<button class="page-btn" onclick="app.goToPage(${totalPages})">${totalPages}</button>`;
+        
+        html += `<button class="page-btn" onclick="app.goToPage(${this.currentPage + 1})" ${this.currentPage === totalPages ? 'disabled' : ''}>→</button>`;
+        html += `<span class="page-info">Página ${this.currentPage} de ${totalPages}</span>`;
+        
+        pag.innerHTML = html;
+    },
+
+    goToPage(page) {
+        const totalPages = Math.ceil(PRODUTOS.filter(p => 
+            (this.currentCat === 'todos' || p.categoria === this.currentCat)
+        ).length / this.itemsPerPage);
+        
+        if (page < 1 || page > totalPages) return;
+        this.currentPage = page;
+        this.renderProducts(document.getElementById('searchInput').value);
+        
+        // Scroll para o topo da grid
+        document.getElementById('productsGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
 
     updateQty(cod, chg) {
@@ -177,7 +358,7 @@ const app = {
         if (p) this.toast(`${p.nome} removido`, 'error');
     },
 
-    // ===== FINALIZAR PEDIDO (ENVIA AO SERVIDOR) =====
+    // ===== FINALIZAR PEDIDO =====
     async finalizeOrder() {
         if (!this.currentUser) { this.toast('Digite seu nome!', 'error'); return; }
         if (!Object.keys(this.cart).length) { this.toast('Carrinho vazio!', 'error'); return; }
@@ -186,30 +367,25 @@ const app = {
         if (totalDisc < total) msg += `\nCom desconto: R$ ${totalDisc.toFixed(2)}`;
         if (!confirm(msg)) return;
 
-        // Build items for server
         const itens = Object.entries(this.cart).map(([cod, qty]) => {
             const p = PRODUTOS.find(x => x.codigo === cod);
             return {
-                codigo: cod,
-                nome: p ? p.nome : cod,
-                quantidade: qty,
+                codigo: cod, nome: p ? p.nome : cod, quantidade: qty,
                 preco_bruto: p ? p.preco : 0,
                 preco_desconto: p ? this.getDiscountedPrice(p.preco, p.categoria) : 0,
                 categoria: p ? p.categoria : ''
             };
         });
 
-        // Send to server
         const res = await this.api('pedidos', 'POST', { usuario: this.currentUser, itens });
         if (res && res.success) {
             this.toast('Pedido enviado ao servidor!', 'success');
         } else {
-            // Fallback: save locally
             if (!this.allOrders[this.currentUser]) this.allOrders[this.currentUser] = {};
             for (const [cod, qty] of Object.entries(this.cart)) {
                 this.allOrders[this.currentUser][cod] = (this.allOrders[this.currentUser][cod] || 0) + qty;
             }
-            this.toast('Pedido salvo localmente (servidor indisponível)', 'success');
+            this.toast('Pedido salvo localmente', 'success');
         }
 
         this.cart = {};
@@ -232,76 +408,59 @@ const app = {
 
     async renderAdminPanel() {
         const c = document.getElementById('adminContent');
-        c.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">Carregando dados do servidor...</div>';
+        c.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">Carregando...</div>';
 
-        // Fetch data from server
         const [statsRes, conRes, usersRes, discRes] = await Promise.all([
-            this.api('stats'),
-            this.api('pedidos/consolidado'),
-            this.api('pedidos/por-usuario'),
-            this.api('descontos')
+            this.api('stats'), this.api('pedidos/consolidado'),
+            this.api('pedidos/por-usuario'), this.api('descontos')
         ]);
 
-        const stats = statsRes?.data || { compradores: 0, produtos_distintos: 0, total_itens: 0, total_bruto: 0, total_desconto: 0 };
+        const stats = statsRes?.data || {};
         const con = conRes?.data || [];
         const users = usersRes?.data || [];
         const discounts = discRes?.data || [];
 
         let h = `<div class="stats-bar">
-            <div class="stat-card"><div class="stat-number">${stats.compradores}</div><div class="stat-label">Compradores</div></div>
-            <div class="stat-card"><div class="stat-number">${stats.produtos_distintos}</div><div class="stat-label">Produtos</div></div>
-            <div class="stat-card"><div class="stat-number">${stats.total_itens}</div><div class="stat-label">Unidades</div></div>
-            <div class="stat-card"><div class="stat-number">R$ ${parseFloat(stats.total_bruto).toFixed(0)}</div><div class="stat-label">Bruto</div></div>
-            <div class="stat-card"><div class="stat-number">R$ ${parseFloat(stats.total_desconto).toFixed(0)}</div><div class="stat-label">Com Desc.</div></div>
+            <div class="stat-card"><div class="stat-number">${stats.total_compradores || 0}</div><div class="stat-label">Compradores</div></div>
+            <div class="stat-card"><div class="stat-number">${stats.produtos_distintos || 0}</div><div class="stat-label">Produtos</div></div>
+            <div class="stat-card"><div class="stat-number">${stats.unidades_totais || 0}</div><div class="stat-label">Unidades</div></div>
+            <div class="stat-card"><div class="stat-number">R$ ${parseFloat(stats.valor_bruto_geral || 0).toFixed(0)}</div><div class="stat-label">Bruto</div></div>
+            <div class="stat-card"><div class="stat-number">R$ ${parseFloat(stats.economia_geral || 0).toFixed(0)}</div><div class="stat-label">Economia</div></div>
         </div>`;
 
-        // Discount panel
         h += `<div class="discount-panel"><h3>💰 Configurar Desconto</h3>
-            <div class="discount-row"><label>Aplicar em:</label><select id="discCatSelect"><option value="todos">Todos os produtos</option>`;
+            <div class="discount-row"><label>Aplicar em:</label><select id="discCatSelect"><option value="todos">Todos</option>`;
         const seenCats = new Set();
         PRODUTOS.forEach(p => { if (!seenCats.has(p.categoria)) { seenCats.add(p.categoria); h += `<option value="${p.categoria}">${p.categoriaNome}</option>`; } });
         h += `</select></div>
-            <div class="discount-row"><label>Desconto %:</label><input type="number" id="discPctInput" value="0" min="0" max="100" step="1" style="width:80px"><button class="btn btn-primary btn-sm" onclick="app.applyDiscount()">Aplicar</button><button class="btn btn-secondary btn-sm" onclick="app.clearDiscounts()">Limpar</button></div>`;
-        if (discounts.length) {
-            h += `<div style="margin-top:8px;font-size:.78rem;color:var(--text2)">Ativos: `;
-            h += discounts.filter(d => d.percentual > 0).map(d => `<strong>${d.categoria === 'todos' ? 'Todos' : d.categoria}: ${d.percentual}%</strong>`).join(', ');
-            h += `</div>`;
-        }
-        h += `</div>`;
+            <div class="discount-row"><label>%:</label><input type="number" id="discPctInput" value="0" min="0" max="100" style="width:70px"><button class="btn btn-primary btn-sm" onclick="app.applyDiscount()">Aplicar</button><button class="btn btn-secondary btn-sm" onclick="app.clearDiscounts()">Limpar</button></div></div>`;
 
         h += `<div class="admin-toolbar">
-            <button class="btn btn-success" onclick="app.exportCSV()">📥 Exportar CSV</button>
-            <button class="btn btn-danger" onclick="app.clearAllOrders()">🗑️ Limpar Pedidos</button>
-            <button class="btn btn-secondary" onclick="app.renderAdminPanel()">🔄 Atualizar</button>
+            <button class="btn btn-success" onclick="app.exportCSV()">📥 CSV</button>
+            <button class="btn btn-danger" onclick="app.clearAllOrders()">🗑️ Limpar</button>
+            <button class="btn btn-secondary" onclick="app.renderAdminPanel()">🔄</button>
         </div>`;
 
-        // Consolidated report
-        h += `<div class="report-section"><div class="report-card"><div class="report-header">📊 Consolidado — total por produto</div>`;
-        if (!con.length) { h += `<div style="padding:16px" class="alert alert-info">Nenhum pedido registrado.</div>`; }
+        h += `<div class="report-section"><div class="report-card"><div class="report-header">📊 Consolidado</div>`;
+        if (!con.length) { h += `<div style="padding:16px" class="alert alert-info">Nenhum pedido.</div>`; }
         else {
-            let tB = 0, tD = 0, tI = 0;
-            h += `<table><thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Bruto</th><th>Desc.</th><th>Total Bruto</th><th>Total Desc.</th></tr></thead><tbody>`;
-            con.forEach(i => {
-                const vb = parseFloat(i.total_bruto), vd = parseFloat(i.total_desconto), qt = parseInt(i.quantidade_total);
-                tB += vb; tD += vd; tI += qt;
-                h += `<tr><td><strong>${i.codigo}</strong></td><td>${i.nome}</td><td><strong>${qt}</strong></td><td>R$ ${parseFloat(i.preco_bruto).toFixed(2)}</td><td>R$ ${parseFloat(i.preco_desconto).toFixed(2)}</td><td>R$ ${vb.toFixed(2)}</td><td>R$ ${vd.toFixed(2)}</td></tr>`;
-            });
-            h += `<tr class="total-row"><td colspan="2">TOTAL</td><td><strong>${tI}</strong></td><td></td><td></td><td><strong>R$ ${tB.toFixed(2)}</strong></td><td><strong>R$ ${tD.toFixed(2)}</strong></td></tr></tbody></table>`;
+            let tB = 0, tD = 0;
+            h += `<table><thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Total Bruto</th><th>Total Desc.</th></tr></thead><tbody>`;
+            con.forEach(i => { const vb = parseFloat(i.total_bruto), vd = parseFloat(i.total_final); tB += vb; tD += vd;
+                h += `<tr><td><strong>${i.codigo}</strong></td><td>${i.nome}</td><td>${i.quantidade_total}</td><td>R$ ${vb.toFixed(2)}</td><td>R$ ${vd.toFixed(2)}</td></tr>`; });
+            h += `<tr class="total-row"><td colspan="2">TOTAL</td><td><strong>${con.reduce((a,i)=>a+parseInt(i.quantidade_total),0)}</strong></td><td><strong>R$ ${tB.toFixed(2)}</strong></td><td><strong>R$ ${tD.toFixed(2)}</strong></td></tr></tbody></table>`;
         }
         h += `</div></div>`;
 
-        // Individual report
-        h += `<div class="report-section"><div class="report-card"><div class="report-header">👥 Individual — por comprador</div>`;
-        if (!users.length) { h += `<div style="padding:16px" class="alert alert-info">Nenhum pedido registrado.</div>`; }
+        h += `<div class="report-section"><div class="report-card"><div class="report-header">👥 Por Comprador</div>`;
+        if (!users.length) { h += `<div style="padding:16px" class="alert alert-info">Nenhum pedido.</div>`; }
         else {
             users.forEach(u => {
                 h += `<div class="user-section-header">📋 ${u.usuario}</div>`;
-                h += `<table><thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Bruto</th><th>C/ Desc.</th></tr></thead><tbody>`;
-                (u.itens || []).forEach(it => {
-                    h += `<tr><td>${it.codigo}</td><td>${it.nome}</td><td>${it.quantidade}</td><td>R$ ${(parseFloat(it.preco_bruto) * it.quantidade).toFixed(2)}</td><td>R$ ${(parseFloat(it.preco_desconto) * it.quantidade).toFixed(2)}</td></tr>`;
-                });
+                h += `<table><thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Bruto</th><th>Desc.</th></tr></thead><tbody>`;
+                (u.itens || []).forEach(it => { h += `<tr><td>${it.codigo}</td><td>${it.nome}</td><td>${it.quantidade}</td><td>R$ ${it.preco_bruto.toFixed(2)}</td><td>R$ ${it.preco_desconto.toFixed(2)}</td></tr>`; });
                 h += `</tbody></table>`;
-                h += `<div class="user-total-row">${u.total_itens} itens · Bruto: <strong>R$ ${parseFloat(u.total_bruto).toFixed(2)}</strong> · Desc: <strong style="color:var(--danger)">R$ ${parseFloat(u.total_desconto).toFixed(2)}</strong></div>`;
+                h += `<div class="user-total-row">${u.total_itens} itens · Bruto: <strong>R$ ${parseFloat(u.total_bruto).toFixed(2)}</strong> · Desc: <strong>R$ ${parseFloat(u.total_desconto).toFixed(2)}</strong></div>`;
             });
         }
         h += `</div></div>`;
@@ -311,23 +470,16 @@ const app = {
     async applyDiscount() {
         const cat = document.getElementById('discCatSelect').value;
         const pct = parseFloat(document.getElementById('discPctInput').value) || 0;
-        if (pct < 0 || pct > 100) { this.toast('Percentual inválido', 'error'); return; }
         this.discounts[cat] = pct;
         await this.api('descontos', 'POST', { categoria: cat, percentual: pct });
-        this.saveLocal();
-        this.renderProducts(document.getElementById('searchInput').value);
-        this.updateCartBar();
-        this.renderAdminPanel();
+        this.saveLocal(); this.renderProducts(); this.updateCartBar(); this.renderAdminPanel();
         this.toast(`Desconto ${pct}% aplicado`, 'success');
     },
 
     async clearDiscounts() {
         this.discounts = {};
         await this.api('descontos', 'DELETE');
-        this.saveLocal();
-        this.renderProducts(document.getElementById('searchInput').value);
-        this.updateCartBar();
-        this.renderAdminPanel();
+        this.saveLocal(); this.renderProducts(); this.updateCartBar(); this.renderAdminPanel();
         this.toast('Descontos removidos', 'success');
     },
 
@@ -335,8 +487,7 @@ const app = {
         if (confirm('Apagar TODOS os pedidos?') && confirm('Confirmação final?')) {
             await this.api('pedidos', 'DELETE');
             this.allOrders = {};
-            this.saveLocal();
-            this.renderAdminPanel();
+            this.saveLocal(); this.renderAdminPanel();
             this.toast('Pedidos apagados', 'error');
         }
     },
@@ -347,18 +498,13 @@ const app = {
         const con = conRes?.data || [];
         const users = usersRes?.data || [];
 
-        let csv = '\uFEFF';
-        csv += 'COMPRAS COLETIVAS VIDA FORTE\n';
-        csv += `Exportado: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}\n\n`;
-        csv += 'CONSOLIDADO\nCódigo;Produto;Qtd;Bruto Unit;Desc Unit;Total Bruto;Total Desc\n';
-        let tB = 0, tD = 0;
-        con.forEach(i => { const vb = parseFloat(i.total_bruto), vd = parseFloat(i.total_desconto); tB += vb; tD += vd; csv += `${i.codigo};"${i.nome}";${i.quantidade_total};${parseFloat(i.preco_bruto).toFixed(2).replace('.',',')};${parseFloat(i.preco_desconto).toFixed(2).replace('.',',')};${vb.toFixed(2).replace('.',',')};${vd.toFixed(2).replace('.',',')}\n`; });
-        csv += `\n;;;;"TOTAL";${tB.toFixed(2).replace('.',',')};${tD.toFixed(2).replace('.',',')}\n\n`;
-        csv += 'INDIVIDUAL\n';
+        let csv = '\uFEFFCOMPRAS COLETIVAS\n';
+        csv += `Exportado: ${new Date().toLocaleDateString('pt-BR')}\n\nCONSOLIDADO\nCódigo;Produto;Qtd;Bruto;Desc\n`;
+        con.forEach(i => { csv += `${i.codigo};"${i.nome}";${i.quantidade_total};${parseFloat(i.total_bruto).toFixed(2).replace('.',',')};${parseFloat(i.total_final).toFixed(2).replace('.',',')}\n`; });
+        csv += `\nINDIVIDUAL\n`;
         users.forEach(u => {
             csv += `\n${u.usuario}\nCódigo;Produto;Qtd;Bruto;Desc\n`;
-            (u.itens || []).forEach(it => { csv += `${it.codigo};"${it.nome}";${it.quantidade};${(parseFloat(it.preco_bruto)*it.quantidade).toFixed(2).replace('.',',')};${(parseFloat(it.preco_desconto)*it.quantidade).toFixed(2).replace('.',',')}\n`; });
-            csv += `;;;"Total Bruto:";${parseFloat(u.total_bruto).toFixed(2).replace('.',',')}\n;;;"Total Desc:";${parseFloat(u.total_desconto).toFixed(2).replace('.',',')}\n`;
+            (u.itens || []).forEach(it => { csv += `${it.codigo};"${it.nome}";${it.quantidade};${(it.preco_bruto*it.quantidade).toFixed(2).replace('.',',')};${(it.preco_desconto*it.quantidade).toFixed(2).replace('.',',')}\n`; });
         });
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `compras_${new Date().toISOString().split('T')[0]}.csv`; a.click();

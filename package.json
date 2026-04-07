@@ -1,9 +1,10 @@
 {
   "name": "compras-coletivas-vida-forte",
-  "version": "5.0.0",
+  "version": "5.2.0",
   "type": "module",
   "private": true,
   "dependencies": {
-    "@neondatabase/serverless": "^0.10.0"
+    "@neondatabase/serverless": "^0.10.0",
+    "xlsx": "^0.18.5"
   }
 }
