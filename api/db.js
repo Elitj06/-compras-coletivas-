@@ -96,6 +96,11 @@ export default async function handler(req) {
         return json({ success: true, data: rows });
       }
 
+      if (path === 'faixas-desconto') {
+        const rows = await sql`SELECT * FROM faixas_desconto WHERE ativo = TRUE ORDER BY valor_minimo`;
+        return json({ success: true, data: rows });
+      }
+
       if (path === 'categorias') {
         const rows = await sql`SELECT * FROM categorias ORDER BY nome`;
         return json({ success: true, data: rows });

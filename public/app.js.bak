@@ -9,10 +9,10 @@ const app = {
     currentUser: '',
     cart: {},
     allOrders: {},
-    adminPassword: 'admin123',
     isAdminLoggedIn: false,
     currentCat: 'todos',
     discounts: {},
+    faixasDesconto: [], // Novo: faixas progressivas
     useServer: true,
     
     // Novo: Paginação e categorias
@@ -30,6 +30,7 @@ const app = {
         const saved = localStorage.getItem('currentUser');
         if (saved) { this.currentUser = saved; this.setUserInputs(saved); }
         await this.loadDiscountsFromServer();
+        await this.loadFaixasDescontoFromServer();
     },
 
     // ===== SERVER COMMUNICATION =====
@@ -55,6 +56,25 @@ const app = {
             this.renderProducts(document.getElementById('searchInput').value);
             this.updateCartBar();
         }
+    },
+
+    async loadFaixasDescontoFromServer() {
+        const res = await this.api('faixas-desconto');
+        if (res && res.success && res.data) {
+            this.faixasDesconto = res.data;
+            this.updateCartBar();
+        }
+    },
+
+    calcularDescontoProgressivo(totalBruto) {
+        if (!totalBruto || !this.faixasDesconto.length) return 0;
+        
+        // Encontrar a faixa aplicável
+        const faixa = this.faixasDesconto
+            .filter(f => f.ativo)
+            .find(f => totalBruto >= f.valor_minimo && (f.valor_maximo === null || totalBruto < f.valor_maximo));
+        
+        return faixa ? parseFloat(faixa.percentual) : 0;
     },
 
     // ===== USER =====
@@ -321,18 +341,35 @@ const app = {
     // ===== CART BAR =====
     updateCartBar() {
         const items = Object.keys(this.cart).length;
-        const { total, totalDisc } = this.calcTotals();
+        const { total, totalDisc, faixaPct } = this.calcTotals();
         const bar = document.getElementById('cartBar');
         if (bar) bar.classList.toggle('empty', items === 0);
         const ce = document.getElementById('cartCount'), te = document.getElementById('cartTotal'), td = document.getElementById('cartTotalDisc');
         if (ce) ce.innerHTML = `<strong>${items}</strong> ite${items === 1 ? 'm' : 'ns'}`;
         if (te) te.textContent = `R$ ${total.toFixed(2)}`;
-        if (td) { if (totalDisc < total) { td.textContent = `→ R$ ${totalDisc.toFixed(2)}`; td.style.display = ''; } else td.style.display = 'none'; }
+        if (td) { 
+            if (faixaPct > 0) {
+                td.textContent = `→ R$ ${totalDisc.toFixed(2)} (${faixaPct}% faixa)`; 
+                td.style.display = ''; 
+            } else if (totalDisc < total) {
+                td.textContent = `→ R$ ${totalDisc.toFixed(2)}`; 
+                td.style.display = ''; 
+            } else {
+                td.style.display = 'none'; 
+            }
+        }
     },
     calcTotals(cart) {
         cart = cart || this.cart; let total = 0, totalDisc = 0;
         for (const [cod, qty] of Object.entries(cart)) { const p = PRODUTOS.find(x => x.codigo === cod); if (p) { total += p.preco * qty; totalDisc += this.getDiscountedPrice(p.preco, p.categoria) * qty; } }
-        return { total, totalDisc };
+        
+        // Aplicar desconto progressivo por faixa de valor
+        const faixaPct = this.calcularDescontoProgressivo(total);
+        if (faixaPct > 0) {
+            totalDisc = total * (1 - faixaPct / 100);
+        }
+        
+        return { total, totalDisc, faixaPct };
     },
 
     // ===== MEU PEDIDO =====
@@ -340,7 +377,7 @@ const app = {
         const c = document.getElementById('myCartContent');
         const items = Object.entries(this.cart);
         if (!items.length) { c.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🛒</div><h3>Pedido vazio</h3><p>Adicione produtos na aba Produtos</p></div>`; return; }
-        const { total, totalDisc } = this.calcTotals();
+        const { total, totalDisc, faixaPct } = this.calcTotals();
         let h = this.currentUser ? `<div class="user-badge">👤 <strong>${this.currentUser}</strong></div>` : '';
         items.forEach(([cod, qty], i) => {
             const p = PRODUTOS.find(x => x.codigo === cod); if (!p) return;
@@ -348,7 +385,12 @@ const app = {
             h += `<div class="cart-item" style="animation-delay:${i*.04}s"><div class="cart-item-info"><h4>${p.nome}</h4><small>${cod} · R$ ${p.preco.toFixed(2)} × ${qty}</small></div><div class="cart-item-right"><div class="cart-item-prices"><div class="cart-item-subtotal">R$ ${sub.toFixed(2)}</div>${disc > 0 ? `<div class="cart-item-disc">c/ ${disc}%: R$ ${subD.toFixed(2)}</div>` : ''}</div><button class="btn-remove" onclick="app.removeFromCart('${cod}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></div>`;
         });
         h += `<div class="order-total-bar"><div><div class="order-total-line" style="margin:0"><span>Total Bruto</span><h2>R$ ${total.toFixed(2)}</h2></div>`;
-        if (totalDisc < total) h += `<div class="order-total-line"><span>Com Desconto</span><h2 style="color:#FFD">R$ ${totalDisc.toFixed(2)}</h2></div>`;
+        if (totalDisc < total) {
+            h += `<div class="order-total-line"><span>Com Desconto</span><h2 style="color:#FFD">R$ ${totalDisc.toFixed(2)}</h2></div>`;
+            if (faixaPct > 0) {
+                h += `<div class="order-total-line" style="font-size:0.85rem;color:#E07C24"><span>Faixa aplicada</span><strong>${faixaPct}%</strong></div>`;
+            }
+        }
         h += `</div></div><div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-primary" onclick="app.finalizeOrder()">Finalizar Pedido</button></div>`;
         c.innerHTML = h;
     },
@@ -397,7 +439,7 @@ const app = {
     async loginAdmin() {
         const pwd = document.getElementById('adminPassword').value;
         const res = await this.api('admin/login', 'POST', { senha: pwd });
-        if ((res && res.success) || pwd === this.adminPassword) {
+        if (res && res.success) {
             this.isAdminLoggedIn = true;
             document.getElementById('adminLoginSection').classList.add('hidden');
             document.getElementById('adminContent').classList.remove('hidden');

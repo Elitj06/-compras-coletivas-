@@ -6,6 +6,29 @@
 
 ---
 
+## 🔄 Migração Neon → Supabase (2026-04-07)
+
+**Status:** ✅ CONCLUÍDA
+
+### O que foi feito
+- Schema isolado `compras_coletivas` criado no Supabase (projeto fitflow-ia)
+- 244 produtos + 103 categorias populados
+- Coluna `imagem` corrigida: `VARCHAR(500)` → `TEXT`
+- Tabela `faixas_desconto` criada (40/44/48%)
+- API `db.js` e `upload-planilha.js`: search_path via connection string
+- Env var `DATABASE_URL` atualizada no Vercel
+- `.env.local` removido do git (estava exposto com senha)
+
+### Credenciais
+- **Supabase:** `postgresql://postgres.vpmfuhvgnbqovclwaudz:*Glockblss213@aws-0-us-west-2.pooler.supabase.com:5432/postgres`
+- Schema: `compras_coletivas`
+
+### Deploy
+- URL: compras-coletivas-ct345rzrw-eliandro-tjader.vercel.app
+- Status: READY
+
+---
+
 ## Contexto
 
 App de compras coletivas para produtos Vitafor. O grupo já está formado com 23 participantes.
@@ -67,7 +90,7 @@ App de compras coletivas para produtos Vitafor. O grupo já está formado com 23
 - Carrinho funcional
 - Cálculo de descontos por volume
 
-**Backend:** ✅ Configurado (API Neon PostgreSQL)
+**Backend:** ✅ Configurado (API Supabase PostgreSQL — schema isolado)
 - Endpoint: `/api/db`
 - Tabela: produtos, pedidos, descontos
 
@@ -83,8 +106,21 @@ App de compras coletivas para produtos Vitafor. O grupo já está formado com 23
 
 1. **[DONE] Remover produto descontinuado** — B1220ME do produtos.js ✅
 2. **[DONE] Atualizar cadastro** — Cadastro sincronizado com planilha 2026-14 ✅
-3. **[PENDING] Testar app** — Verificar funcionalidades em ambiente de produção
-4. **[PENDING] Integrar agente guia-compras** — Configurar respostas no grupo WhatsApp
+3. **[DONE] Migrar para Supabase** — Schema isolado funcionando ✅
+4. **[PENDING] Testar app** — Verificar funcionalidades em produção
+5. **[PENDING] Integrar agente guia-compras** — Configurar respostas no grupo WhatsApp
+
+---
+
+## ⚠️ Issues Pendentes (auditoria)
+
+| Issue | Severidade | Descrição |
+|-------|------------|----------|
+| Senha admin hardcoded | Alta | `admin123` no frontend — remover fallback local |
+| GitHub Actions Neon | Média | Workflow obsoleto — deletar ou adaptar |
+| Arquivos duplicados | Baixa | Raiz vs public/ — limpar estrutura |
+| Excel no Edge Runtime | Média | `upload-planilha.js` não processa .xlsx de fato |
+| Faixas progressivas | Média | Frontend não aplica faixas do banco |
 
 ---
 
