@@ -577,6 +577,17 @@ const app = {
     },
 
     // ===== ADMIN =====
+    togglePasswordVisibility(inputId) {
+        const input = document.getElementById(inputId);
+        const toggle = document.getElementById(inputId + 'Toggle');
+        if (input.type === 'password') {
+            input.type = 'text';
+            toggle.textContent = '🙈️';
+        } else {
+            input.type = 'password';
+            toggle.textContent = '👁️';
+        }
+    },
     async loginAdmin() {
         const pwd = document.getElementById('adminPassword').value;
         const res = await this.api('admin/login', 'POST', { senha: pwd });
