@@ -6,6 +6,45 @@
 
 ---
 
+## 🔄 Atualização 2026-04-07 20:35 UTC
+
+**Status:** ✅ CONCLUÍDA
+
+### O que foi feito
+
+#### 1. Agrupamento de Categorias no Banco ✅
+- Criadas 5 novas categorias agrupadas:
+  - **COLÁGENOS** (id 208): unifica COLAGENTEK, PROTEIN, II, BEAUTY, HYALURONIC HAIR
+  - **WHEY PROTEIN** (id 209): unifica WHEY FORT, WPC POUCH, ISOCRISP WHEY, ISOLATE, AIR COM WHEY
+  - **VITAMINAS E MINERAIS** (id 210): unifica VITA D3, C3, FERRO/MAGNÉSIO/CÁLCIO PLUS, COQ-10
+  - **AMINOÁCIDOS, CREATINA E GLUTAMINA** (id 211): unifica AMINOVITA, BCAAFORT, GLUTAMAX, CREATINE, CREAFORT, BETA ALANINA
+  - **ÔMEGA 3** (id 212): unifica OMEGAFOR PLUS/FAMILY/VITAMINS, MEGA DHA, KRILL VIT
+- 31 categorias antigas excluídas após migração dos produtos
+
+#### 2. Fluxo de Cadastro Obrigatório ✅
+- Adicionado `isRegistered: false` no objeto `app`
+- Modal de cadastro aparece na primeira interação com o carrinho
+- Validação: nome completo (deve ter sobrenome) + telefone
+- Dados salvos no localStorage (`userRegistered`, `registeredName`, `registeredPhone`)
+- Bloqueio de adição ao carrinho e finalização sem cadastro
+- Aba "Meu Pedido" mostra card com dados do cadastro confirmado
+- CSS do modal e card de registro adicionados ao index.html
+
+#### 3. Produtos com Imagens Corrigidas ✅
+- Removidas imagens incorretas dos produtos COQ10 (CQ30, CQ60, CQ120, COQ60)
+  - Esses tinham badges de dosagem ("100mg/200mg por cápsula") em vez de fotos
+  - Imagens limpas → produtos agora aparecem sem foto (placeholder)
+- Produtos VPA600CCT e VPA280CCT (LANÇAMENTO) mantidos com imagem real (~4KB)
+  - Têm foto real de produto, não o selo dourado
+
+### Arquivos Modificados
+- `/root/projects/compras-coletivas/public/app.js` — cadastro obrigatório
+- `/root/projects/compras-coletivas/index.html` — estilos do modal de registro
+- `/root/projects/compras-coletivas/public/produtos.js` — imagens COQ10 removidas
+- Banco de dados Supabase — categorias agrupadas
+
+---
+
 ## 🔄 Migração Neon → Supabase (2026-04-07)
 
 **Status:** ✅ CONCLUÍDA

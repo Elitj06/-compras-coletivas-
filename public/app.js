@@ -16,6 +16,7 @@ const app = {
     discounts: {},
     faixasDesconto: [], // Novo: faixas progressivas
     useServer: true,
+    isRegistered: false, // Cadastro obrigatório
     
     // Novo: Paginação e categorias
     currentPage: 1,
@@ -24,6 +25,7 @@ const app = {
 
     async init() {
         this.loadLocal();
+        this.checkRegistration();
         this.setupEventListeners();
         this.renderCategoryGrid();
         this.renderCategoryPills();
@@ -37,6 +39,110 @@ const app = {
         if (savedEmail) this.currentEmail = savedEmail;
         await this.loadDiscountsFromServer();
         await this.loadFaixasDescontoFromServer();
+    },
+
+    // ===== CADASTRO OBRIGATÓRIO =====
+    checkRegistration() {
+        const registered = localStorage.getItem('userRegistered');
+        const savedName = localStorage.getItem('registeredName');
+        const savedPhone = localStorage.getItem('registeredPhone');
+        if (registered === 'true' && savedName && savedPhone) {
+            this.isRegistered = true;
+            this.currentUser = savedName;
+            this.currentPhone = savedPhone;
+        }
+    },
+
+    requireRegistration() {
+        if (!this.isRegistered) {
+            this.showRegistrationModal();
+            return false;
+        }
+        return true;
+    },
+
+    showRegistrationModal() {
+        // Remove modal existente se houver
+        const existing = document.getElementById('registrationModal');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'registrationModal';
+        modal.innerHTML = `
+            <div class="modal-overlay" onclick="app.closeRegistrationModal(event)">
+                <div class="modal-content" onclick="event.stopPropagation()">
+                    <div class="modal-header">
+                        <h2>📝 Cadastro Necessário</h2>
+                        <p>Para fazer pedidos, precisamos do seu cadastro.</p>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="regName">Nome completo *</label>
+                            <input type="text" id="regName" placeholder="Digite nome e sobrenome" 
+                                   onkeydown="if(event.key==='Enter')app.submitRegistration()"/>
+                            <small>Deve conter nome e sobrenome</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="regPhone">Telefone / WhatsApp *</label>
+                            <input type="tel" id="regPhone" placeholder="(00) 00000-0000"
+                                   onkeydown="if(event.key==='Enter')app.submitRegistration()"/>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-primary" onclick="app.submitRegistration()">Cadastrar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        document.getElementById('regName').focus();
+    },
+
+    closeRegistrationModal(event) {
+        if (event && event.target.classList.contains('modal-overlay')) {
+            // Permite fechar clicando fora
+        }
+        const modal = document.getElementById('registrationModal');
+        if (modal) modal.remove();
+    },
+
+    submitRegistration() {
+        const nameInput = document.getElementById('regName');
+        const phoneInput = document.getElementById('regPhone');
+        
+        const name = nameInput.value.trim();
+        const phone = phoneInput.value.trim();
+
+        // Validar nome (deve ter sobrenome = conter espaço)
+        if (!name || !name.includes(' ') || name.split(' ').length < 2 || name.split(' ')[1].length < 2) {
+            this.toast('Digite nome completo com sobrenome!', 'error');
+            nameInput.focus();
+            return;
+        }
+
+        // Validar telefone (mínimo 8 dígitos)
+        const phoneDigits = phone.replace(/\D/g, '');
+        if (phoneDigits.length < 8) {
+            this.toast('Digite um telefone válido!', 'error');
+            phoneInput.focus();
+            return;
+        }
+
+        // Salvar cadastro
+        this.currentUser = name;
+        this.currentPhone = phone;
+        this.isRegistered = true;
+        
+        localStorage.setItem('userRegistered', 'true');
+        localStorage.setItem('registeredName', name);
+        localStorage.setItem('registeredPhone', phone);
+        localStorage.setItem('currentUser', name);
+        localStorage.setItem('currentPhone', phone);
+
+        this.setUserInputs(name);
+        this.closeRegistrationModal();
+        this.toast('Cadastro realizado com sucesso!', 'success');
+        this.updateCartBar();
     },
 
     // ===== SERVER COMMUNICATION =====
@@ -339,14 +445,14 @@ const app = {
     },
 
     updateQty(cod, chg) {
-        if (!this.currentUser) { this.toast('Digite seu nome primeiro!', 'error'); return; }
+        if (!this.requireRegistration()) return;
         const nq = Math.max(0, (this.cart[cod] || 0) + chg);
         if (nq === 0) delete this.cart[cod]; else this.cart[cod] = nq;
         if (chg > 0 && nq === 1) { const p = PRODUTOS.find(x => x.codigo === cod); if (p) this.toast(`${p.nome} adicionado`, 'success'); }
         this.saveLocal(); this.renderProducts(document.getElementById('searchInput').value); this.updateCartBar();
     },
     setQty(cod, v) {
-        if (!this.currentUser) { this.toast('Digite seu nome!', 'error'); return; }
+        if (!this.requireRegistration()) return;
         const q = parseInt(v) || 0;
         if (q === 0) delete this.cart[cod]; else this.cart[cod] = Math.max(0, q);
         this.saveLocal(); this.updateCartBar();
@@ -390,14 +496,28 @@ const app = {
     renderMyCart() {
         const c = document.getElementById('myCartContent');
         const items = Object.entries(this.cart);
-        if (!items.length) { c.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🛒</div><h3>Pedido vazio</h3><p>Adicione produtos na aba Produtos</p></div>`; return; }
+        
+        // Mostrar dados do cadastro se registrado
+        let userDataHtml = '';
+        if (this.isRegistered && this.currentUser) {
+            userDataHtml = `<div class="registration-card">
+                <div class="reg-card-header">✅ Cadastro Confirmado</div>
+                <div class="reg-card-body">
+                    <div class="reg-field"><span class="reg-label">Nome:</span><strong>${this.currentUser}</strong></div>
+                    <div class="reg-field"><span class="reg-label">Telefone:</span><strong>${this.currentPhone}</strong></div>
+                </div>
+            </div>`;
+        }
+        
+        if (!items.length) { 
+            c.innerHTML = `${userDataHtml}<div class="empty-state"><div class="empty-state-icon">🛒</div><h3>Pedido vazio</h3><p>Adicione produtos na aba Produtos</p></div>`; 
+            return; 
+        }
         const { total, totalDisc, faixaPct } = this.calcTotals();
-        let h = '';
+        let h = userDataHtml;
         if (this.currentUser) {
-            h += `<div class="user-badge">👤 <strong>${this.currentUser}</strong></div>`;
             h += `<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">`;
-            h += `<input type="tel" id="userPhone" value="${this.currentPhone}" placeholder="📞 WhatsApp / Telefone" style="flex:1;min-width:150px;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:.85rem;font-family:var(--fb);background:var(--bg-card);color:var(--text)" oninput="app.handlePhoneChange(this.value)"/>`;
-            h += `<input type="email" id="userEmail" value="${this.currentEmail}" placeholder="✉️ E-mail" style="flex:1;min-width:180px;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:.85rem;font-family:var(--fb);background:var(--bg-card);color:var(--text)" oninput="app.handleEmailChange(this.value)"/>`;
+            h += `<input type="email" id="userEmail" value="${this.currentEmail}" placeholder="✉️ E-mail (opcional)" style="flex:1;min-width:180px;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:.85rem;font-family:var(--fb);background:var(--bg-card);color:var(--text)" oninput="app.handleEmailChange(this.value)"/>`;
             h += `</div>`;
         }
         items.forEach(([cod, qty], i) => {
@@ -423,9 +543,7 @@ const app = {
 
     // ===== FINALIZAR PEDIDO =====
     async finalizeOrder() {
-        if (!this.currentUser) { this.toast('Digite seu nome!', 'error'); return; }
-        if (!this.currentPhone) { this.toast('Informe seu telefone em Meu Pedido!', 'error'); this.switchTab('meu-pedido'); return; }
-        if (!this.currentEmail) { this.toast('Informe seu e-mail em Meu Pedido!', 'error'); this.switchTab('meu-pedido'); return; }
+        if (!this.requireRegistration()) return;
         if (!Object.keys(this.cart).length) { this.toast('Carrinho vazio!', 'error'); return; }
         const { total, totalDisc } = this.calcTotals();
         let msg = `${this.currentUser}, confirma o pedido?\n\nBruto: R$ ${total.toFixed(2)}`;
@@ -588,6 +706,11 @@ const app = {
         localStorage.setItem('cart', JSON.stringify(this.cart));
         localStorage.setItem('allOrders', JSON.stringify(this.allOrders));
         localStorage.setItem('discounts', JSON.stringify(this.discounts));
+        if (this.isRegistered) {
+            localStorage.setItem('userRegistered', 'true');
+            localStorage.setItem('registeredName', this.currentUser);
+            localStorage.setItem('registeredPhone', this.currentPhone);
+        }
     },
     loadLocal() {
         try {
