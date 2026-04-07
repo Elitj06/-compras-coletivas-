@@ -7,6 +7,8 @@ const API = '/api/db';
 
 const app = {
     currentUser: '',
+    currentPhone: '',
+    currentEmail: '',
     cart: {},
     allOrders: {},
     isAdminLoggedIn: false,
@@ -29,6 +31,10 @@ const app = {
         this.updateCartBar();
         const saved = localStorage.getItem('currentUser');
         if (saved) { this.currentUser = saved; this.setUserInputs(saved); }
+        const savedPhone = localStorage.getItem('currentPhone');
+        if (savedPhone) this.currentPhone = savedPhone;
+        const savedEmail = localStorage.getItem('currentEmail');
+        if (savedEmail) this.currentEmail = savedEmail;
         await this.loadDiscountsFromServer();
         await this.loadFaixasDescontoFromServer();
     },
@@ -86,6 +92,14 @@ const app = {
         this.currentUser = v.trim();
         localStorage.setItem('currentUser', this.currentUser);
         this.setUserInputs(this.currentUser);
+    },
+    handlePhoneChange(v) {
+        this.currentPhone = v.trim();
+        localStorage.setItem('currentPhone', this.currentPhone);
+    },
+    handleEmailChange(v) {
+        this.currentEmail = v.trim();
+        localStorage.setItem('currentEmail', this.currentEmail);
     },
 
     // ===== EVENTS =====
@@ -378,7 +392,14 @@ const app = {
         const items = Object.entries(this.cart);
         if (!items.length) { c.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🛒</div><h3>Pedido vazio</h3><p>Adicione produtos na aba Produtos</p></div>`; return; }
         const { total, totalDisc, faixaPct } = this.calcTotals();
-        let h = this.currentUser ? `<div class="user-badge">👤 <strong>${this.currentUser}</strong></div>` : '';
+        let h = '';
+        if (this.currentUser) {
+            h += `<div class="user-badge">👤 <strong>${this.currentUser}</strong></div>`;
+            h += `<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">`;
+            h += `<input type="tel" id="userPhone" value="${this.currentPhone}" placeholder="📞 WhatsApp / Telefone" style="flex:1;min-width:150px;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:.85rem;font-family:var(--fb);background:var(--bg-card);color:var(--text)" oninput="app.handlePhoneChange(this.value)"/>`;
+            h += `<input type="email" id="userEmail" value="${this.currentEmail}" placeholder="✉️ E-mail" style="flex:1;min-width:180px;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:.85rem;font-family:var(--fb);background:var(--bg-card);color:var(--text)" oninput="app.handleEmailChange(this.value)"/>`;
+            h += `</div>`;
+        }
         items.forEach(([cod, qty], i) => {
             const p = PRODUTOS.find(x => x.codigo === cod); if (!p) return;
             const sub = p.preco * qty, subD = this.getDiscountedPrice(p.preco, p.categoria) * qty, disc = this.getDiscount(p.categoria);
@@ -403,6 +424,8 @@ const app = {
     // ===== FINALIZAR PEDIDO =====
     async finalizeOrder() {
         if (!this.currentUser) { this.toast('Digite seu nome!', 'error'); return; }
+        if (!this.currentPhone) { this.toast('Informe seu telefone em Meu Pedido!', 'error'); this.switchTab('meu-pedido'); return; }
+        if (!this.currentEmail) { this.toast('Informe seu e-mail em Meu Pedido!', 'error'); this.switchTab('meu-pedido'); return; }
         if (!Object.keys(this.cart).length) { this.toast('Carrinho vazio!', 'error'); return; }
         const { total, totalDisc } = this.calcTotals();
         let msg = `${this.currentUser}, confirma o pedido?\n\nBruto: R$ ${total.toFixed(2)}`;
@@ -419,7 +442,7 @@ const app = {
             };
         });
 
-        const res = await this.api('pedidos', 'POST', { usuario: this.currentUser, itens });
+        const res = await this.api('pedidos', 'POST', { usuario: this.currentUser, telefone: this.currentPhone, email: this.currentEmail, itens });
         if (res && res.success) {
             this.toast('Pedido enviado ao servidor!', 'success');
         } else {
@@ -498,7 +521,8 @@ const app = {
         if (!users.length) { h += `<div style="padding:16px" class="alert alert-info">Nenhum pedido.</div>`; }
         else {
             users.forEach(u => {
-                h += `<div class="user-section-header">📋 ${u.usuario}</div>`;
+                const contato = [u.telefone, u.email].filter(Boolean).join(' · ');
+                h += `<div class="user-section-header">📋 ${u.usuario}${contato ? ` <span style="font-weight:400;color:var(--muted);font-size:.75rem">— ${contato}</span>` : ''}</div>`;
                 h += `<table><thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Bruto</th><th>Desc.</th></tr></thead><tbody>`;
                 (u.itens || []).forEach(it => { h += `<tr><td>${it.codigo}</td><td>${it.nome}</td><td>${it.quantidade}</td><td>R$ ${it.preco_bruto.toFixed(2)}</td><td>R$ ${it.preco_desconto.toFixed(2)}</td></tr>`; });
                 h += `</tbody></table>`;

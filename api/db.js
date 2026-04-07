@@ -61,6 +61,8 @@ export default async function handler(req) {
         const rows = await sql`
           SELECT 
             p.usuario,
+            MAX(c.telefone) as telefone,
+            MAX(c.email) as email,
             json_agg(json_build_object(
               'codigo', ip.codigo,
               'nome', ip.nome_produto,
@@ -74,6 +76,7 @@ export default async function handler(req) {
             SUM(ip.subtotal_final) as total_desconto
           FROM pedidos p
           JOIN itens_pedido ip ON ip.pedido_id = p.id
+          LEFT JOIN compradores c ON c.nome = p.usuario
           WHERE p.status != 'cancelado'
           GROUP BY p.usuario
           ORDER BY p.usuario
@@ -143,9 +146,25 @@ export default async function handler(req) {
       const body = await req.json();
 
       if (path === 'pedidos') {
-        const { usuario, itens } = body;
+        const { usuario, telefone, email, itens } = body;
         if (!usuario || !itens || !itens.length) {
           return json({ success: false, error: 'Dados incompletos' }, 400);
+        }
+
+        // Upsert comprador com telefone e email
+        if (telefone || email) {
+          await sql`
+            INSERT INTO compradores (nome, telefone, email)
+            VALUES (${usuario}, ${telefone || null}, ${email || null})
+            ON CONFLICT DO NOTHING
+          `;
+          // Atualizar se já existir
+          await sql`
+            UPDATE compradores
+            SET telefone = COALESCE(${telefone || null}, telefone),
+                email = COALESCE(${email || null}, email)
+            WHERE nome = ${usuario}
+          `;
         }
 
         const pedidoResult = await sql`
