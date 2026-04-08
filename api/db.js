@@ -29,7 +29,9 @@ export default async function handler(req) {
 
   try {
     console.error('Debug: Connecting to PostgreSQL...');
-    const client = createClient();
+    const connectionString = process.env.POSTGRES_CONNECTION_STRING || process.env.POSTGRES_URL;
+    console.error('Debug: Connection string length:', connectionString?.length || 0);
+    const client = createClient({ connectionString });
     await client.connect();
     console.error('Debug: Connected successfully');
     const sql = client.sql;
