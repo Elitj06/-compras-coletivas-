@@ -1,4 +1,4 @@
-import { sql } from '@vercel/postgres';
+import { createClient } from '@vercel/postgres';
 
 // @vercel/postgres funciona em Edge Runtime
 // Precisa de POSTGRES_URL no Vercel (ou POSTGRES_CONNECTION_STRING)
@@ -28,14 +28,18 @@ export default async function handler(req) {
   console.error('Debug: NODE_ENV:', process.env.NODE_ENV);
 
   try {
-    console.error('Debug: Testing PostgreSQL connection...');
-    // @vercel/postgres já cria pool automaticamente
+    console.error('Debug: Connecting to PostgreSQL...');
+    const client = createClient();
+    await client.connect();
+    console.error('Debug: Connected successfully');
+    const sql = client.sql;
 
     // ===== GET ROUTES =====
     if (req.method === 'GET') {
 
       if (path === '' || path === 'health') {
         const result = await sql`SELECT COUNT(*) as tabelas FROM information_schema.tables WHERE table_schema = 'public'`;
+        await client.end();
         return json({
           success: true,
           message: 'Compras Coletivas API online',
@@ -46,6 +50,7 @@ export default async function handler(req) {
 
       if (path === 'tables') {
         const rows = await sql`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name`;
+        await client.end();
         return json({ success: true, data: rows });
       }
 
@@ -57,6 +62,7 @@ export default async function handler(req) {
           WHERE p.status != 'cancelado'
           ORDER BY p.created_at DESC
         `;
+        await client.end();
         return json({ success: true, data: rows });
       }
 
@@ -84,36 +90,43 @@ export default async function handler(req) {
           GROUP BY p.usuario
           ORDER BY p.usuario
         `;
+        await client.end();
         return json({ success: true, data: rows });
       }
 
       if (path === 'pedidos/consolidado') {
         const rows = await sql`SELECT * FROM vw_relatorio_produtos`;
+        await client.end();
         return json({ success: true, data: rows });
       }
 
       if (path === 'stats') {
         const stats = await sql`SELECT * FROM vw_dashboard_stats`;
+        await client.end();
         return json({ success: true, data: stats[0] });
       }
 
       if (path === 'descontos') {
         const rows = await sql`SELECT * FROM descontos WHERE ativo = TRUE ORDER BY categoria`;
+        await client.end();
         return json({ success: true, data: rows });
       }
 
       if (path === 'faixas-desconto') {
         const rows = await sql`SELECT * FROM faixas_desconto WHERE ativo = TRUE ORDER BY valor_minimo`;
+        await client.end();
         return json({ success: true, data: rows });
       }
 
       if (path === 'categorias') {
         const rows = await sql`SELECT * FROM categorias ORDER BY nome`;
+        await client.end();
         return json({ success: true, data: rows });
       }
 
       if (path === 'compradores') {
         const rows = await sql`SELECT * FROM vw_relatorio_compradores`;
+        await client.end();
         return json({ success: true, data: rows });
       }
 
@@ -133,6 +146,7 @@ export default async function handler(req) {
           const data = new Date(r.data_pedido).toLocaleDateString('pt-BR');
           csv += `${r.comprador};${r.codigo};${r.produto};${r.quantidade};${String(r.preco_unitario).replace('.', ',')};${r.desconto_percentual}%;${String(r.preco_com_desconto).replace('.', ',')};${String(r.subtotal_bruto).replace('.', ',')};${String(r.subtotal_final).replace('.', ',')};${data}\n`;
         }
+        await client.end();
         return new Response('\uFEFF' + csv, {
           status: 200,
           headers: {
@@ -208,6 +222,7 @@ export default async function handler(req) {
           WHERE id = ${pedidoId}
         `;
 
+        await client.end();
         return json({
           success: true,
           message: `Pedido de ${usuario} registrado com ${itens.length} itens`,
@@ -221,12 +236,14 @@ export default async function handler(req) {
           return json({ success: false, error: 'Dados incompletos' }, 400);
         }
         await sql`SELECT aplicar_desconto(${categoria}, ${percentual})`;
+        await client.end();
         return json({ success: true, message: `Desconto de ${percentual}% aplicado em ${categoria}` });
       }
 
       if (path === 'admin/login') {
         const { senha } = body;
         const config = await sql`SELECT valor FROM configuracoes WHERE chave = 'admin_senha'`;
+        await client.end();
         if (!config.length) {
           return json({ success: false, error: 'Senha de admin não configurada no banco' }, 500);
         }
@@ -243,10 +260,12 @@ export default async function handler(req) {
       if (path === 'pedidos') {
         await sql`DELETE FROM itens_pedido`;
         await sql`DELETE FROM pedidos`;
+        await client.end();
         return json({ success: true, message: 'Todos os pedidos foram apagados' });
       }
       if (path === 'descontos') {
         await sql`UPDATE descontos SET ativo = FALSE`;
+        await client.end();
         return json({ success: true, message: 'Descontos desativados' });
       }
     }
