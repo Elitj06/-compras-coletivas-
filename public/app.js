@@ -543,7 +543,7 @@ const app = {
   // Card de produto único — preço cheio, sem desconto no visual.
   renderProductCard(p) {
     const qty = this.state.cart[p.codigo] || 0;
-    const hasImg = p.imagem && p.imagem.length > 100;
+    const hasImg = p.imagem && p.imagem.length > 0;
 
     const imgHtml = hasImg
       ? `<img src="${p.imagem}" alt="${fmt.escape(p.nome)}" loading="lazy" />`
@@ -582,7 +582,7 @@ const app = {
     const active = this.getActiveVariant(entry);
     const p = active.produto;
     const qty = this.state.cart[p.codigo] || 0;
-    const hasImg = p.imagem && p.imagem.length > 100;
+    const hasImg = p.imagem && p.imagem.length > 0;
 
     const imgHtml = hasImg
       ? `<img src="${p.imagem}" alt="${fmt.escape(p.nome)}" loading="lazy" />`
