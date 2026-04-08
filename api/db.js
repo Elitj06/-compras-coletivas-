@@ -254,7 +254,9 @@ export default async function handler(req) {
 
   } catch (error) {
     console.error('API Error:', error);
-    return json({ success: false, error: error.message }, 500);
+    console.error('DB_URL configured:', !!process.env.DATABASE_URL);
+    console.error('DB_URL length:', process.env.DATABASE_URL?.length || 0);
+    return json({ success: false, error: error.message, debug: { dbConfigured: !!process.env.DATABASE_URL, dbLength: process.env.DATABASE_URL?.length || 0 } }, 500);
   } finally {
     if (sql) {
       await sql.end();
