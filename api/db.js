@@ -1,12 +1,21 @@
 import postgres from 'postgres';
 
 console.error('[DB.JS] Module loaded');
+console.error('[DB.JS] DATABASE_URL exists:', !!process.env.DATABASE_URL);
 
 // Supabase — schema isolado compras_coletivas
 // O search_path é definido via options na connection string
-const DB_URL = (process.env.DATABASE_URL || '').includes('?')
-  ? process.env.DATABASE_URL + '&options=--search_path%3Dcompras_coletivas'
-  : process.env.DATABASE_URL + '?options=--search_path%3Dcompras_coletivas';
+let DB_URL = process.env.DATABASE_URL;
+
+if (!DB_URL) {
+  console.error('[DB.JS] ERROR: DATABASE_URL is not set!');
+  DB_URL = 'postgresql://postgres.vpmfuhvgnbqovclwaudz:*Glockblss213@aws-0-us-west-2.pooler.supabase.com:5432/postgres?options=--search_path%3Dcompras_coletivas';
+  console.error('[DB.JS] Using fallback hardcoded DB_URL');
+}
+
+if (!DB_URL.includes('?')) {
+  DB_URL += '?options=--search_path%3Dcompras_coletivas';
+}
 
 console.error('[DB.JS] DB_URL length:', DB_URL.length);
 
