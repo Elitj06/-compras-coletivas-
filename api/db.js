@@ -1,23 +1,8 @@
-import postgres from 'postgres';
+import { sql } from '@vercel/postgres';
 
-console.error('[DB.JS] Module loaded');
-console.error('[DB.JS] DATABASE_URL exists:', !!process.env.DATABASE_URL);
-
-// Supabase — schema isolado compras_coletivas
-// O search_path é definido via options na connection string
-let DB_URL = process.env.DATABASE_URL;
-
-if (!DB_URL) {
-  console.error('[DB.JS] ERROR: DATABASE_URL is not set!');
-  DB_URL = 'postgresql://postgres.vpmfuhvgnbqovclwaudz:*Glockblss213@aws-0-us-west-2.pooler.supabase.com:5432/postgres?options=--search_path%3Dcompras_coletivas';
-  console.error('[DB.JS] Using fallback hardcoded DB_URL');
-}
-
-if (!DB_URL.includes('?')) {
-  DB_URL += '?options=--search_path%3Dcompras_coletivas';
-}
-
-console.error('[DB.JS] DB_URL length:', DB_URL.length);
+// @vercel/postgres funciona em Edge Runtime
+// Precisa de POSTGRES_URL no Vercel (ou POSTGRES_CONNECTION_STRING)
+console.error('[DB.JS] Module loaded - using @vercel/postgres');
 
 const headers = {
   'Content-Type': 'application/json',
@@ -42,16 +27,9 @@ export default async function handler(req) {
   console.error('Debug: DB_URL length:', process.env.DATABASE_URL?.length || 0);
   console.error('Debug: NODE_ENV:', process.env.NODE_ENV);
 
-  let sql;
-
   try {
-    console.error('Debug: Creating PostgreSQL connection...');
-    sql = postgres(DB_URL, { max: 1 });
-    console.error('Debug: PostgreSQL connection created');
-
-    // Test connection
-    await sql`SELECT 1`;
-    console.error('Debug: Connection test passed');
+    console.error('Debug: Testing PostgreSQL connection...');
+    // @vercel/postgres já cria pool automaticamente
 
     // ===== GET ROUTES =====
     if (req.method === 'GET') {
@@ -281,11 +259,7 @@ export default async function handler(req) {
     console.error('DB_URL length:', process.env.DATABASE_URL?.length || 0);
     console.error('NODE_ENV:', process.env.NODE_ENV);
     console.error('All env vars:', Object.keys(process.env).filter(k => k.includes('DB') || k.includes('POSTGRES')));
-    return json({ success: false, error: error.message, debug: { dbConfigured: !!process.env.DATABASE_URL, dbLength: process.env.DATABASE_URL?.length || 0, nodeEnv: process.env.NODE_ENV, dbVars: Object.keys(process.env).filter(k => k.includes('DB') || k.includes('POSTGRES')) } }, 500);
-  } finally {
-    if (sql) {
-      await sql.end();
-    }
+    return json({ success: false, error: error.message, debug: { postgresUrl: !!process.env.POSTGRES_URL, postgresConnectionString: !!process.env.POSTGRES_CONNECTION_STRING } }, 500);
   }
 }
 
