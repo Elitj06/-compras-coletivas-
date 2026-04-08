@@ -9,6 +9,13 @@
  *   - groups        → integração com taxonomia (groups.js)
  *   - render*       → funções puras de UI (separadas por seção)
  *   - handlers      → reações a eventos do usuário
+ *
+ * Regras de negócio:
+ *  - Desconto é um ÚNICO percentual global definido pelo admin.
+ *  - Cards do catálogo mostram apenas o preço cheio (sem desconto).
+ *  - No carrinho/fatura o comprador vê preço cheio + preço com desconto.
+ *  - Cadastro (nome + telefone) é obrigatório na entrada do app.
+ *  - Tema claro/escuro alternável via botão no header.
  * ============================================================ */
 
 const API_BASE = "/api/db";
@@ -32,7 +39,6 @@ const fmt = {
 };
 
 /* ----------------------- Ícones SVG ------------------------ */
-// Centralizado para facilitar manutenção e padronização visual.
 const ICONS = {
   dumbbell:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/></svg>',
@@ -92,6 +98,10 @@ const ICONS = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>',
   chart:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>',
+  plus:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>',
+  minus:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>',
 };
 
 const icon = (name, attrs = "") => {
@@ -101,11 +111,9 @@ const icon = (name, attrs = "") => {
 
 /* ====================== App ====================== */
 const app = {
-  // ---------- state ----------
   state: {
     cart: {},
-    discounts: {},
-    faixasDesconto: [],
+    discountPct: 0, // percentual global único aplicado pelo admin
     currentGroup: "todos",
     sortBy: "nome",
     page: 1,
@@ -114,19 +122,24 @@ const app = {
     isRegistered: false,
     user: { name: "", phone: "", email: "" },
     useServer: true,
+    theme: "light", // 'light' | 'dark'
   },
 
   /* ----------------- Bootstrap ----------------- */
   async init() {
     this.loadLocal();
+    this.applyTheme();
     this.checkRegistration();
     this.bindEvents();
     this.renderHeaderUser();
     this.renderGroupGrid();
     this.renderProducts();
     this.updateCartBar();
-    await this.loadDiscountsFromServer();
-    await this.loadFaixasFromServer();
+    await this.loadDiscountFromServer();
+    // Cadastro obrigatório logo na entrada
+    if (!this.state.isRegistered) {
+      this.showRegistrationModal(true);
+    }
   },
 
   bindEvents() {
@@ -136,7 +149,7 @@ const app = {
       )
     );
     let st;
-    document.getElementById("searchInput").addEventListener("input", (e) => {
+    document.getElementById("searchInput").addEventListener("input", () => {
       clearTimeout(st);
       st = setTimeout(() => {
         this.state.page = 1;
@@ -147,6 +160,19 @@ const app = {
       this.state.sortBy = e.target.value;
       this.renderProducts();
     });
+    document.getElementById("themeToggle")?.addEventListener("click", () => {
+      this.toggleTheme();
+    });
+  },
+
+  /* ----------------- Tema ----------------- */
+  applyTheme() {
+    document.documentElement.setAttribute("data-theme", this.state.theme);
+  },
+  toggleTheme() {
+    this.state.theme = this.state.theme === "dark" ? "light" : "dark";
+    this.applyTheme();
+    localStorage.setItem("theme", this.state.theme);
   },
 
   /* ----------------- API ----------------- */
@@ -166,23 +192,26 @@ const app = {
     }
   },
 
-  async loadDiscountsFromServer() {
+  async loadDiscountFromServer() {
     const res = await this.api("descontos");
-    if (res && res.success && res.data) {
-      this.state.discounts = {};
-      res.data.forEach((d) => {
-        this.state.discounts[d.categoria] = parseFloat(d.percentual);
-      });
-      this.renderProducts();
+    if (res && res.success && Array.isArray(res.data)) {
+      // Buscamos a entrada "todos" (desconto global). Para compatibilidade,
+      // caímos para o maior percentual encontrado se não existir "todos".
+      const todos = res.data.find((d) => d.categoria === "todos");
+      if (todos) {
+        this.state.discountPct = parseFloat(todos.percentual) || 0;
+      } else if (res.data.length) {
+        this.state.discountPct = Math.max(
+          ...res.data.map((d) => parseFloat(d.percentual) || 0)
+        );
+      }
       this.updateCartBar();
-    }
-  },
-
-  async loadFaixasFromServer() {
-    const res = await this.api("faixas-desconto");
-    if (res && res.success && res.data) {
-      this.state.faixasDesconto = res.data;
-      this.updateCartBar();
+      if (
+        document.getElementById("tab-meu-pedido") &&
+        !document.getElementById("tab-meu-pedido").classList.contains("hidden")
+      ) {
+        this.renderInvoice();
+      }
     }
   },
 
@@ -193,30 +222,31 @@ const app = {
       this.state.isRegistered = true;
       this.state.user.name = localStorage.getItem("registeredName") || "";
       this.state.user.phone = localStorage.getItem("registeredPhone") || "";
-      this.state.user.email = localStorage.getItem("currentEmail") || "";
+      this.state.user.email = localStorage.getItem("registeredEmail") || "";
     }
   },
 
   requireRegistration() {
     if (!this.state.isRegistered) {
-      this.showRegistrationModal();
+      this.showRegistrationModal(true);
       return false;
     }
     return true;
   },
 
-  showRegistrationModal() {
+  showRegistrationModal(blocking = false) {
     const existing = document.getElementById("registrationModal");
     if (existing) existing.remove();
     const modal = document.createElement("div");
     modal.id = "registrationModal";
+    modal.className = "modal-wrap";
     modal.innerHTML = `
-      <div class="modal-overlay">
+      <div class="modal-overlay${blocking ? " modal-blocking" : ""}">
         <div class="modal-content">
           <div class="modal-header">
             <div class="modal-header-icon">${icon("user")}</div>
-            <h2>Identifique-se para comprar</h2>
-            <p>Precisamos do seu nome e contato para incluir você na compra coletiva.</p>
+            <h2>Bem-vindo à compra coletiva</h2>
+            <p>Informe seu nome, telefone e e-mail para participar da compra. Esses dados são usados apenas para identificar o seu pedido.</p>
           </div>
           <div class="modal-body">
             <div class="form-group">
@@ -228,25 +258,29 @@ const app = {
               <label for="regPhone">Telefone / WhatsApp</label>
               <input type="tel" id="regPhone" placeholder="(00) 00000-0000" />
             </div>
+            <div class="form-group">
+              <label for="regEmail">E-mail</label>
+              <input type="email" id="regEmail" placeholder="seu@email.com" />
+            </div>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-primary btn-block" onclick="app.submitRegistration()">Confirmar cadastro</button>
+            <button class="btn btn-primary btn-block" onclick="app.submitRegistration()">Entrar na compra coletiva</button>
           </div>
         </div>
       </div>`;
     document.body.appendChild(modal);
     setTimeout(() => document.getElementById("regName")?.focus(), 50);
-    document.getElementById("regName").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") this.submitRegistration();
-    });
-    document.getElementById("regPhone").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") this.submitRegistration();
+    ["regName", "regPhone", "regEmail"].forEach((id) => {
+      document.getElementById(id).addEventListener("keydown", (e) => {
+        if (e.key === "Enter") this.submitRegistration();
+      });
     });
   },
 
   submitRegistration() {
     const name = document.getElementById("regName").value.trim();
     const phone = document.getElementById("regPhone").value.trim();
+    const email = document.getElementById("regEmail").value.trim();
     if (!name || name.split(/\s+/).length < 2) {
       this.toast("Digite nome e sobrenome", "error");
       return;
@@ -255,15 +289,21 @@ const app = {
       this.toast("Telefone inválido", "error");
       return;
     }
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      this.toast("E-mail inválido", "error");
+      return;
+    }
     this.state.user.name = name;
     this.state.user.phone = phone;
+    this.state.user.email = email;
     this.state.isRegistered = true;
     localStorage.setItem("userRegistered", "true");
     localStorage.setItem("registeredName", name);
     localStorage.setItem("registeredPhone", phone);
+    localStorage.setItem("registeredEmail", email);
     document.getElementById("registrationModal")?.remove();
     this.renderHeaderUser();
-    this.toast("Cadastro confirmado", "success");
+    this.toast(`Olá, ${name.split(" ")[0]}!`, "success");
     this.updateCartBar();
   },
 
@@ -298,24 +338,9 @@ const app = {
   },
 
   /* ----------------- Descontos ----------------- */
-  getDiscount(catId) {
-    if (this.state.discounts["todos"] > 0) return this.state.discounts["todos"];
-    return this.state.discounts[catId] || 0;
-  },
-  getDiscountedPrice(preco, catId) {
-    const pct = this.getDiscount(catId);
+  applyDiscountTo(preco) {
+    const pct = this.state.discountPct || 0;
     return pct > 0 ? preco * (1 - pct / 100) : preco;
-  },
-  calcFaixaProgressiva(totalBruto) {
-    if (!totalBruto || !this.state.faixasDesconto.length) return 0;
-    const faixa = this.state.faixasDesconto
-      .filter((f) => f.ativo)
-      .find(
-        (f) =>
-          totalBruto >= f.valor_minimo &&
-          (f.valor_maximo === null || totalBruto < f.valor_maximo)
-      );
-    return faixa ? parseFloat(faixa.percentual) : 0;
   },
 
   /* ----------------- Filtragem por grupo ----------------- */
@@ -423,11 +448,9 @@ const app = {
     this.renderPagination(totalPages);
   },
 
+  // Cards mostram APENAS preço cheio — sem desconto.
   renderProductCard(p) {
     const qty = this.state.cart[p.codigo] || 0;
-    const disc = this.getDiscount(p.categoria);
-    const dp = this.getDiscountedPrice(p.preco, p.categoria);
-    const hasDisc = disc > 0;
     const hasImg = p.imagem && p.imagem.length > 100;
 
     const imgHtml = hasImg
@@ -436,12 +459,6 @@ const app = {
            ${icon("package")}
            <span class="ph-code">${fmt.escape(p.codigo)}</span>
          </div>`;
-
-    const priceHtml = hasDisc
-      ? `<span class="price-original">${fmt.brl(p.preco)}</span>
-         <span class="price-main">${fmt.brl(dp)}</span>
-         <span class="discount-tag">-${disc}%</span>`
-      : `<span class="price-main">${fmt.brl(p.preco)}</span>`;
 
     return `
       <div class="product-card ${qty > 0 ? "has-qty" : ""}">
@@ -454,12 +471,14 @@ const app = {
           <div class="product-name" title="${fmt.escape(p.nome)}">${fmt.escape(
       p.nome
     )}</div>
-          <div class="product-prices">${priceHtml}</div>
+          <div class="product-prices">
+            <span class="price-main">${fmt.brl(p.preco)}</span>
+          </div>
           <div class="qty-control">
-            <button class="qty-btn" onclick="app.updateQty('${p.codigo}',-1)">−</button>
+            <button class="qty-btn" onclick="app.updateQty('${p.codigo}',-1)" aria-label="Diminuir">${icon("minus")}</button>
             <input type="number" class="qty-input" value="${qty}" min="0"
               onchange="app.setQty('${p.codigo}',this.value)" />
-            <button class="qty-btn" onclick="app.updateQty('${p.codigo}',1)">+</button>
+            <button class="qty-btn qty-btn-add" onclick="app.updateQty('${p.codigo}',1)" aria-label="Adicionar">${icon("plus")}</button>
           </div>
         </div>
       </div>`;
@@ -539,35 +558,18 @@ const app = {
 
   calcTotals() {
     let bruto = 0;
-    let comDescCategoria = 0;
-    let descontoCategoriaTotal = 0;
     for (const [cod, qty] of Object.entries(this.state.cart)) {
       const p = PRODUTOS.find((x) => x.codigo === cod);
       if (!p) continue;
-      const sub = p.preco * qty;
-      const subD = this.getDiscountedPrice(p.preco, p.categoria) * qty;
-      bruto += sub;
-      comDescCategoria += subD;
-      descontoCategoriaTotal += sub - subD;
+      bruto += p.preco * qty;
     }
-    const faixaPct = this.calcFaixaProgressiva(bruto);
-    let total = comDescCategoria;
-    let descontoFaixa = 0;
-    if (faixaPct > 0) {
-      // A faixa sobrepõe o desconto por categoria (mais vantajoso)
-      const totalComFaixa = bruto * (1 - faixaPct / 100);
-      if (totalComFaixa < comDescCategoria) {
-        descontoFaixa = bruto - totalComFaixa - descontoCategoriaTotal;
-        total = totalComFaixa;
-      }
-    }
+    const pct = this.state.discountPct || 0;
+    const total = bruto * (1 - pct / 100);
     return {
       bruto,
       total,
-      descontoCategoriaTotal,
-      descontoFaixa,
-      faixaPct,
       economia: bruto - total,
+      pct,
     };
   },
 
@@ -583,9 +585,7 @@ const app = {
     document.getElementById("cartTotal").textContent = fmt.brl(t.bruto);
     const td = document.getElementById("cartTotalDisc");
     if (t.economia > 0) {
-      td.textContent = `Você economiza ${fmt.brl(t.economia)} → ${fmt.brl(
-        t.total
-      )}`;
+      td.textContent = `Com ${t.pct}% off: ${fmt.brl(t.total)}`;
     } else {
       td.textContent = "";
     }
@@ -614,6 +614,8 @@ const app = {
     }
 
     const t = this.calcTotals();
+    const pct = t.pct;
+
     const buyer = this.state.isRegistered
       ? `<div class="invoice-buyer">
           <div class="invoice-buyer-avatar">${fmt.initials(
@@ -632,11 +634,10 @@ const app = {
       .map(([cod, qty]) => {
         const p = PRODUTOS.find((x) => x.codigo === cod);
         if (!p) return "";
-        const disc = this.getDiscount(p.categoria);
         const sub = p.preco * qty;
-        const subD = this.getDiscountedPrice(p.preco, p.categoria) * qty;
+        const subD = this.applyDiscountTo(p.preco) * qty;
         const subPriceHtml =
-          disc > 0
+          pct > 0
             ? `<span class="invoice-strike">${fmt.brl(sub)}</span>
                <span class="invoice-final">${fmt.brl(subD)}</span>`
             : `<span class="invoice-final">${fmt.brl(sub)}</span>`;
@@ -647,9 +648,7 @@ const app = {
               <span class="invoice-product-name">${fmt.escape(p.nome)}</span>
               <span class="invoice-product-meta">${fmt.escape(
                 p.codigo
-              )} · ${fmt.brl(p.preco)} un.${
-          disc > 0 ? ` · ${disc}% off` : ""
-        }</span>
+              )} · ${fmt.brl(p.preco)} un.</span>
             </div>
           </td>
           <td>
@@ -701,23 +700,17 @@ const app = {
             <strong>${fmt.brl(t.bruto)}</strong>
           </div>
           ${
-            t.descontoCategoriaTotal > 0
+            pct > 0
               ? `<div class="summary-line discount">
-                <span>Desconto por categoria</span>
-                <strong>− ${fmt.brl(t.descontoCategoriaTotal)}</strong>
+                <span>Desconto aplicado (${pct}%)</span>
+                <strong>− ${fmt.brl(t.economia)}</strong>
               </div>`
-              : ""
-          }
-          ${
-            t.faixaPct > 0
-              ? `<div class="summary-line tier">
-                  ${icon("tag", 'style="width:16px;height:16px"')}
-                  Faixa progressiva ativa: <strong>${t.faixaPct}%</strong> sobre o bruto
-                </div>`
-              : ""
+              : `<div class="summary-line muted">
+                <span>Sem desconto ativo no momento</span>
+              </div>`
           }
           <div class="summary-total">
-            <span>Total</span>
+            <span>Total a pagar</span>
             <strong>${fmt.brl(t.total)}</strong>
           </div>
           ${
@@ -745,7 +738,9 @@ const app = {
     const t = this.calcTotals();
     const msg = `Confirma o envio do pedido?\n\nBruto: ${fmt.brl(
       t.bruto
-    )}\nTotal: ${fmt.brl(t.total)}\nEconomia: ${fmt.brl(t.economia)}`;
+    )}\nDesconto: ${t.pct}%\nTotal: ${fmt.brl(t.total)}\nEconomia: ${fmt.brl(
+      t.economia
+    )}`;
     if (!confirm(msg)) return;
 
     const itens = Object.entries(this.state.cart).map(([cod, qty]) => {
@@ -755,9 +750,7 @@ const app = {
         nome: p?.nome || cod,
         quantidade: qty,
         preco_bruto: p?.preco || 0,
-        preco_desconto: p
-          ? this.getDiscountedPrice(p.preco, p.categoria)
-          : 0,
+        preco_desconto: p ? this.applyDiscountTo(p.preco) : 0,
         categoria: p?.categoria || "",
       };
     });
@@ -829,6 +822,8 @@ const app = {
         </div>
       </div>`;
 
+    const pctAtual = this.state.discountPct || 0;
+
     let html = `
       <div class="stats-grid">
         ${statCard("users", "Compradores", stats.total_compradores || 0)}
@@ -839,34 +834,23 @@ const app = {
       </div>
 
       <div class="card discount-panel">
-        <h3 class="card-title">${icon("tag")} Configurar descontos</h3>
-        <div class="discount-row">
-          <label>Categoria</label>
-          <select id="discCatSelect">
-            <option value="todos">Todas as categorias</option>
-            ${(() => {
-              const seen = new Set();
-              return PRODUTOS.filter((p) => {
-                if (seen.has(p.categoria)) return false;
-                seen.add(p.categoria);
-                return true;
-              })
-                .sort((a, b) => a.categoriaNome.localeCompare(b.categoriaNome))
-                .map(
-                  (p) =>
-                    `<option value="${p.categoria}">${fmt.escape(
-                      p.categoriaNome
-                    )}</option>`
-                )
-                .join("");
-            })()}
-          </select>
+        <h3 class="card-title">${icon("tag")} Desconto global</h3>
+        <p class="card-subtitle">
+          Defina um único percentual que será aplicado a TODOS os produtos.
+          O comprador verá o preço cheio nos cards e o valor com desconto somente no carrinho.
+        </p>
+        <div class="discount-current">
+          <span>Desconto ativo no momento:</span>
+          <strong>${pctAtual}%</strong>
         </div>
         <div class="discount-row">
-          <label>Percentual</label>
-          <input type="number" id="discPctInput" value="0" min="0" max="100" style="width:100px" />
-          <button class="btn btn-primary btn-sm" onclick="app.applyDiscount()">Aplicar</button>
-          <button class="btn btn-secondary btn-sm" onclick="app.clearDiscounts()">Limpar todos</button>
+          <label for="discPctInput">Novo percentual</label>
+          <div class="discount-input-wrap">
+            <input type="number" id="discPctInput" value="${pctAtual}" min="0" max="100" step="1" />
+            <span class="discount-suffix">%</span>
+          </div>
+          <button class="btn btn-primary" onclick="app.applyDiscount()">${icon("check")} Aplicar</button>
+          <button class="btn btn-secondary" onclick="app.clearDiscounts()">Remover desconto</button>
         </div>
       </div>
 
@@ -969,25 +953,34 @@ const app = {
   },
 
   async applyDiscount() {
-    const cat = document.getElementById("discCatSelect").value;
-    const pct = parseFloat(document.getElementById("discPctInput").value) || 0;
-    this.state.discounts[cat] = pct;
-    await this.api("descontos", "POST", { categoria: cat, percentual: pct });
+    const pct = Math.max(
+      0,
+      Math.min(100, parseFloat(document.getElementById("discPctInput").value) || 0)
+    );
+    this.state.discountPct = pct;
+    // Persistimos no backend sob categoria "todos" (compatível com API legada).
+    await this.api("descontos", "POST", {
+      categoria: "todos",
+      percentual: pct,
+    });
     this.saveLocal();
     this.renderProducts();
     this.updateCartBar();
     this.renderAdmin();
-    this.toast(`Desconto de ${pct}% aplicado`, "success");
+    this.toast(
+      pct > 0 ? `Desconto global de ${pct}% aplicado` : "Desconto removido",
+      "success"
+    );
   },
 
   async clearDiscounts() {
-    this.state.discounts = {};
+    this.state.discountPct = 0;
     await this.api("descontos", "DELETE");
     this.saveLocal();
     this.renderProducts();
     this.updateCartBar();
     this.renderAdmin();
-    this.toast("Descontos removidos", "success");
+    this.toast("Desconto removido", "success");
   },
 
   async clearAllOrders() {
@@ -1004,7 +997,8 @@ const app = {
     const con = conRes?.data || [];
     const users = usersRes?.data || [];
     let csv = "\uFEFFCOMPRAS COLETIVAS — VIDA FORTE\n";
-    csv += `Exportado em: ${new Date().toLocaleDateString("pt-BR")}\n\n`;
+    csv += `Exportado em: ${new Date().toLocaleDateString("pt-BR")}\n`;
+    csv += `Desconto global: ${this.state.discountPct}%\n\n`;
     csv += "CONSOLIDADO\nCódigo;Produto;Qtd;Bruto;Final\n";
     con.forEach((i) => {
       csv += `${i.codigo};"${i.nome}";${i.quantidade_total};${parseFloat(
@@ -1015,7 +1009,7 @@ const app = {
     });
     csv += "\nPOR COMPRADOR\n";
     users.forEach((u) => {
-      csv += `\n${u.usuario}\nCódigo;Produto;Qtd;Bruto;Final\n`;
+      csv += `\n${u.usuario} — ${u.telefone || ""} ${u.email || ""}\nCódigo;Produto;Qtd;Bruto;Final\n`;
       (u.itens || []).forEach((it) => {
         csv += `${it.codigo};"${it.nome}";${it.quantidade};${(it.preco_bruto * it.quantidade)
           .toFixed(2)
@@ -1048,19 +1042,26 @@ const app = {
   /* ----------------- LocalStorage ----------------- */
   saveLocal() {
     localStorage.setItem("cart", JSON.stringify(this.state.cart));
-    localStorage.setItem("discounts", JSON.stringify(this.state.discounts));
+    localStorage.setItem("discountPct", String(this.state.discountPct || 0));
   },
   loadLocal() {
     try {
       const c = localStorage.getItem("cart");
-      const d = localStorage.getItem("discounts");
+      const d = localStorage.getItem("discountPct");
+      const theme = localStorage.getItem("theme");
       if (c) this.state.cart = JSON.parse(c);
-      if (d) this.state.discounts = JSON.parse(d);
+      if (d) this.state.discountPct = parseFloat(d) || 0;
+      if (theme === "dark" || theme === "light") this.state.theme = theme;
     } catch (e) {
       this.state.cart = {};
-      this.state.discounts = {};
+      this.state.discountPct = 0;
     }
   },
 };
 
-window.addEventListener("DOMContentLoaded", () => app.init());
+// Inicializa app quando o DOM estiver pronto.
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => app.init());
+} else {
+  app.init();
+}
