@@ -1,11 +1,10 @@
-import { neon } from '@neondatabase/serverless';
+import postgres from 'postgres';
 
 // Supabase — schema isolado compras_coletivas
 // O search_path é definido via options na connection string
 const DB_URL = (process.env.DATABASE_URL || '').includes('?')
   ? process.env.DATABASE_URL + '&options=--search_path%3Dcompras_coletivas'
   : process.env.DATABASE_URL + '?options=--search_path%3Dcompras_coletivas';
-const sql = neon(DB_URL);
 
 const headers = {
   'Content-Type': 'application/json',
@@ -26,7 +25,10 @@ export default async function handler(req) {
   const url = new URL(req.url);
   const path = url.pathname.replace('/api/db', '').replace(/^\//, '');
 
+  let sql;
+
   try {
+    sql = postgres(DB_URL, { max: 1 });
 
     // ===== GET ROUTES =====
     if (req.method === 'GET') {
@@ -253,6 +255,10 @@ export default async function handler(req) {
   } catch (error) {
     console.error('API Error:', error);
     return json({ success: false, error: error.message }, 500);
+  } finally {
+    if (sql) {
+      await sql.end();
+    }
   }
 }
 
