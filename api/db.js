@@ -1,8 +1,8 @@
 import { createClient } from '@vercel/postgres';
 
 // @vercel/postgres funciona em Edge Runtime
-// Precisa de POSTGRES_URL no Vercel (ou POSTGRES_CONNECTION_STRING)
-console.error('[DB.JS] Module loaded - using @vercel/postgres');
+// Lê POSTGRES_URL automaticamente das env vars do Vercel
+// Todas as queries usam schema compras_coletivas via SET search_path
 
 const headers = {
   'Content-Type': 'application/json',
@@ -15,6 +15,13 @@ function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers });
 }
 
+async function getClient() {
+  const client = createClient();
+  await client.connect();
+  await client.sql`SET search_path TO compras_coletivas`;
+  return client;
+}
+
 export default async function handler(req) {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers });
@@ -23,24 +30,16 @@ export default async function handler(req) {
   const url = new URL(req.url);
   const path = url.pathname.replace('/api/db', '').replace(/^\//, '');
 
-  console.error('Debug: DB_URL configured:', !!process.env.DATABASE_URL);
-  console.error('Debug: DB_URL length:', process.env.DATABASE_URL?.length || 0);
-  console.error('Debug: NODE_ENV:', process.env.NODE_ENV);
-
+  let client;
   try {
-    console.error('Debug: Connecting to PostgreSQL...');
-    const connectionString = process.env.POSTGRES_CONNECTION_STRING || process.env.POSTGRES_URL;
-    console.error('Debug: Connection string length:', connectionString?.length || 0);
-    const client = createClient({ connectionString });
-    await client.connect();
-    console.error('Debug: Connected successfully');
+    client = await getClient();
     const sql = client.sql;
 
     // ===== GET ROUTES =====
     if (req.method === 'GET') {
 
       if (path === '' || path === 'health') {
-        const result = await sql`SELECT COUNT(*) as tabelas FROM information_schema.tables WHERE table_schema = 'public'`;
+        const result = await sql`SELECT COUNT(*) as tabelas FROM information_schema.tables WHERE table_schema = 'compras_coletivas'`;
         await client.end();
         return json({
           success: true,
@@ -51,7 +50,7 @@ export default async function handler(req) {
       }
 
       if (path === 'tables') {
-        const rows = await sql`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name`;
+        const rows = await sql`SELECT table_name FROM information_schema.tables WHERE table_schema = 'compras_coletivas' ORDER BY table_name`;
         await client.end();
         return json({ success: true, data: rows });
       }
@@ -177,7 +176,6 @@ export default async function handler(req) {
             VALUES (${usuario}, ${telefone || null}, ${email || null})
             ON CONFLICT DO NOTHING
           `;
-          // Atualizar se já existir
           await sql`
             UPDATE compradores
             SET telefone = COALESCE(${telefone || null}, telefone),
@@ -276,11 +274,8 @@ export default async function handler(req) {
 
   } catch (error) {
     console.error('API Error:', error);
-    console.error('DB_URL configured:', !!process.env.DATABASE_URL);
-    console.error('DB_URL length:', process.env.DATABASE_URL?.length || 0);
-    console.error('NODE_ENV:', process.env.NODE_ENV);
-    console.error('All env vars:', Object.keys(process.env).filter(k => k.includes('DB') || k.includes('POSTGRES')));
-    return json({ success: false, error: error.message, debug: { postgresUrl: !!process.env.POSTGRES_URL, postgresConnectionString: !!process.env.POSTGRES_CONNECTION_STRING } }, 500);
+    if (client) try { await client.end(); } catch (_) {}
+    return json({ success: false, error: error.message }, 500);
   }
 }
 
