@@ -45,8 +45,13 @@ export default async function handler(req) {
   let sql;
 
   try {
+    console.error('Debug: Creating PostgreSQL connection...');
     sql = postgres(DB_URL, { max: 1 });
     console.error('Debug: PostgreSQL connection created');
+
+    // Test connection
+    await sql`SELECT 1`;
+    console.error('Debug: Connection test passed');
 
     // ===== GET ROUTES =====
     if (req.method === 'GET') {
