@@ -224,7 +224,10 @@ export default async function handler(req) {
       if (path === 'admin/login') {
         const { senha } = body;
         const config = await sql`SELECT valor FROM configuracoes WHERE chave = 'admin_senha'`;
-        const adminPwd = config.length > 0 ? config[0].valor : 'admin123';
+        if (!config.length) {
+          return json({ success: false, error: 'Senha de admin não configurada no banco' }, 500);
+        }
+        const adminPwd = config[0].valor;
         if (senha === adminPwd) {
           return json({ success: true, message: 'Login autorizado' });
         }

@@ -34,7 +34,7 @@
         .cart-item{background:var(--bg-card);border:1.5px solid var(--border-l);padding:12px 14px;border-radius:var(--r);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;transition:var(--t);animation:fadeUp .3s ease both}.cart-item:hover{border-color:var(--border)}.cart-item-info h4{font-size:.82rem;font-weight:500;margin-bottom:2px}.cart-item-info small{color:var(--muted);font-size:.73rem}.cart-item-right{display:flex;align-items:center;gap:10px}.cart-item-prices{text-align:right}.cart-item-subtotal{font-family:var(--fd);font-weight:700;font-size:.9rem;color:var(--accent)}.cart-item-disc{font-size:.75rem;color:var(--danger);font-weight:600}.btn-remove{width:26px;height:26px;border:1.5px solid var(--border);background:#fff;border-radius:var(--rs);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--t);color:var(--muted)}.btn-remove:hover{background:var(--danger-bg);border-color:var(--danger);color:var(--danger)}
         .order-total-bar{margin-top:16px;padding:16px 20px;background:var(--accent);color:#fff;border-radius:var(--r)}.order-total-bar h2{font-family:var(--fd);font-size:1.15rem}.order-total-line{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:.88rem;opacity:.9}
         .user-badge{background:var(--accent-bg);color:var(--accent);padding:8px 14px;border-radius:var(--rs);margin-bottom:16px;font-size:.82rem;display:flex;align-items:center;gap:6px}
-        .admin-login{max-width:340px;margin:50px auto;text-align:center}.admin-login h2{font-family:var(--fd);font-size:1.3rem;margin-bottom:6px}.admin-login p{color:var(--text2);font-size:.82rem;margin-bottom:20px}.admin-login input{width:100%;padding:12px;font-size:.88rem;font-family:var(--fb);border:1.5px solid var(--border);border-radius:var(--rs);margin-bottom:12px;text-align:center}.admin-login input:focus{outline:none;border-color:var(--accent)}
+        .admin-login{max-width:340px;margin:50px auto;text-align:center}.admin-login h2{font-family:var(--fd);font-size:1.3rem;margin-bottom:6px}.admin-login p{color:var(--text2);font-size:.82rem;margin-bottom:20px}.admin-login input{width:100%;padding:12px;font-size:.88rem;font-family:var(--fb);border:1.5px solid var(--border);border-radius:var(--rs);margin-bottom:12px;text-align:center}.admin-login input:focus{outline:none;border-color:var(--accent)}.password-wrapper{position:relative}.password-wrapper input{padding-right:50px}.password-toggle{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;color:var(--muted);font-size:18px;transition:var(--t)}.password-toggle:hover{color:var(--accent)}
         .admin-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
         .discount-panel{background:var(--bg-card);border:1.5px solid var(--accent-bg);border-radius:var(--r);padding:16px 18px;margin-bottom:20px}.discount-panel h3{font-size:.9rem;font-weight:600;margin-bottom:10px}.discount-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.discount-row label{font-size:.8rem;color:var(--text2);min-width:70px}.discount-row input,.discount-row select{padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:.82rem;font-family:var(--fb)}.discount-row input:focus,.discount-row select:focus{outline:none;border-color:var(--accent)}
         .stats-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:18px}.stat-card{background:var(--bg-card);border:1.5px solid var(--border-l);border-radius:var(--r);padding:12px;text-align:center}.stat-number{font-family:var(--fd);font-size:1.2rem;font-weight:700;color:var(--accent)}.stat-label{font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
@@ -44,6 +44,29 @@
         .empty-state{text-align:center;padding:50px 20px;color:var(--muted)}.empty-state-icon{font-size:2.5rem;margin-bottom:12px;opacity:.5}.empty-state h3{font-size:1rem;color:var(--text2);margin-bottom:4px}.empty-state p{font-size:.8rem}
         @media(max-width:768px){.header-inner{padding:10px 14px}.logo h1{font-size:1rem}.logo-sub{display:none}.header-user{display:none}.mobile-user{display:block;padding:8px 14px;background:var(--bg-surface);border-bottom:1px solid var(--border)}.mobile-user input{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:.85rem;font-family:var(--fb)}.mobile-user input:focus{outline:none;border-color:var(--accent)}.tabs-wrap{top:50px}.tab{padding:10px 12px;font-size:.76rem}.content{padding:10px 10px 120px}.products-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}.product-img,.no-img{height:90px}.product-body{padding:8px 10px}.product-name{font-size:.74rem;min-height:1.8em}.price-full{font-size:1rem}.price-discount{font-size:.85rem}.cart-bar-inner{flex-direction:column;text-align:center;padding:8px 14px;gap:6px}.cart-item{flex-direction:column;align-items:flex-start;gap:8px}.cart-item-right{width:100%;justify-content:space-between}.admin-toolbar,.discount-row{flex-direction:column;align-items:flex-start}table{font-size:.7rem}th,td{padding:5px 6px}.toast-container{right:8px;left:8px}.toast{max-width:100%}}
         @media(min-width:769px){.mobile-user{display:none}}html{scroll-behavior:smooth}
+        
+        /* Registration Modal */
+        .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000;animation:fadeIn .2s ease}
+        .modal-content{background:var(--bg-card);border-radius:var(--r);width:90%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.2);animation:slideIn .3s ease}
+        .modal-header{padding:20px 24px 12px;text-align:center}
+        .modal-header h2{font-family:var(--fd);font-size:1.3rem;margin-bottom:6px;color:var(--accent)}
+        .modal-header p{font-size:.85rem;color:var(--text2)}
+        .modal-body{padding:12px 24px}
+        .modal-footer{padding:16px 24px 24px;display:flex;justify-content:center}
+        .form-group{margin-bottom:16px}
+        .form-group label{display:block;font-size:.8rem;font-weight:600;margin-bottom:6px;color:var(--text)}
+        .form-group input{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:.9rem;font-family:var(--fb);transition:var(--t)}
+        .form-group input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(45,106,79,.1)}
+        .form-group small{display:block;font-size:.72rem;color:var(--muted);margin-top:4px}
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes slideIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+        
+        /* Registration Card */
+        .registration-card{background:var(--accent-bg);border:1.5px solid var(--accent);border-radius:var(--r);margin-bottom:16px;overflow:hidden}
+        .reg-card-header{background:var(--accent);color:#fff;padding:10px 14px;font-weight:600;font-size:.85rem}
+        .reg-card-body{padding:12px 14px}
+        .reg-field{display:flex;gap:8px;font-size:.85rem;margin-bottom:6px}
+        .reg-label{color:var(--text2)}
     </style>
 </head>
 <body>
@@ -60,7 +83,7 @@
             <div class="pagination" id="pagination"></div>
         </div>
         <div id="tab-meu-pedido" class="tab-content hidden"><div id="myCartContent"></div></div>
-        <div id="tab-admin" class="tab-content hidden"><div id="adminLoginSection" class="admin-login"><h2>Acesso Administrativo</h2><p>Digite a senha para acessar o painel</p><input type="password" id="adminPassword" placeholder="Senha" onkeydown="if(event.key==='Enter')app.loginAdmin()"/><button class="btn btn-primary" style="width:100%" onclick="app.loginAdmin()">Acessar</button></div><div id="adminContent" class="hidden"></div></div>
+        <div id="tab-admin" class="tab-content hidden"><div id="adminLoginSection" class="admin-login"><h2>Acesso Administrativo</h2><p>Digite a senha para acessar o painel</p><div class="password-wrapper"><input type="password" id="adminPassword" placeholder="Senha" onkeydown="if(event.key==='Enter')app.loginAdmin()"/><button type="button" class="password-toggle" onclick="app.togglePasswordVisibility('adminPassword')" id="adminPasswordToggle">👁️</button></div><button class="btn btn-primary" style="width:100%" onclick="app.loginAdmin()">Acessar</button></div><div id="adminContent" class="hidden"></div></div>
     </div>
     <div class="cart-bar empty" id="cartBar"><div class="cart-bar-inner"><div class="cart-info"><span class="cart-count" id="cartCount"></span><span class="cart-total" id="cartTotal"></span><span class="cart-total-disc" id="cartTotalDisc"></span></div><div style="display:flex;gap:8px"><button class="btn btn-secondary" onclick="app.switchTab('meu-pedido')">Ver Pedido</button><button class="btn btn-primary" onclick="app.finalizeOrder()">Finalizar</button></div></div></div>
     <div class="toast-container" id="toastContainer"></div>

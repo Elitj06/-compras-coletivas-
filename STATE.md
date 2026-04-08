@@ -6,7 +6,7 @@
 
 ---
 
-## 🔄 Atualização 2026-04-07 20:35 UTC
+## 🔄 Atualização 2026-04-07 21:37 UTC
 
 **Status:** ✅ CONCLUÍDA
 
@@ -38,8 +38,8 @@
   - Têm foto real de produto, não o selo dourado
 
 ### Arquivos Modificados
-- `/root/projects/compras-coletivas/public/app.js` — cadastro obrigatório
-- `/root/projects/compras-coletivas/index.html` — estilos do modal de registro
+- `/root/projects/compras-coletivas/public/app.js` — cadastro obrigatório + toggle de visualização de senha
+- `/root/projects/compras-coletivas/index.html` — estilos do modal de registro + toggle de senha
 - `/root/projects/compras-coletivas/public/produtos.js` — imagens COQ10 removidas
 - Banco de dados Supabase — categorias agrupadas
 
