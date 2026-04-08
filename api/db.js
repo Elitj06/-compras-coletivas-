@@ -25,10 +25,15 @@ export default async function handler(req) {
   const url = new URL(req.url);
   const path = url.pathname.replace('/api/db', '').replace(/^\//, '');
 
+  console.error('Debug: DB_URL configured:', !!process.env.DATABASE_URL);
+  console.error('Debug: DB_URL length:', process.env.DATABASE_URL?.length || 0);
+  console.error('Debug: NODE_ENV:', process.env.NODE_ENV);
+
   let sql;
 
   try {
     sql = postgres(DB_URL, { max: 1 });
+    console.error('Debug: PostgreSQL connection created');
 
     // ===== GET ROUTES =====
     if (req.method === 'GET') {
