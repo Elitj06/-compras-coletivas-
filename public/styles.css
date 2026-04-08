@@ -1178,3 +1178,63 @@ svg { width: 18px; height: 18px; flex-shrink: 0; }
   .product-card { min-height: 320px; }
   .product-img-wrap { height: 130px !important; max-height: 130px; }
 }
+
+/* ============================================================
+   VARIANT SELECTORS (cards agrupados)
+   ============================================================ */
+.variant-pill {
+  font-size: 0.66rem; font-weight: 700;
+  color: #fff;
+  background: var(--c-brand);
+  padding: 3px 8px; border-radius: 6px;
+  letter-spacing: 0.02em;
+}
+.variant-selectors {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 0 4px;
+}
+.variant-select {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.variant-select > span {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+.variant-select select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235b6b65' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+.variant-select select:hover,
+.variant-select select:focus {
+  border-color: var(--c-brand);
+  outline: none;
+}
+.product-card-group { min-height: 430px; }
+@media (max-width: 768px) {
+  .product-card-group { min-height: 400px; }
+}
+[data-theme="dark"] .variant-select select {
+  background-color: var(--c-surface-2);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239fb3aa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+}

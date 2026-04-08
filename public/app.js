@@ -123,6 +123,8 @@ const app = {
     user: { name: "", phone: "", email: "" },
     useServer: true,
     theme: "light", // 'light' | 'dark'
+    // Variante atualmente selecionada em cada grupo (grupoId -> codigo)
+    variantSelection: {},
   },
 
   /* ----------------- Bootstrap ----------------- */
@@ -343,35 +345,119 @@ const app = {
     return pct > 0 ? preco * (1 - pct / 100) : preco;
   },
 
+  /* ----------------- Entradas do catálogo (com variantes) -----------------
+   * Cada "entry" do catálogo é ou um produto único ou um grupo com variantes.
+   * Formato:
+   *   { kind: 'single', produto }              → produto único
+   *   { kind: 'group',  grupo, variantes[] }   → grupo (dropdown no card)
+   * Cada variante interna é { codigo, flavor, size, produto } onde `produto`
+   * é a linha original de PRODUTOS com preço, imagem etc.
+   * --------------------------------------------------------------------- */
+  buildCatalogEntries() {
+    const byCodigo = Object.fromEntries(PRODUTOS.map((p) => [p.codigo, p]));
+    const grouped = new Set();
+    const entries = [];
+
+    // 1) Grupos de variantes
+    if (typeof VARIANTES !== "undefined") {
+      for (const g of VARIANTES) {
+        const variantesResolvidas = g.variantes
+          .map((v) => ({ ...v, produto: byCodigo[v.codigo] }))
+          .filter((v) => v.produto);
+        if (variantesResolvidas.length < 2) continue; // descarta grupos quebrados
+        variantesResolvidas.forEach((v) => grouped.add(v.codigo));
+        entries.push({
+          kind: "group",
+          grupo: g,
+          variantes: variantesResolvidas,
+        });
+      }
+    }
+
+    // 2) Produtos únicos (não pertencem a nenhum grupo)
+    for (const p of PRODUTOS) {
+      if (!grouped.has(p.codigo)) {
+        entries.push({ kind: "single", produto: p });
+      }
+    }
+    return entries;
+  },
+
+  // Retorna a variante atualmente "ativa" de um grupo (default: primeira).
+  getActiveVariant(entry) {
+    if (entry.kind !== "group") return null;
+    const sel = this.state.variantSelection[entry.grupo.id];
+    return (
+      entry.variantes.find((v) => v.codigo === sel) || entry.variantes[0]
+    );
+  },
+
+  // Nome canônico do entry (para busca/ordenação)
+  entryName(entry) {
+    return entry.kind === "group"
+      ? entry.grupo.nome
+      : entry.produto.nome;
+  },
+  entryPrice(entry) {
+    if (entry.kind === "single") return entry.produto.preco;
+    // Para grupos, usamos o MENOR preço entre as variantes como "a partir de"
+    return Math.min(...entry.variantes.map((v) => v.produto.preco));
+  },
+  // Para filtro por grupo/categoria, delega ao primeiro produto do entry.
+  entryPrimaryProduct(entry) {
+    return entry.kind === "single" ? entry.produto : entry.variantes[0].produto;
+  },
+
   /* ----------------- Filtragem por grupo ----------------- */
   getFilteredProducts() {
     const search = document
       .getElementById("searchInput")
       ?.value.trim()
       .toLowerCase();
-    let list = PRODUTOS.filter((p) => {
-      const matchesSearch =
-        !search ||
-        p.nome.toLowerCase().includes(search) ||
-        p.codigo.toLowerCase().includes(search);
+    const all = this.buildCatalogEntries();
+    let list = all.filter((entry) => {
+      // Busca: casa se qualquer variante ou o nome do grupo bate
+      let matchesSearch = !search;
+      if (!matchesSearch) {
+        if (this.entryName(entry).toLowerCase().includes(search)) {
+          matchesSearch = true;
+        } else if (entry.kind === "single") {
+          matchesSearch =
+            entry.produto.nome.toLowerCase().includes(search) ||
+            entry.produto.codigo.toLowerCase().includes(search);
+        } else {
+          matchesSearch = entry.variantes.some(
+            (v) =>
+              v.produto.nome.toLowerCase().includes(search) ||
+              v.codigo.toLowerCase().includes(search)
+          );
+        }
+      }
+      const primary = this.entryPrimaryProduct(entry);
       const matchesGroup =
         this.state.currentGroup === "todos" ||
-        getProductGroup(p) === this.state.currentGroup;
+        getProductGroup(primary) === this.state.currentGroup;
       return matchesSearch && matchesGroup;
     });
 
     switch (this.state.sortBy) {
       case "preco_asc":
-        list.sort((a, b) => a.preco - b.preco);
+        list.sort((a, b) => this.entryPrice(a) - this.entryPrice(b));
         break;
       case "preco_desc":
-        list.sort((a, b) => b.preco - a.preco);
+        list.sort((a, b) => this.entryPrice(b) - this.entryPrice(a));
         break;
       case "codigo":
-        list.sort((a, b) => a.codigo.localeCompare(b.codigo));
+        list.sort((a, b) =>
+          this.entryPrimaryProduct(a).codigo.localeCompare(
+            this.entryPrimaryProduct(b).codigo
+          )
+        );
         break;
       default:
-        list.sort((a, b) => a.nome.localeCompare(b.nome));
+        list.sort((a, b) =>
+          this.entryName(a).localeCompare(this.entryName(b))
+        );
     }
     return list;
   },
@@ -444,11 +530,17 @@ const app = {
     const start = (this.state.page - 1) * this.state.perPage;
     const items = filtered.slice(start, start + this.state.perPage);
 
-    grid.innerHTML = items.map((p) => this.renderProductCard(p)).join("");
+    grid.innerHTML = items
+      .map((entry) =>
+        entry.kind === "group"
+          ? this.renderGroupCard(entry)
+          : this.renderProductCard(entry.produto)
+      )
+      .join("");
     this.renderPagination(totalPages);
   },
 
-  // Cards mostram APENAS preço cheio — sem desconto.
+  // Card de produto único — preço cheio, sem desconto no visual.
   renderProductCard(p) {
     const qty = this.state.cart[p.codigo] || 0;
     const hasImg = p.imagem && p.imagem.length > 100;
@@ -482,6 +574,135 @@ const app = {
           </div>
         </div>
       </div>`;
+  },
+
+  // Card de grupo com seletor(es) de variante (sabor e/ou tamanho).
+  renderGroupCard(entry) {
+    const g = entry.grupo;
+    const active = this.getActiveVariant(entry);
+    const p = active.produto;
+    const qty = this.state.cart[p.codigo] || 0;
+    const hasImg = p.imagem && p.imagem.length > 100;
+
+    const imgHtml = hasImg
+      ? `<img src="${p.imagem}" alt="${fmt.escape(p.nome)}" loading="lazy" />`
+      : `<div class="product-img-placeholder">
+           ${icon("package")}
+           <span class="ph-code">${fmt.escape(p.codigo)}</span>
+         </div>`;
+
+    // Monta o seletor. Se há sabor e tamanho, são 2 dropdowns.
+    // Se só um, 1 dropdown. A troca aciona app.pickVariant().
+    const selectorsHtml = this.buildVariantSelectors(entry, active);
+    const countVariants = entry.variantes.length;
+
+    return `
+      <div class="product-card product-card-group ${qty > 0 ? "has-qty" : ""}">
+        <div class="product-img-wrap">${imgHtml}</div>
+        <div class="product-body">
+          <div class="product-meta">
+            <span class="product-code">${fmt.escape(p.codigo)}</span>
+            <span class="variant-pill" title="${countVariants} opções disponíveis">${countVariants} opções</span>
+          </div>
+          <div class="product-name" title="${fmt.escape(g.nome)}">${fmt.escape(
+      g.nome
+    )}</div>
+          ${selectorsHtml}
+          <div class="product-prices">
+            <span class="price-main">${fmt.brl(p.preco)}</span>
+          </div>
+          <div class="qty-control">
+            <button class="qty-btn" onclick="app.updateQty('${p.codigo}',-1)" aria-label="Diminuir">${icon("minus")}</button>
+            <input type="number" class="qty-input" value="${qty}" min="0"
+              onchange="app.setQty('${p.codigo}',this.value)" />
+            <button class="qty-btn qty-btn-add" onclick="app.updateQty('${p.codigo}',1)" aria-label="Adicionar">${icon("plus")}</button>
+          </div>
+        </div>
+      </div>`;
+  },
+
+  // Monta os <select> para sabor e/ou tamanho.
+  // A estratégia: quando o grupo tem ambos, cada select filtra o outro
+  // considerando somente as combinações existentes.
+  buildVariantSelectors(entry, active) {
+    const g = entry.grupo;
+    const all = entry.variantes;
+    const parts = [];
+
+    if (g.hasSize) {
+      // Tamanhos disponíveis, opcionalmente filtrados pelo sabor ativo
+      let pool = all;
+      if (g.hasFlavor && active.flavor) {
+        const sameFlavor = all.filter((v) => v.flavor === active.flavor);
+        if (sameFlavor.length) pool = sameFlavor;
+      }
+      const sizes = [];
+      const seen = new Set();
+      for (const v of pool) {
+        const key = v.size || "—";
+        if (!seen.has(key)) {
+          seen.add(key);
+          sizes.push({ key, variante: v });
+        }
+      }
+      if (sizes.length >= 2) {
+        const opts = sizes
+          .map(
+            (s) =>
+              `<option value="${s.variante.codigo}" ${
+                s.variante.codigo === active.codigo ? "selected" : ""
+              }>${fmt.escape(s.key)}</option>`
+          )
+          .join("");
+        parts.push(`
+          <label class="variant-select">
+            <span>Tamanho</span>
+            <select onchange="app.pickVariant('${g.id}', this.value)">${opts}</select>
+          </label>`);
+      }
+    }
+
+    if (g.hasFlavor) {
+      // Sabores, opcionalmente filtrados pelo tamanho ativo
+      let pool = all;
+      if (g.hasSize && active.size) {
+        const sameSize = all.filter((v) => v.size === active.size);
+        if (sameSize.length) pool = sameSize;
+      }
+      const flavors = [];
+      const seen = new Set();
+      for (const v of pool) {
+        const key = v.flavor || "Padrão";
+        if (!seen.has(key)) {
+          seen.add(key);
+          flavors.push({ key, variante: v });
+        }
+      }
+      if (flavors.length >= 2) {
+        const opts = flavors
+          .map(
+            (s) =>
+              `<option value="${s.variante.codigo}" ${
+                s.variante.codigo === active.codigo ? "selected" : ""
+              }>${fmt.escape(s.key)}</option>`
+          )
+          .join("");
+        parts.push(`
+          <label class="variant-select">
+            <span>Sabor</span>
+            <select onchange="app.pickVariant('${g.id}', this.value)">${opts}</select>
+          </label>`);
+      }
+    }
+
+    if (!parts.length) return "";
+    return `<div class="variant-selectors">${parts.join("")}</div>`;
+  },
+
+  // Troca a variante ativa e re-renderiza apenas o card daquele grupo.
+  pickVariant(grupoId, codigo) {
+    this.state.variantSelection[grupoId] = codigo;
+    this.renderProducts();
   },
 
   renderPagination(totalPages) {
