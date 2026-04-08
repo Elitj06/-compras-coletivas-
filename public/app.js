@@ -783,13 +783,70 @@ const app = {
     if (toggle) toggle.innerHTML = icon(showing ? "eye" : "eyeOff");
   },
 
+  // Modal de login administrativo — único ponto de entrada.
+  // A aba "Painel Admin" permanece oculta até autenticação bem-sucedida.
+  promptAdminLogin() {
+    if (this.state.isAdminLoggedIn) {
+      this.switchTab("admin");
+      return;
+    }
+    const existing = document.getElementById("adminLoginModal");
+    if (existing) existing.remove();
+    const modal = document.createElement("div");
+    modal.id = "adminLoginModal";
+    modal.className = "modal-wrap";
+    modal.innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this)this.parentElement.remove()">
+        <div class="modal-content">
+          <div class="modal-header">
+            <div class="modal-header-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <h2>Acesso administrativo</h2>
+            <p>Informe a senha de administrador para abrir o painel de gestão.</p>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="adminLoginPwd">Senha</label>
+              <input type="password" id="adminLoginPwd" placeholder="••••••••" autocomplete="current-password" />
+            </div>
+          </div>
+          <div class="modal-footer" style="display:flex;gap:10px;">
+            <button class="btn btn-ghost" onclick="document.getElementById('adminLoginModal').remove()">Cancelar</button>
+            <button class="btn btn-primary" style="flex:1" onclick="app.loginAdmin()">Entrar</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    setTimeout(() => {
+      const input = document.getElementById("adminLoginPwd");
+      input?.focus();
+      input?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") this.loginAdmin();
+      });
+    }, 50);
+  },
+
   async loginAdmin() {
-    const pwd = document.getElementById("adminPassword").value;
+    const pwdEl =
+      document.getElementById("adminLoginPwd") ||
+      document.getElementById("adminPassword");
+    const pwd = pwdEl?.value || "";
+    if (!pwd) {
+      this.toast("Digite a senha", "error");
+      return;
+    }
     const res = await this.api("admin/login", "POST", { senha: pwd });
     if (res && res.success) {
       this.state.isAdminLoggedIn = true;
-      document.getElementById("adminLoginSection").classList.add("hidden");
-      document.getElementById("adminContent").classList.remove("hidden");
+      const tabAdmin = document.getElementById("tabAdmin");
+      if (tabAdmin) tabAdmin.hidden = false;
+      document
+        .getElementById("adminLoginSection")
+        ?.classList.add("hidden");
+      document.getElementById("adminContent")?.classList.remove("hidden");
+      document.getElementById("adminLoginModal")?.remove();
+      this.switchTab("admin");
       await this.renderAdmin();
       this.toast("Acesso liberado", "success");
     } else {
@@ -858,12 +915,25 @@ const app = {
         <button class="btn btn-secondary" onclick="app.renderAdmin()">${icon(
           "refresh"
         )} Atualizar</button>
+        <button class="btn btn-primary" onclick="app.exportPedidoFornecedor()">${icon(
+          "download"
+        )} Exportar pedido (Excel)</button>
         <button class="btn btn-success" onclick="app.exportCSV()">${icon(
           "download"
         )} Exportar CSV</button>
         <button class="btn btn-danger" onclick="app.clearAllOrders()">${icon(
           "trash"
         )} Apagar pedidos</button>
+      </div>
+
+      <div class="card report-card supplier-report" style="margin-bottom:16px">
+        <div class="report-header">${icon("box")} Pedido consolidado para o fornecedor</div>
+        <p class="card-subtitle" style="padding:0 20px 12px">
+          Soma total de cada produto considerando todos os compradores. Use o botão
+          <strong>Exportar pedido (Excel)</strong> acima para baixar uma planilha pronta
+          para ser enviada à Vitafor.
+        </p>
+        ${this.renderSupplierOrderTable(con)}
       </div>
 
       <div class="card report-card" style="margin-bottom:16px">
@@ -989,6 +1059,153 @@ const app = {
     await this.api("pedidos", "DELETE");
     this.renderAdmin();
     this.toast("Pedidos apagados", "info");
+  },
+
+  // Tabela pronta para copy/paste no Excel do fornecedor.
+  renderSupplierOrderTable(con) {
+    if (!con.length)
+      return `<div style="padding:24px;text-align:center;color:var(--c-text-muted)">Nenhum pedido registrado ainda.</div>`;
+    // Ordena por nome para facilitar localização no catálogo Vitafor
+    const sorted = [...con].sort((a, b) =>
+      String(a.nome).localeCompare(String(b.nome))
+    );
+    let totalQtd = 0;
+    let totalValor = 0;
+    const rows = sorted
+      .map((i) => {
+        const qtd = parseInt(i.quantidade_total);
+        const valor = parseFloat(i.total_bruto);
+        totalQtd += qtd;
+        totalValor += valor;
+        return `<tr>
+          <td><strong>${fmt.escape(i.codigo)}</strong></td>
+          <td>${fmt.escape(i.nome)}</td>
+          <td style="text-align:center;font-weight:700;font-size:1.05rem;color:var(--c-brand)">${qtd}</td>
+          <td>${fmt.brl(valor)}</td>
+        </tr>`;
+      })
+      .join("");
+    return `
+      <table class="data-table supplier-table">
+        <thead>
+          <tr>
+            <th style="width:110px">Código</th>
+            <th>Produto</th>
+            <th style="width:100px;text-align:center">Qtd. total</th>
+            <th style="width:140px">Valor bruto</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+          <tr class="total-row">
+            <td colspan="2">TOTAL GERAL</td>
+            <td style="text-align:center">${totalQtd}</td>
+            <td>${fmt.brl(totalValor)}</td>
+          </tr>
+        </tbody>
+      </table>`;
+  },
+
+  async exportPedidoFornecedor() {
+    const conRes = await this.api("pedidos/consolidado");
+    const con = conRes?.data || [];
+    if (!con.length) {
+      this.toast("Nenhum pedido para exportar", "error");
+      return;
+    }
+    if (typeof XLSX === "undefined") {
+      this.toast("Biblioteca Excel indisponível", "error");
+      return;
+    }
+    const sorted = [...con].sort((a, b) =>
+      String(a.nome).localeCompare(String(b.nome))
+    );
+    // Linha de cabeçalho + dados
+    const aoa = [
+      ["PEDIDO CONSOLIDADO — COMPRA COLETIVA VIDA FORTE"],
+      [`Gerado em: ${new Date().toLocaleString("pt-BR")}`],
+      [`Desconto global aplicado: ${this.state.discountPct}%`],
+      [],
+      ["Código", "Produto", "Quantidade", "Valor unitário", "Valor bruto", "Valor final"],
+    ];
+    let totalQtd = 0,
+      totalBruto = 0,
+      totalFinal = 0;
+    sorted.forEach((i) => {
+      const qtd = parseInt(i.quantidade_total);
+      const vb = parseFloat(i.total_bruto);
+      const vf = parseFloat(i.total_final);
+      const unit = qtd > 0 ? vb / qtd : 0;
+      totalQtd += qtd;
+      totalBruto += vb;
+      totalFinal += vf;
+      aoa.push([i.codigo, i.nome, qtd, unit, vb, vf]);
+    });
+    aoa.push([]);
+    aoa.push(["TOTAL GERAL", "", totalQtd, "", totalBruto, totalFinal]);
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    // Larguras de coluna
+    ws["!cols"] = [
+      { wch: 14 },
+      { wch: 60 },
+      { wch: 12 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 14 },
+    ];
+    // Merge do título
+    ws["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 5 } },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Pedido Fornecedor");
+
+    // Segunda aba: por comprador
+    const usersRes = await this.api("pedidos/por-usuario");
+    const users = usersRes?.data || [];
+    if (users.length) {
+      const aoa2 = [
+        ["PEDIDO DETALHADO POR COMPRADOR"],
+        [],
+        ["Comprador", "Telefone", "E-mail", "Código", "Produto", "Qtd", "Bruto", "Final"],
+      ];
+      users.forEach((u) => {
+        (u.itens || []).forEach((it) => {
+          aoa2.push([
+            u.usuario,
+            u.telefone || "",
+            u.email || "",
+            it.codigo,
+            it.nome,
+            it.quantidade,
+            it.preco_bruto * it.quantidade,
+            it.preco_desconto * it.quantidade,
+          ]);
+        });
+      });
+      const ws2 = XLSX.utils.aoa_to_sheet(aoa2);
+      ws2["!cols"] = [
+        { wch: 28 },
+        { wch: 16 },
+        { wch: 26 },
+        { wch: 12 },
+        { wch: 50 },
+        { wch: 8 },
+        { wch: 12 },
+        { wch: 12 },
+      ];
+      ws2["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }];
+      XLSX.utils.book_append_sheet(wb, ws2, "Por Comprador");
+    }
+
+    const filename = `pedido_fornecedor_${
+      new Date().toISOString().split("T")[0]
+    }.xlsx`;
+    XLSX.writeFile(wb, filename);
+    this.toast("Planilha exportada", "success");
   },
 
   async exportCSV() {
