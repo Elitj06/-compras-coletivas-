@@ -256,7 +256,9 @@ export default async function handler(req) {
     console.error('API Error:', error);
     console.error('DB_URL configured:', !!process.env.DATABASE_URL);
     console.error('DB_URL length:', process.env.DATABASE_URL?.length || 0);
-    return json({ success: false, error: error.message, debug: { dbConfigured: !!process.env.DATABASE_URL, dbLength: process.env.DATABASE_URL?.length || 0 } }, 500);
+    console.error('NODE_ENV:', process.env.NODE_ENV);
+    console.error('All env vars:', Object.keys(process.env).filter(k => k.includes('DB') || k.includes('POSTGRES')));
+    return json({ success: false, error: error.message, debug: { dbConfigured: !!process.env.DATABASE_URL, dbLength: process.env.DATABASE_URL?.length || 0, nodeEnv: process.env.NODE_ENV, dbVars: Object.keys(process.env).filter(k => k.includes('DB') || k.includes('POSTGRES')) } }, 500);
   } finally {
     if (sql) {
       await sql.end();
