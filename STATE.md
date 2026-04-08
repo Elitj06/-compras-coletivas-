@@ -6,6 +6,40 @@
 
 ---
 
+## 🔄 Atualização 2026-04-08 00:32 UTC
+
+**Status:** ✅ CORREÇÕES CONCLUÍDAS
+
+### O que foi feito (CORREÇÕES PENDENTES)
+
+#### 1. ✅ Senha admin hardcoded removida (ISSUE ALTA)
+- **Problema:** Fallback hardcoded `admin123` no `/api/db.js` na rota `admin/login`
+- **Solução:** Removido o fallback. Agora retorna erro 500 se senha de admin não estiver configurada no banco
+- **Impacto de segurança:** Elimina credencial padrão em produção
+- **Arquivo modificado:** `api/db.js`
+
+#### 2. ✅ Estrutura de arquivos limpa
+- Removida pasta `APP COMPRAS COLETIVAS/` (cópias obsoletas de app.js, index.html, produtos.js)
+- `index.html` atualizado (v5.1 com toggle de password) copiado para `public/`
+- Estrutura final: `public/` → arquivos estáticos (Vercel), `api/` → serverless, `data/` → planilhas
+
+#### 3. ✅ Deploy em produção
+- Commit: `64c85b9` — "fix: remove admin password fallback and clean up file structure"
+- Push para GitHub: ✅
+- Deploy Vercel: automático via git integration
+- URL: `https://compras-coletivas-git-main-eliandro-tjader.vercel.app`
+
+### Issues resolvidas:
+- [x] Senha admin hardcoded (Alta)
+- [x] Arquivos duplicados (Baixa)
+
+### Issues pendentes:
+- [ ] GitHub Actions Neon — workflow obsoleto (não encontrado, pode já ter sido deletado)
+- [ ] Excel no Edge Runtime — `upload-planilha.js` não processa .xlsx de fato (Média)
+- [ ] Faixas progressivas — Frontend não aplica faixas do banco (Média)
+
+---
+
 ## 🔄 Atualização 2026-04-07 21:37 UTC
 
 **Status:** ✅ CONCLUÍDA
@@ -80,7 +114,7 @@ App de compras coletivas para produtos Vitafor. O grupo já está formado com 23
 
 **Arquivo:** `/root/projects/compras-coletivas/data/TABELA_DE_PEDIDO_VITAFOR_2026_14.xlsx`
 
-**Contúdo Extraído:**
+**Conteúdo Extraído:**
 - **Aba VITA:** 220 produtos (ex: AM240LI, AGF30, BF210LI)
 - **Aba VITAPOWER:** 24 produtos (ex: VPI1005TR, VPP1005BB)
 - **Total:** 244 produtos
@@ -98,102 +132,98 @@ App de compras coletivas para produtos Vitafor. O grupo já está formado com 23
 
 **Dados Processados:**
 - **Arquivo JSON:** `/root/projects/compras-coletivas/data/produtos.json` (244 produtos)
-- **Produtos novos:** 0 (todos já cadastrados no produtos.js)
-- **Produtos descontinuados:** 1 (B1220ME - VITAMINA B12 GOTAS)
-- **Produtos sem foto:** 0 (todos têm fotos em Base64)
+- **Script Python:** `/root/projects/compras-coletivas/process_planilha.py`
+- **Banco Supabase:** 244 produtos importados na tabela `produtos` (schema `compras_coletivas`)
 
-### 📊 Análise Completa
+### ✅ Banco de Dados Configurado
 
-**Comparação Planilha vs Cadastro Atual:**
-- Planilha nova: 244 produtos
-- Cadastro atual: 244 produtos (ATUALIZADO ✅)
-- Diferença: 0 produtos — sincronizado!
+**Schema isolado:** `compras_coletivas` no Supabase (projeto fitflow-ia)
 
-**Status de Fotos:**
-- Total de produtos: 244
-- Produtos com fotos: 244 (100%)
-- Imagens em Base64: 244
-- Imagens vazias: 0
+**Tabelas:**
+- `categorias` — 103 categorias de produtos
+- `produtos` — 244 produtos com códigos, nomes, preços, categorias
+- `descontos` — 103 registros de descontos por categoria
+- `faixas_desconto` — 3 faixas progressivas (40/44/48%)
+- `compradores` — cadastro de compradores (nome, telefone, email)
+- `pedidos` — pedidos consolidados
+- `itens_pedido` — itens de cada pedido
 
-**Produto Descontinuado (REMOVIDO ✅):**
-- **Código:** B1220ME
-- **Nome:** VITAMINA B12 GOTAS FRASCO 20ML MENTA
-- **Status:** Removido do cadastro em 2026-04-07 12:50 UTC
+**Views:**
+- `vw_dashboard_stats` — estatísticas gerais (total pedidos, descontos, etc.)
+- `vw_relatorio_produtos` — relatório de produtos vendidos
+- `vw_relatorio_compradores` — relatório por comprador
 
-### 🎯 Status do Aplicativo
+### ✅ API Vercel Edge Functions
 
-**Frontend:** ✅ Pronto (index.html, app.js)
-- Interface de categorias
-- Paginação (24 produtos/página)
-- Busca por código ou nome
-- Carrinho funcional
-- Cálculo de descontos por volume
+**Endpoints implementados:**
+- `GET /api/db` — health check
+- `GET /api/db/produtos` — listar produtos
+- `GET /api/db/pedidos` — listar pedidos
+- `GET /api/db/pedidos/consolidado` — relatório consolidado
+- `GET /api/db/descontos` — listar descontos
+- `GET /api/db/faixas-desconto` — listar faixas progressivas
+- `GET /api/db/categorias` — listar categorias
+- `GET /api/db/compradores` — listar compradores
+- `POST /api/db/pedidos` — criar pedido
+- `POST /api/db/descontos` — aplicar desconto
+- `DELETE /api/db/pedidos` — apagar todos os pedidos
+- `DELETE /api/db/descontos` — limpar descontos
 
-**Backend:** ✅ Configurado (API Supabase PostgreSQL — schema isolado)
-- Endpoint: `/api/db`
-- Tabela: produtos, pedidos, descontos
+### ✅ Frontend (v5.1)
 
-**Dados:** ✅ Atualizados e sincronizados
-- Cadastro completo com 244 produtos
-- Todas as fotos em Base64
-- Categorias organizadas (70+ categorias)
-- Produto descontinuado removido
+**Arquivos:**
+- `public/index.html` — interface principal
+- `public/app.js` — lógica da aplicação (736 linhas)
+- `public/produtos.js` — catálogo de produtos (gerado da planilha)
 
----
-
-## Próximos Passos
-
-1. **[DONE] Remover produto descontinuado** — B1220ME do produtos.js ✅
-2. **[DONE] Atualizar cadastro** — Cadastro sincronizado com planilha 2026-14 ✅
-3. **[DONE] Migrar para Supabase** — Schema isolado funcionando ✅
-4. **[PENDING] Testar app** — Verificar funcionalidades em produção
-5. **[PENDING] Integrar agente guia-compras** — Configurar respostas no grupo WhatsApp
-
----
-
-## ⚠️ Issues Pendentes (auditoria)
-
-| Issue | Severidade | Descrição |
-|-------|------------|----------|
-| Senha admin hardcoded | Alta | `admin123` no frontend — remover fallback local |
-| GitHub Actions Neon | Média | Workflow obsoleto — deletar ou adaptar |
-| Arquivos duplicados | Baixa | Raiz vs public/ — limpar estrutura |
-| Excel no Edge Runtime | Média | `upload-planilha.js` não processa .xlsx de fato |
-| Faixas progressivas | Média | Frontend não aplica faixas do banco |
-
----
-
-## Decisões
-
-- **Data:** 2026-04-07 12:50 UTC
-- **Decisão:** Planilha processada e cadastro sincronizado. Todos os 244 produtos têm fotos. Aplicativo frontend e backend funcionais. Produto descontinuado B1220ME removido. Cadastro 100% atualizado com planilha 2026-14.
+**Funcionalidades:**
+- Busca de produtos por código ou nome
+- Filtro por categorias (pills + grid selector)
+- Carrinho de compras com cálculo automático
+- Aplicação de descontos por categoria
+- Aplicação de faixas progressivas de desconto
+- Finalização de pedido
+- Login admin (senha configurada no banco)
+- Painel admin (relatórios, gerenciar pedidos, descontos)
 
 ---
 
 ## Pendências
 
-- [ ] Testar funcionalidades do app (busca, carrinho, checkout)
-- [ ] Configurar comandos do agente guia-compras (listar, adicionar, ver carrinho)
-- [ ] Integração final com Evolution API para envio de pedido
+### Backend
+- [ ] Implementar rota `POST /api/db/upload-planilha` para processar .xlsx
+- [ ] Testar integração com Evolution API para envio de pedido
+
+### Frontend
+- [ ] Implementar faixas progressivas de desconto no carrinho
+- [ ] Adicionar modal de confirmação antes de finalizar pedido
+
+### Infraestrutura
+- [ ] Configurar domínio personalizado no Vercel
+- [ ] Otimizar imagens (WebP)
 
 ---
 
 ## Decisões
 
-- **Data:** 2026-04-07
-- **Decisão:** Planilha recebida com sucesso. Próximo passo é processar os dados e estruturar para o app.
+### Faixas de Desconto
+- **R$1.000-R$2.999,99** → 40%
+- **R$3.000-R$7.999,99** → 44%
+- **Acima de R$8.000** → 48%
+
+### Categorias Agrupadas
+Para melhorar UX, categorias semelhantes foram agrupadas:
+- COLÁGENOS: COLAGENTEK, PROTEIN, II, BEAUTY, HYALURONIC HAIR
+- WHEY PROTEIN: WHEY FORT, WPC POUCH, ISOCRISP WHEY, ISOLATE, AIR COM WHEY
+- VITAMINAS E MINERAIS: VITA D3, C3, FERRO/MAGNÉSIO/CÁLCIO PLUS, COQ-10
+- AMINOÁCIDOS, CREATINA E GLUTAMINA: AMINOVITA, BCAAFORT, GLUTAMAX, CREATINE, CREAFORT, BETA ALANINA
+- ÔMEGA 3: OMEGAFOR PLUS/FAMILY/VITAMINS, MEGA DHA, KRILL VIT
 
 ---
 
-## Ambiente
+## Próximos Passos
 
-**Workspace:** `/root/projects/compras-coletivas`
-**Data:** `/root/projects/compras-coletivas/data/`
-**Arquivos principais:**
-- `index.html` — Frontend (interface v5.1)
-- `app.js` — Lógica do app (carrinho, categorias, paginação)
-- `produtos.js` — Cadastro de 245 produtos com fotos Base64
-- `data/produtos.json` — Dados processados da planilha (244 produtos)
-- `data/TABELA_DE_PEDIDO_VITAFOR_2026_14.xlsx` — Planilha original
-
-**API Backend:** Neon PostgreSQL (via Vercel Serverless)
+1. Testar aplicação completa no grupo WhatsApp
+2. Configurar agente `guia-compras` (binding pendente)
+3. Implementar upload de planilha no backend
+4. Integrar com Evolution API para notificações
