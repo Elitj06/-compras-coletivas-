@@ -1,10 +1,14 @@
 import postgres from 'postgres';
 
+console.error('[DB.JS] Module loaded');
+
 // Supabase — schema isolado compras_coletivas
 // O search_path é definido via options na connection string
 const DB_URL = (process.env.DATABASE_URL || '').includes('?')
   ? process.env.DATABASE_URL + '&options=--search_path%3Dcompras_coletivas'
   : process.env.DATABASE_URL + '?options=--search_path%3Dcompras_coletivas';
+
+console.error('[DB.JS] DB_URL length:', DB_URL.length);
 
 const headers = {
   'Content-Type': 'application/json',
