@@ -1,13 +1,8 @@
-import { createClient } from '@vercel/postgres';
+import { sql } from '@vercel/postgres';
 
 // @vercel/postgres funciona em Edge Runtime
 // Precisa de POSTGRES_URL no Vercel (ou POSTGRES_CONNECTION_STRING)
 console.error('[DB.JS] Module loaded - using @vercel/postgres');
-
-// Criar cliente explicitamente com POSTGRES_CONNECTION_STRING
-const connectionString = process.env.POSTGRES_CONNECTION_STRING || process.env.POSTGRES_URL;
-const client = createClient({ connectionString });
-const sql = client.sql;
 
 const headers = {
   'Content-Type': 'application/json',
@@ -33,9 +28,8 @@ export default async function handler(req) {
   console.error('Debug: NODE_ENV:', process.env.NODE_ENV);
 
   try {
-    console.error('Debug: Connecting to PostgreSQL...');
-    await client.connect();
-    console.error('Debug: Connected successfully');
+    console.error('Debug: Testing PostgreSQL connection...');
+    // @vercel/postgres já cria pool automaticamente
 
     // ===== GET ROUTES =====
     if (req.method === 'GET') {
@@ -261,12 +255,11 @@ export default async function handler(req) {
 
   } catch (error) {
     console.error('API Error:', error);
-    console.error('Connection string configured:', !!connectionString);
+    console.error('DB_URL configured:', !!process.env.DATABASE_URL);
+    console.error('DB_URL length:', process.env.DATABASE_URL?.length || 0);
     console.error('NODE_ENV:', process.env.NODE_ENV);
     console.error('All env vars:', Object.keys(process.env).filter(k => k.includes('DB') || k.includes('POSTGRES')));
     return json({ success: false, error: error.message, debug: { postgresUrl: !!process.env.POSTGRES_URL, postgresConnectionString: !!process.env.POSTGRES_CONNECTION_STRING } }, 500);
-  } finally {
-    await client.end();
   }
 }
 
