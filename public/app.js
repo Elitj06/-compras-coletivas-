@@ -1455,6 +1455,10 @@ const app = {
   },
 
   async applyDiscount() {
+    if (!this.state.isAdminLoggedIn) {
+      this.toast("Apenas o administrador pode alterar o desconto", "error");
+      return;
+    }
     const pct = Math.max(
       0,
       Math.min(100, parseFloat(document.getElementById("discPctInput").value) || 0)
@@ -1476,6 +1480,10 @@ const app = {
   },
 
   async clearDiscounts() {
+    if (!this.state.isAdminLoggedIn) {
+      this.toast("Apenas o administrador pode remover o desconto", "error");
+      return;
+    }
     this.state.discountPct = 0;
     await this.api("descontos", "DELETE");
     this.saveLocal();
