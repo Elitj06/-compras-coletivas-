@@ -261,6 +261,15 @@ export default async function handler(req) {
         await client.end();
         return json({ success: true, message: 'Todos os pedidos foram apagados' });
       }
+      const pedidoMatch = path.match(/^pedidos\/(\d+)$/);
+      if (pedidoMatch) {
+        const pid = parseInt(pedidoMatch[1]);
+        await client.query('DELETE FROM itens_pedido WHERE pedido_id = $1', [pid]);
+        const r = await client.query('DELETE FROM pedidos WHERE id = $1 RETURNING id', [pid]);
+        await client.end();
+        if (!r.rowCount) return json({ success: false, error: 'Pedido não encontrado' }, 404);
+        return json({ success: true, message: `Pedido ${pid} cancelado` });
+      }
       if (path === 'descontos') {
         await client.query('UPDATE descontos SET ativo = FALSE');
         await client.end();

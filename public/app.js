@@ -125,6 +125,7 @@ const app = {
     theme: "light", // 'light' | 'dark'
     // Variante atualmente selecionada em cada grupo (grupoId -> codigo)
     variantSelection: {},
+    lastOrder: null,
   },
 
   /* ----------------- Bootstrap ----------------- */
@@ -849,6 +850,13 @@ const app = {
   renderInvoice() {
     const c = document.getElementById("myCartContent");
     const items = Object.entries(this.state.cart);
+
+    // Se o carrinho está vazio e existe um pedido enviado, mostra o pedido.
+    if (!items.length && this.state.lastOrder) {
+      c.innerHTML = this.renderSentOrder(this.state.lastOrder);
+      return;
+    }
+
     if (!items.length) {
       c.innerHTML = `
         <div class="card">
@@ -976,6 +984,86 @@ const app = {
       </div>`;
   },
 
+  /* Renderiza o pedido enviado para revisão do comprador. */
+  renderSentOrder(order) {
+    const dt = new Date(order.data);
+    const dataFmt = dt.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    const rows = order.itens
+      .map((it) => {
+        const sub = (it.preco_bruto || 0) * it.quantidade;
+        const subD = (it.preco_desconto || it.preco_bruto || 0) * it.quantidade;
+        const subHtml =
+          order.discountPct > 0
+            ? `<span class="invoice-strike">${fmt.brl(sub)}</span>
+               <span class="invoice-final">${fmt.brl(subD)}</span>`
+            : `<span class="invoice-final">${fmt.brl(sub)}</span>`;
+        return `
+          <tr>
+            <td>
+              <div class="invoice-product">
+                <span class="invoice-product-name">${fmt.escape(it.nome)}</span>
+                <span class="invoice-product-meta">${fmt.escape(it.codigo)} · ${fmt.brl(it.preco_bruto || 0)} un.</span>
+              </div>
+            </td>
+            <td style="text-align:center">${it.quantidade}</td>
+            <td>${subHtml}</td>
+          </tr>`;
+      })
+      .join("");
+
+    return `
+      <div class="sent-order-banner">
+        ${icon("check")}
+        <div>
+          <strong>Pedido enviado</strong>
+          <small>${order.id ? "Nº " + order.id + " · " : ""}${dataFmt}</small>
+        </div>
+      </div>
+      <div class="invoice-grid">
+        <div>
+          <div class="card">
+            <h3 class="card-title">${icon("receipt")} Itens do pedido</h3>
+            <div style="overflow-x:auto">
+              <table class="invoice-table">
+                <thead>
+                  <tr>
+                    <th>Produto</th>
+                    <th style="text-align:center">Qtd</th>
+                    <th>Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <aside class="invoice-summary">
+          <h3>Resumo</h3>
+          <div class="summary-line">
+            <span>Total bruto</span>
+            <strong>${fmt.brl(order.totalBruto)}</strong>
+          </div>
+          ${
+            order.discountPct > 0
+              ? `<div class="summary-line discount">
+                  <span>Desconto (${order.discountPct}%)</span>
+                  <strong>− ${fmt.brl(order.economia)}</strong>
+                </div>`
+              : ""
+          }
+          <div class="summary-total">
+            <span>Total a pagar</span>
+            <strong>${fmt.brl(order.totalFinal)}</strong>
+          </div>
+          <div class="summary-actions">
+            <button class="btn btn-secondary btn-block" onclick="app.reopenLastOrder()">Editar pedido</button>
+            <button class="btn btn-danger btn-block" onclick="app.cancelLastOrder()">Cancelar pedido</button>
+            <button class="btn btn-ghost btn-block" onclick="app.switchTab('produtos')">Voltar aos produtos</button>
+          </div>
+        </aside>
+      </div>`;
+  },
+
   /* ----------------- Finalizar pedido ----------------- */
   async finalizeOrder() {
     if (!this.requireRegistration()) return;
@@ -1015,11 +1103,57 @@ const app = {
       this.toast("Pedido salvo localmente", "info");
     }
 
+    // Persiste o pedido enviado para o comprador visualizar depois
+    this.state.lastOrder = {
+      id: res && res.pedido_id ? res.pedido_id : null,
+      data: new Date().toISOString(),
+      usuario: this.state.user.name,
+      telefone: this.state.user.phone,
+      email: this.state.user.email,
+      itens,
+      discountPct: t.pct,
+      totalBruto: t.bruto,
+      totalFinal: t.total,
+      economia: t.economia,
+    };
+
     this.state.cart = {};
     this.saveLocal();
     this.updateCartBar();
     this.renderProducts();
     this.renderInvoice();
+  },
+
+  /* Cancelar pedido já enviado: remove do banco e limpa localmente. */
+  async cancelLastOrder() {
+    const last = this.state.lastOrder;
+    if (!last) return;
+    if (!confirm("Cancelar este pedido? Esta ação não pode ser desfeita.")) return;
+    if (last.id) {
+      const res = await this.api(`pedidos/${last.id}`, "DELETE");
+      if (res && res.success) {
+        this.toast("Pedido cancelado", "success");
+      } else {
+        this.toast("Não foi possível cancelar no servidor", "error");
+        return;
+      }
+    } else {
+      this.toast("Pedido removido localmente", "info");
+    }
+    this.state.lastOrder = null;
+    this.saveLocal();
+    this.renderInvoice();
+  },
+
+  /* Reabre o pedido enviado voltando os itens para o carrinho para edição. */
+  reopenLastOrder() {
+    const last = this.state.lastOrder;
+    if (!last) return;
+    if (!confirm("Editar este pedido? Os itens voltarão ao carrinho e o pedido atual será cancelado.")) return;
+    last.itens.forEach((it) => {
+      this.state.cart[it.codigo] = (this.state.cart[it.codigo] || 0) + it.quantidade;
+    });
+    this.cancelLastOrder();
   },
 
   /* ----------------- Admin ----------------- */
@@ -1174,18 +1308,14 @@ const app = {
         )} Apagar pedidos</button>
       </div>
 
-      <div class="card report-card supplier-report" style="margin-bottom:16px">
-        <div class="report-header">${icon("box")} Pedido consolidado para o fornecedor</div>
-        <p class="card-subtitle" style="padding:0 20px 12px">
-          Soma total de cada produto considerando todos os compradores. Use o botão
-          <strong>Exportar pedido (Excel)</strong> acima para baixar uma planilha pronta
-          para ser enviada à Vitafor.
-        </p>
-        ${this.renderSupplierOrderTable(con)}
-      </div>
-
       <div class="card report-card" style="margin-bottom:16px">
-        <div class="report-header">${icon("chart")} Consolidado por produto</div>
+        <div class="report-header">${icon("box")} Pedido consolidado por produto</div>
+        <p class="card-subtitle" style="padding:0 20px 12px">
+          Soma total de cada produto considerando todos os compradores, com valores
+          bruto (sem desconto) e final (com desconto aplicado). Use o botão
+          <strong>Exportar pedido (Excel)</strong> acima para gerar uma planilha pronta
+          para envio à Vitafor.
+        </p>
         ${this.renderConsolidatedTable(con)}
       </div>
 
@@ -1508,15 +1638,18 @@ const app = {
   saveLocal() {
     localStorage.setItem("cart", JSON.stringify(this.state.cart));
     localStorage.setItem("discountPct", String(this.state.discountPct || 0));
+    localStorage.setItem("lastOrder", JSON.stringify(this.state.lastOrder || null));
   },
   loadLocal() {
     try {
       const c = localStorage.getItem("cart");
       const d = localStorage.getItem("discountPct");
       const theme = localStorage.getItem("theme");
+      const lo = localStorage.getItem("lastOrder");
       if (c) this.state.cart = JSON.parse(c);
       if (d) this.state.discountPct = parseFloat(d) || 0;
       if (theme === "dark" || theme === "light") this.state.theme = theme;
+      if (lo && lo !== "null") this.state.lastOrder = JSON.parse(lo);
     } catch (e) {
       this.state.cart = {};
       this.state.discountPct = 0;
