@@ -50,6 +50,10 @@
           Meu Pedido
           <span class="tab-badge" id="tabCartBadge" hidden>0</span>
         </button>
+        <button class="tab" data-tab="historico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+          Histórico
+        </button>
         <button class="tab" data-tab="admin" id="tabAdmin" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
           Painel Admin
@@ -108,6 +112,11 @@
     <!-- =============== MEU PEDIDO =============== -->
     <section id="tab-meu-pedido" class="tab-content hidden">
       <div id="myCartContent"></div>
+    </section>
+
+    <!-- =============== HISTÓRICO =============== -->
+    <section id="tab-historico" class="tab-content hidden">
+      <div id="historicoContent"></div>
     </section>
 
     <!-- =============== ADMIN =============== -->

@@ -264,19 +264,22 @@ const app = {
     return true;
   },
 
-  showRegistrationModal(blocking = false) {
+  showRegistrationModal(blocking = false, mode = "login") {
     const existing = document.getElementById("registrationModal");
     if (existing) existing.remove();
     const modal = document.createElement("div");
     modal.id = "registrationModal";
     modal.className = "modal-wrap";
+    const isLogin = mode === "login";
     modal.innerHTML = `
       <div class="modal-overlay${blocking ? " modal-blocking" : ""}">
         <div class="modal-content">
           <div class="modal-header">
             <div class="modal-header-icon">${icon("user")}</div>
-            <h2>Bem-vindo à compra coletiva</h2>
-            <p>Informe seu nome, telefone e e-mail para participar da compra. Esses dados são usados apenas para identificar o seu pedido.</p>
+            <h2>${isLogin ? "Entrar na compra coletiva" : "Novo cadastro"}</h2>
+            <p>${isLogin
+              ? "Informe seu nome, telefone e PIN. Se é sua primeira vez, clique em <b>Criar cadastro</b>."
+              : "Cadastre-se informando seus dados e um PIN de 4 a 6 dígitos. Você usará o PIN para acessar seu histórico de compras."}</p>
           </div>
           <div class="modal-body">
             <div class="form-group">
@@ -288,29 +291,42 @@ const app = {
               <label for="regPhone">Telefone / WhatsApp</label>
               <input type="tel" id="regPhone" placeholder="(00) 00000-0000" />
             </div>
+            ${isLogin ? "" : `
             <div class="form-group">
               <label for="regEmail">E-mail</label>
               <input type="email" id="regEmail" placeholder="seu@email.com" />
+            </div>`}
+            <div class="form-group">
+              <label for="regPin">${isLogin ? "PIN" : "Crie um PIN (4 a 6 dígitos)"}</label>
+              <input type="password" id="regPin" inputmode="numeric" maxlength="6" placeholder="••••" />
+              <small>Apenas números. Guarde seu PIN para acessar seu histórico.</small>
             </div>
           </div>
-          <div class="modal-footer">
-            <button class="btn btn-primary btn-block" onclick="app.submitRegistration()">Entrar na compra coletiva</button>
+          <div class="modal-footer" style="display:flex;gap:10px;flex-direction:column">
+            <button class="btn btn-primary btn-block" onclick="app.submitRegistration('${mode}')">${isLogin ? "Entrar" : "Cadastrar e entrar"}</button>
+            <button class="btn btn-ghost btn-block" onclick="app.showRegistrationModal(${blocking}, '${isLogin ? "signup" : "login"}')">
+              ${isLogin ? "Criar cadastro (primeiro acesso)" : "Já tenho cadastro — entrar"}
+            </button>
           </div>
         </div>
       </div>`;
     document.body.appendChild(modal);
     setTimeout(() => document.getElementById("regName")?.focus(), 50);
-    ["regName", "regPhone", "regEmail"].forEach((id) => {
-      document.getElementById(id).addEventListener("keydown", (e) => {
-        if (e.key === "Enter") this.submitRegistration();
+    ["regName", "regPhone", "regEmail", "regPin"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") this.submitRegistration(mode);
       });
     });
   },
 
-  submitRegistration() {
+  async submitRegistration(mode = "login") {
     const name = document.getElementById("regName").value.trim();
     const phone = document.getElementById("regPhone").value.trim();
-    const email = document.getElementById("regEmail").value.trim();
+    const emailEl = document.getElementById("regEmail");
+    const email = emailEl ? emailEl.value.trim() : "";
+    const pin = (document.getElementById("regPin").value || "").replace(/\D/g, "");
     if (!name || name.split(/\s+/).length < 2) {
       this.toast("Digite nome e sobrenome", "error");
       return;
@@ -319,10 +335,47 @@ const app = {
       this.toast("Telefone inválido", "error");
       return;
     }
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
-      this.toast("E-mail inválido", "error");
+    if (mode === "signup") {
+      if (!/^\S+@\S+\.\S+$/.test(email)) {
+        this.toast("E-mail inválido", "error");
+        return;
+      }
+      if (!/^\d{4,6}$/.test(pin)) {
+        this.toast("PIN deve ter de 4 a 6 dígitos", "error");
+        return;
+      }
+      const res = await this.api("comprador/registro", "POST", {
+        nome: name, telefone: phone, email, pin,
+      });
+      if (!res?.success) {
+        this.toast(res?.error || "Falha no cadastro", "error");
+        return;
+      }
+      this._saveUserSession(name, phone, email);
       return;
     }
+    // login
+    if (!/^\d{4,6}$/.test(pin)) {
+      this.toast("Informe seu PIN (4 a 6 dígitos)", "error");
+      return;
+    }
+    const res = await this.api("comprador/login", "POST", {
+      nome: name, telefone: phone, pin,
+    });
+    if (!res?.success) {
+      if (res?.not_found) {
+        this.toast("Cadastro não encontrado. Use 'Criar cadastro'.", "error");
+      } else if (res?.no_pin) {
+        this.toast("Este comprador ainda não tem PIN. Faça um novo cadastro.", "error");
+      } else {
+        this.toast(res?.error || "PIN incorreto", "error");
+      }
+      return;
+    }
+    this._saveUserSession(res.data.nome, res.data.telefone || phone, res.data.email || "");
+  },
+
+  _saveUserSession(name, phone, email) {
     this.state.user.name = name;
     this.state.user.phone = phone;
     this.state.user.email = email;
@@ -335,6 +388,20 @@ const app = {
     this.renderHeaderUser();
     this.toast(`Olá, ${name.split(" ")[0]}!`, "success");
     this.updateCartBar();
+    // Opcional: atualizar aba histórico se estiver aberta
+    if (typeof this.renderHistorico === "function") this.renderHistorico();
+  },
+
+  logoutUser() {
+    if (!confirm("Sair da sua conta? O carrinho continuará salvo neste navegador.")) return;
+    this.state.isRegistered = false;
+    this.state.user = { name: "", phone: "", email: "" };
+    localStorage.removeItem("userRegistered");
+    localStorage.removeItem("registeredName");
+    localStorage.removeItem("registeredPhone");
+    localStorage.removeItem("registeredEmail");
+    this.renderHeaderUser();
+    this.showRegistrationModal(true, "login");
   },
 
   /* ----------------- Header user ----------------- */
@@ -363,6 +430,7 @@ const app = {
       .forEach((c) => c.classList.add("hidden"));
     document.getElementById(`tab-${tab}`)?.classList.remove("hidden");
     if (tab === "meu-pedido") this.renderInvoice();
+    else if (tab === "historico") this.renderHistorico();
     else if (tab === "admin" && this.state.isAdminLoggedIn) this.renderAdmin();
     window.scrollTo({ top: 0, behavior: "smooth" });
   },
@@ -1402,7 +1470,10 @@ const app = {
               ${icon("user")} ${fmt.escape(u.usuario)}
               ${contato ? `<small style="font-weight:400;color:var(--c-text-muted)">— ${fmt.escape(contato)}</small>` : ""}
             </div>
-            <button class="btn btn-danger btn-sm" onclick="app.deletePedidoUsuario('${usuarioEsc}')">${icon("trash")} Apagar pedido completo</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-secondary btn-sm" onclick="app.adminVerHistorico('${usuarioEsc}','${fmt.escape(u.telefone || '').replace(/'/g, "\\'")}')">${icon("receipt")} Ver histórico</button>
+              <button class="btn btn-danger btn-sm" onclick="app.deletePedidoUsuario('${usuarioEsc}')">${icon("trash")} Apagar pedido completo</button>
+            </div>
           </div>
           <table class="data-table">
             <thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Bruto</th><th>Final</th><th></th></tr></thead>
@@ -1415,6 +1486,12 @@ const app = {
           </div>`;
       })
       .join("");
+  },
+
+  adminVerHistorico(usuario, telefone) {
+    // Troca para a aba histórico mostrando os pedidos do comprador escolhido
+    this.switchTab("historico");
+    this.renderHistorico(usuario, telefone);
   },
 
   async deletePedidoUsuario(usuario) {
@@ -1697,6 +1774,59 @@ const app = {
   },
 
   /* ----------------- LocalStorage ----------------- */
+  /* ----------------- Histórico do comprador ----------------- */
+  async renderHistorico(forcedUsuario, forcedTelefone) {
+    const c = document.getElementById("historicoContent");
+    if (!c) return;
+    const usuario = forcedUsuario || this.state.user.name;
+    const telefone = forcedTelefone || this.state.user.phone;
+    if (!usuario) {
+      c.innerHTML = `<div class="card"><div class="empty-state">${icon("user")}<h3>Faça login para ver seu histórico</h3><p>Entre com seu nome, telefone e PIN para visualizar suas compras anteriores.</p><button class="btn btn-primary" onclick="app.showRegistrationModal(false,'login')">Entrar</button></div></div>`;
+      return;
+    }
+    c.innerHTML = `<div class="card"><div class="empty-state">${icon("refresh")}<h3>Carregando histórico...</h3></div></div>`;
+    const params = new URLSearchParams({ usuario, telefone: telefone || "" });
+    const res = await this.api(`pedidos/historico?${params.toString()}`);
+    const pedidos = res?.data || [];
+    const isAdminView = !!forcedUsuario;
+    const header = isAdminView
+      ? `<div class="card" style="margin-bottom:14px"><div style="padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><strong>Histórico de ${fmt.escape(usuario)}</strong><br><small style="color:var(--c-text-muted)">${pedidos.length} pedido(s)</small></div><button class="btn btn-ghost btn-sm" onclick="app.renderAdmin()">← Voltar ao painel</button></div></div>`
+      : `<div class="card" style="margin-bottom:14px"><div style="padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><strong>Olá, ${fmt.escape(usuario.split(" ")[0])}</strong><br><small style="color:var(--c-text-muted)">${pedidos.length} pedido(s) no histórico</small></div><button class="btn btn-ghost btn-sm" onclick="app.logoutUser()">Sair da conta</button></div></div>`;
+    if (!pedidos.length) {
+      c.innerHTML = header + `<div class="card"><div class="empty-state">${icon("receipt")}<h3>Nenhum pedido encontrado</h3><p>Assim que você finalizar um pedido, ele aparecerá aqui.</p></div></div>`;
+      return;
+    }
+    const blocks = pedidos.map((p) => {
+      const data = new Date(p.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+      const itens = (p.itens || []).filter(it => it && it.codigo).map((it) => `
+        <tr>
+          <td>${fmt.escape(it.codigo)}</td>
+          <td>${fmt.escape(it.nome)}</td>
+          <td>${it.quantidade}</td>
+          <td>${fmt.brl(it.subtotal_bruto)}</td>
+          <td>${fmt.brl(it.subtotal_final)}</td>
+        </tr>`).join("");
+      const statusLabel = p.status === "cancelado" ? '<span style="color:#dc2626">Cancelado</span>' : p.status;
+      return `
+        <div class="card report-card" style="margin-bottom:14px">
+          <div class="report-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+            <span>${icon("receipt")} Pedido #${p.id} · ${data}</span>
+            <span style="font-size:0.85rem;color:var(--c-text-muted)">${statusLabel}</span>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Bruto</th><th>Final</th></tr></thead>
+            <tbody>${itens}</tbody>
+          </table>
+          <div class="user-total-row">
+            Bruto: <strong>${fmt.brl(p.total_bruto)}</strong> ·
+            Desconto: <strong>${fmt.brl(p.total_desconto || 0)}</strong> ·
+            Final: <strong>${fmt.brl(p.total_final)}</strong>
+          </div>
+        </div>`;
+    }).join("");
+    c.innerHTML = header + blocks;
+  },
+
   saveLocal() {
     localStorage.setItem("cart", JSON.stringify(this.state.cart));
     localStorage.setItem("discountPct", String(this.state.discountPct || 0));

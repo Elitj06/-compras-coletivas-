@@ -15,6 +15,18 @@ function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers });
 }
 
+let _migrationDone = false;
+async function ensureMigrations(client) {
+  if (_migrationDone) return;
+  try {
+    await client.query(`ALTER TABLE compradores ADD COLUMN IF NOT EXISTS pin_hash TEXT`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_compradores_nome_tel ON compradores(nome, telefone)`);
+    _migrationDone = true;
+  } catch (e) {
+    console.error('Migration error:', e.message);
+  }
+}
+
 async function getClient() {
   const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
   if (!connectionString) {
@@ -23,7 +35,24 @@ async function getClient() {
   const client = createClient({ connectionString });
   await client.connect();
   await client.query('SET search_path TO compras_coletivas');
+  await ensureMigrations(client);
   return client;
+}
+
+// Hash SHA-256 via WebCrypto (disponível no runtime Edge do Vercel)
+async function hashPin(pin, salt) {
+  const data = new TextEncoder().encode(`${salt}::${pin}`);
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function normalizeNomeTel(nome, telefone) {
+  return {
+    nome: String(nome || '').trim(),
+    telefone: String(telefone || '').replace(/\D/g, ''),
+  };
 }
 
 export default async function handler(req) {
@@ -137,6 +166,57 @@ export default async function handler(req) {
         return json({ success: true, data: rows.rows });
       }
 
+      // Lista todos os compradores (para o admin escolher de quem ver o histórico)
+      if (path === 'compradores/lista') {
+        const rows = await client.query(`
+          SELECT DISTINCT c.nome, c.telefone, c.email,
+            (SELECT COUNT(*) FROM pedidos p WHERE p.usuario = c.nome AND p.status != 'cancelado') AS total_pedidos
+          FROM compradores c
+          ORDER BY c.nome
+        `);
+        await client.end();
+        return json({ success: true, data: rows.rows });
+      }
+
+      // Histórico de pedidos de um comprador (por nome + telefone)
+      // GET /pedidos/historico?usuario=...&telefone=...
+      if (path === 'pedidos/historico') {
+        const usuario = url.searchParams.get('usuario') || '';
+        const telefone = (url.searchParams.get('telefone') || '').replace(/\D/g, '');
+        if (!usuario) {
+          await client.end();
+          return json({ success: false, error: 'Usuário não informado' }, 400);
+        }
+        // Filtra por nome; se telefone informado, exige match (privacidade)
+        const params = [usuario];
+        let where = `p.usuario = $1`;
+        if (telefone) {
+          params.push(telefone);
+          where += ` AND regexp_replace(COALESCE(c.telefone,''), '\\D', '', 'g') = $2`;
+        }
+        const rows = await client.query(`
+          SELECT p.id, p.created_at, p.status, p.total_bruto, p.total_final, p.total_desconto,
+            json_agg(json_build_object(
+              'item_id', ip.id,
+              'codigo', ip.codigo,
+              'nome', ip.nome_produto,
+              'quantidade', ip.quantidade,
+              'preco_bruto', ip.preco_unitario,
+              'preco_desconto', ip.preco_com_desconto,
+              'subtotal_bruto', ip.subtotal_bruto,
+              'subtotal_final', ip.subtotal_final
+            ) ORDER BY ip.nome_produto) AS itens
+          FROM pedidos p
+          LEFT JOIN itens_pedido ip ON ip.pedido_id = p.id
+          LEFT JOIN compradores c ON c.nome = p.usuario
+          WHERE ${where}
+          GROUP BY p.id
+          ORDER BY p.created_at DESC
+        `, params);
+        await client.end();
+        return json({ success: true, data: rows.rows });
+      }
+
       if (path === 'exportar-csv') {
         const rows = await client.query(`
           SELECT p.usuario AS comprador, ip.codigo, ip.nome_produto AS produto,
@@ -239,6 +319,84 @@ export default async function handler(req) {
         await client.query('SELECT aplicar_desconto($1, $2)', [categoria, percentual]);
         await client.end();
         return json({ success: true, message: `Desconto de ${percentual}% aplicado em ${categoria}` });
+      }
+
+      // ===== Autenticação do comprador via PIN =====
+      // POST /comprador/registro  { nome, telefone, email, pin }
+      // Cria ou define o PIN de um comprador. Se já existia pin_hash, exige
+      // o pin_atual (não permite sobrescrever sem conhecer o atual).
+      if (path === 'comprador/registro') {
+        const { nome, telefone, email, pin, pin_atual } = body;
+        const { nome: n, telefone: t } = normalizeNomeTel(nome, telefone);
+        if (!n || !t) { await client.end(); return json({ success: false, error: 'Nome e telefone são obrigatórios' }, 400); }
+        if (!/^\d{4,6}$/.test(String(pin || ''))) {
+          await client.end();
+          return json({ success: false, error: 'PIN deve ter de 4 a 6 dígitos numéricos' }, 400);
+        }
+        // Garante comprador
+        await client.query(
+          `INSERT INTO compradores (nome, telefone, email) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+          [n, t, email || null]
+        );
+        await client.query(
+          `UPDATE compradores SET telefone = COALESCE($1, telefone), email = COALESCE($2, email) WHERE nome = $3`,
+          [t, email || null, n]
+        );
+        // Verifica se já existe pin
+        const existing = await client.query(
+          `SELECT pin_hash FROM compradores WHERE nome = $1 AND regexp_replace(COALESCE(telefone,''),'\\D','','g') = $2 LIMIT 1`,
+          [n, t]
+        );
+        const row = existing.rows[0];
+        if (row && row.pin_hash) {
+          if (!pin_atual) {
+            await client.end();
+            return json({ success: false, error: 'PIN já cadastrado. Faça login ou informe o PIN atual para alterá-lo.', requires_current_pin: true }, 409);
+          }
+          const atualHash = await hashPin(pin_atual, n + ':' + t);
+          if (atualHash !== row.pin_hash) {
+            await client.end();
+            return json({ success: false, error: 'PIN atual incorreto' }, 401);
+          }
+        }
+        const newHash = await hashPin(pin, n + ':' + t);
+        await client.query(
+          `UPDATE compradores SET pin_hash = $1 WHERE nome = $2 AND regexp_replace(COALESCE(telefone,''),'\\D','','g') = $3`,
+          [newHash, n, t]
+        );
+        await client.end();
+        return json({ success: true, message: 'PIN registrado' });
+      }
+
+      // POST /comprador/login  { nome, telefone, pin }
+      if (path === 'comprador/login') {
+        const { nome, telefone, pin } = body;
+        const { nome: n, telefone: t } = normalizeNomeTel(nome, telefone);
+        if (!n || !t || !pin) {
+          await client.end();
+          return json({ success: false, error: 'Dados incompletos' }, 400);
+        }
+        const r = await client.query(
+          `SELECT nome, telefone, email, pin_hash FROM compradores
+           WHERE nome = $1 AND regexp_replace(COALESCE(telefone,''),'\\D','','g') = $2 LIMIT 1`,
+          [n, t]
+        );
+        if (!r.rows.length) {
+          await client.end();
+          return json({ success: false, error: 'Comprador não encontrado', not_found: true }, 404);
+        }
+        const row = r.rows[0];
+        if (!row.pin_hash) {
+          await client.end();
+          return json({ success: false, error: 'Este comprador ainda não definiu um PIN', no_pin: true }, 403);
+        }
+        const hash = await hashPin(pin, n + ':' + t);
+        if (hash !== row.pin_hash) {
+          await client.end();
+          return json({ success: false, error: 'PIN incorreto' }, 401);
+        }
+        await client.end();
+        return json({ success: true, data: { nome: row.nome, telefone: row.telefone, email: row.email } });
       }
 
       if (path === 'admin/login') {
