@@ -1340,18 +1340,21 @@ const app = {
         tBruto += vb;
         tDesc += vd;
         tQtd += parseInt(i.quantidade_total);
+        const codigo = fmt.escape(i.codigo);
+        const nome = fmt.escape(i.nome).replace(/'/g, "\\'");
         return `<tr>
-          <td><strong>${fmt.escape(i.codigo)}</strong></td>
+          <td><strong>${codigo}</strong></td>
           <td>${fmt.escape(i.nome)}</td>
           <td>${i.quantidade_total}</td>
           <td>${fmt.brl(vb)}</td>
           <td>${fmt.brl(vd)}</td>
+          <td><button class="btn-icon btn-icon-danger" title="Remover este produto de todos os pedidos (fornecedor em falta)" onclick="app.removeProdutoGlobal('${codigo}','${nome}')">${icon("trash")}</button></td>
         </tr>`;
       })
       .join("");
     return `
       <table class="data-table">
-        <thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Bruto</th><th>Final</th></tr></thead>
+        <thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Bruto</th><th>Final</th><th></th></tr></thead>
         <tbody>
           ${rows}
           <tr class="total-row">
@@ -1359,6 +1362,7 @@ const app = {
             <td>${tQtd}</td>
             <td>${fmt.brl(tBruto)}</td>
             <td>${fmt.brl(tDesc)}</td>
+            <td></td>
           </tr>
         </tbody>
       </table>`;
@@ -1370,7 +1374,16 @@ const app = {
     return users
       .map((u) => {
         const contato = [u.telefone, u.email].filter(Boolean).join(" · ");
-        const itens = (u.itens || [])
+        const usuarioEsc = fmt.escape(u.usuario).replace(/'/g, "\\'");
+        // Dedup itens caso o json_agg retorne duplicatas por join
+        const seen = new Set();
+        const itensList = (u.itens || []).filter((it) => {
+          const k = it.item_id;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+        const itens = itensList
           .map(
             (it) =>
               `<tr>
@@ -1379,16 +1392,20 @@ const app = {
                 <td>${it.quantidade}</td>
                 <td>${fmt.brl(it.preco_bruto * it.quantidade)}</td>
                 <td>${fmt.brl(it.preco_desconto * it.quantidade)}</td>
+                <td><button class="btn-icon btn-icon-danger" title="Remover este item do pedido" onclick="app.removeItemFromPedido(${it.item_id}, '${fmt.escape(it.nome).replace(/'/g, "\\'")}')">${icon("trash")}</button></td>
               </tr>`
           )
           .join("");
         return `
-          <div class="user-section-header">
-            ${icon("user")} ${fmt.escape(u.usuario)}
-            ${contato ? `<small style="font-weight:400;color:var(--c-text-muted)">— ${fmt.escape(contato)}</small>` : ""}
+          <div class="user-section-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+            <div>
+              ${icon("user")} ${fmt.escape(u.usuario)}
+              ${contato ? `<small style="font-weight:400;color:var(--c-text-muted)">— ${fmt.escape(contato)}</small>` : ""}
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="app.deletePedidoUsuario('${usuarioEsc}')">${icon("trash")} Apagar pedido completo</button>
           </div>
           <table class="data-table">
-            <thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Bruto</th><th>Final</th></tr></thead>
+            <thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Bruto</th><th>Final</th><th></th></tr></thead>
             <tbody>${itens}</tbody>
           </table>
           <div class="user-total-row">
@@ -1398,6 +1415,43 @@ const app = {
           </div>`;
       })
       .join("");
+  },
+
+  async deletePedidoUsuario(usuario) {
+    if (!confirm(`Apagar TODOS os pedidos de "${usuario}"?`)) return;
+    const r = await this.api(`pedidos/usuario/${encodeURIComponent(usuario)}`, "DELETE");
+    if (r?.success) {
+      this.toast(`Pedidos de ${usuario} apagados`, "success");
+      this.renderAdmin();
+    } else {
+      this.toast("Erro ao apagar pedido", "error");
+    }
+  },
+
+  async removeItemFromPedido(itemId, nome) {
+    if (!confirm(`Remover o item "${nome}" deste pedido? Os demais itens serão mantidos.`)) return;
+    const r = await this.api(`itens/${itemId}`, "DELETE");
+    if (r?.success) {
+      this.toast("Item removido", "success");
+      this.renderAdmin();
+    } else {
+      this.toast("Erro ao remover item", "error");
+    }
+  },
+
+  async removeProdutoGlobal(codigo, nome) {
+    if (!confirm(
+      `Remover o produto "${nome}" (${codigo}) de TODOS os pedidos?\n\n` +
+      `Use esta opção quando o fornecedor estiver em falta. ` +
+      `Os demais itens dos pedidos serão mantidos.`
+    )) return;
+    const r = await this.api(`produtos/${encodeURIComponent(codigo)}`, "DELETE");
+    if (r?.success) {
+      this.toast(`Produto ${codigo} removido dos pedidos`, "success");
+      this.renderAdmin();
+    } else {
+      this.toast("Erro ao remover produto", "error");
+    }
   },
 
   async applyDiscount() {

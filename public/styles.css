@@ -1266,3 +1266,20 @@ svg { width: 18px; height: 18px; flex-shrink: 0; }
 .btn-danger { background: #dc2626; color: #fff; border: 1px solid #dc2626; }
 .btn-danger:hover { background: #b91c1c; border-color: #b91c1c; }
 .btn-block { display: block; width: 100%; }
+
+/* ===== Botões icon/sm admin ===== */
+.btn-icon {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c-text-muted, #666);
+}
+.btn-icon svg { width: 18px; height: 18px; }
+.btn-icon:hover { background: rgba(0,0,0,0.06); }
+.btn-icon-danger:hover { background: #fee2e2; color: #dc2626; border-color: #fecaca; }
+.btn-sm { padding: 6px 12px; font-size: 0.85rem; }

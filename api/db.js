@@ -72,11 +72,14 @@ export default async function handler(req) {
 
       if (path === 'pedidos/por-usuario') {
         const rows = await client.query(`
-          SELECT 
+          SELECT
             p.usuario,
             MAX(c.telefone) as telefone,
             MAX(c.email) as email,
+            json_agg(p.id) as pedido_ids,
             json_agg(json_build_object(
+              'item_id', ip.id,
+              'pedido_id', p.id,
               'codigo', ip.codigo,
               'nome', ip.nome_produto,
               'quantidade', ip.quantidade,
@@ -270,6 +273,52 @@ export default async function handler(req) {
         if (!r.rowCount) return json({ success: false, error: 'Pedido não encontrado' }, 404);
         return json({ success: true, message: `Pedido ${pid} cancelado` });
       }
+
+      // Apaga todos os pedidos de um comprador (por nome de usuário)
+      const pedidoUserMatch = path.match(/^pedidos\/usuario\/(.+)$/);
+      if (pedidoUserMatch) {
+        const usuario = decodeURIComponent(pedidoUserMatch[1]);
+        await client.query(
+          'DELETE FROM itens_pedido WHERE pedido_id IN (SELECT id FROM pedidos WHERE usuario = $1)',
+          [usuario]
+        );
+        const r = await client.query('DELETE FROM pedidos WHERE usuario = $1 RETURNING id', [usuario]);
+        await client.end();
+        return json({ success: true, message: `${r.rowCount} pedido(s) de ${usuario} apagados` });
+      }
+
+      // Remove um item específico de um pedido
+      const itemMatch = path.match(/^itens\/(\d+)$/);
+      if (itemMatch) {
+        const iid = parseInt(itemMatch[1]);
+        const r = await client.query('DELETE FROM itens_pedido WHERE id = $1 RETURNING pedido_id', [iid]);
+        if (r.rowCount) {
+          const pedidoId = r.rows[0].pedido_id;
+          // Se o pedido ficou sem itens, remove o pedido também
+          const count = await client.query('SELECT COUNT(*)::int AS c FROM itens_pedido WHERE pedido_id = $1', [pedidoId]);
+          if (count.rows[0].c === 0) {
+            await client.query('DELETE FROM pedidos WHERE id = $1', [pedidoId]);
+          }
+        }
+        await client.end();
+        if (!r.rowCount) return json({ success: false, error: 'Item não encontrado' }, 404);
+        return json({ success: true, message: `Item ${iid} removido` });
+      }
+
+      // Remove um produto (por código) de TODOS os pedidos — útil quando o
+      // fornecedor está em falta e precisamos manter os demais itens dos pedidos.
+      const produtoMatch = path.match(/^produtos\/(.+)$/);
+      if (produtoMatch) {
+        const codigo = decodeURIComponent(produtoMatch[1]);
+        const r = await client.query('DELETE FROM itens_pedido WHERE codigo = $1 RETURNING pedido_id', [codigo]);
+        // Limpa pedidos que ficaram vazios
+        await client.query(`
+          DELETE FROM pedidos WHERE id NOT IN (SELECT DISTINCT pedido_id FROM itens_pedido)
+        `);
+        await client.end();
+        return json({ success: true, message: `${r.rowCount} ocorrência(s) do produto ${codigo} removidas` });
+      }
+
       if (path === 'descontos') {
         await client.query('UPDATE descontos SET ativo = FALSE');
         await client.end();
