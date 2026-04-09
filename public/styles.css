@@ -1283,3 +1283,9 @@ svg { width: 18px; height: 18px; flex-shrink: 0; }
 .btn-icon:hover { background: rgba(0,0,0,0.06); }
 .btn-icon-danger:hover { background: #fee2e2; color: #dc2626; border-color: #fecaca; }
 .btn-sm { padding: 6px 12px; font-size: 0.85rem; }
+
+/* ===== Espaço inferior para não ser coberto pela cart-bar fixa ===== */
+.tab-content { padding-bottom: 140px; }
+@media (max-width: 768px) {
+  .tab-content { padding-bottom: 220px; }
+}
