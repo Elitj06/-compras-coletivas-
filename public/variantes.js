@@ -515,10 +515,10 @@ const VARIANTES = [
     ],
   },
   {
-    id: "whey_fort_3w",
-    nome: "Whey Fort 3W",
+    id: "whey_fort_3w_900",
+    nome: "Whey Fort 3W 900g",
     hasFlavor: true,
-    hasSize: true,
+    hasSize: false,
     variantes: [
       {"codigo": "WFT900BN", "flavor": "Banana", "size": "900g"},
       {"codigo": "WFT900BA", "flavor": "Baunilha", "size": "900g"},
@@ -528,6 +528,14 @@ const VARIANTES = [
       {"codigo": "WFT900MC", "flavor": "Mochaccino", "size": "900g"},
       {"codigo": "WFT900N", "flavor": "Neutro", "size": "900g"},
       {"codigo": "WFT900PA", "flavor": "Paçoca", "size": "900g"},
+    ],
+  },
+  {
+    id: "whey_fort_3w_1800",
+    nome: "Whey Fort 3W 1800g",
+    hasFlavor: true,
+    hasSize: false,
+    variantes: [
       {"codigo": "WFT1800BA", "flavor": "Baunilha", "size": "1800g"},
       {"codigo": "WFT1800CH", "flavor": "Chocolate", "size": "1800g"},
     ],
