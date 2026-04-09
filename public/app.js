@@ -177,6 +177,33 @@ const app = {
     localStorage.setItem("theme", this.state.theme);
   },
 
+  /* ----------------- Lightbox ----------------- */
+  openLightbox(src, alt) {
+    let lb = document.getElementById("imgLightbox");
+    if (!lb) {
+      lb = document.createElement("div");
+      lb.id = "imgLightbox";
+      lb.className = "img-lightbox";
+      lb.innerHTML = `<div class="img-lightbox-backdrop" onclick="app.closeLightbox()"></div>
+        <div class="img-lightbox-content">
+          <button class="img-lightbox-close" onclick="app.closeLightbox()" aria-label="Fechar">×</button>
+          <img id="imgLightboxImg" alt="" />
+        </div>`;
+      document.body.appendChild(lb);
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") this.closeLightbox();
+      });
+    }
+    const img = document.getElementById("imgLightboxImg");
+    img.src = src;
+    img.alt = alt || "";
+    lb.classList.add("open");
+  },
+  closeLightbox() {
+    const lb = document.getElementById("imgLightbox");
+    if (lb) lb.classList.remove("open");
+  },
+
   /* ----------------- API ----------------- */
   async api(path, method = "GET", body = null) {
     try {
@@ -546,7 +573,7 @@ const app = {
     const hasImg = p.imagem && p.imagem.length > 0;
 
     const imgHtml = hasImg
-      ? `<img src="${p.imagem}" alt="${fmt.escape(p.nome)}" loading="lazy" />`
+      ? `<img src="${p.imagem}" alt="${fmt.escape(p.nome)}" loading="lazy" onclick="app.openLightbox('${p.imagem}','${fmt.escape(p.nome).replace(/'/g,"\\'")}')" style="cursor:zoom-in" />`
       : `<div class="product-img-placeholder">
            ${icon("package")}
            <span class="ph-code">${fmt.escape(p.codigo)}</span>
@@ -585,7 +612,7 @@ const app = {
     const hasImg = p.imagem && p.imagem.length > 0;
 
     const imgHtml = hasImg
-      ? `<img src="${p.imagem}" alt="${fmt.escape(p.nome)}" loading="lazy" />`
+      ? `<img src="${p.imagem}" alt="${fmt.escape(p.nome)}" loading="lazy" onclick="app.openLightbox('${p.imagem}','${fmt.escape(p.nome).replace(/'/g,"\\'")}')" style="cursor:zoom-in" />`
       : `<div class="product-img-placeholder">
            ${icon("package")}
            <span class="ph-code">${fmt.escape(p.codigo)}</span>

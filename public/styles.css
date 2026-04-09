@@ -1238,3 +1238,12 @@ svg { width: 18px; height: 18px; flex-shrink: 0; }
   background-color: var(--c-surface-2);
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239fb3aa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
 }
+
+/* ===== Lightbox ===== */
+.img-lightbox { position: fixed; inset: 0; z-index: 9999; display: none; align-items: center; justify-content: center; }
+.img-lightbox.open { display: flex; }
+.img-lightbox-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); }
+.img-lightbox-content { position: relative; max-width: 92vw; max-height: 92vh; z-index: 1; display: flex; align-items: center; justify-content: center; }
+.img-lightbox-content img { max-width: 92vw; max-height: 92vh; object-fit: contain; border-radius: 12px; background: #fff; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+.img-lightbox-close { position: absolute; top: -14px; right: -14px; width: 40px; height: 40px; border-radius: 999px; border: none; background: #fff; color: #111; font-size: 24px; line-height: 1; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; }
+.img-lightbox-close:hover { background: #f0f0f0; }

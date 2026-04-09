@@ -210,16 +210,6 @@ const VARIANTES = [
     ],
   },
   {
-    id: "fitzei_display_c",
-    nome: "Fitzei Display C/",
-    hasFlavor: true,
-    hasSize: false,
-    variantes: [
-      {"codigo": "FZ12FV", "flavor": "Frutas Vermelhas", "size": "12 barras 40g"},
-      {"codigo": "FZ12CO", "flavor": "Coco", "size": "12 barras 40g"},
-    ],
-  },
-  {
     id: "glutamax",
     nome: "Glutamax",
     hasFlavor: false,
@@ -557,6 +547,8 @@ const VARIANTES = [
     variantes: [
       {"codigo": "WP900BA", "flavor": "Baunilha", "size": "900g"},
       {"codigo": "WP900MO", "flavor": "Morango", "size": "900g"},
+      {"codigo": "WP900BJ", "flavor": "Beijinho", "size": "900g"},
+      {"codigo": "WP900MM", "flavor": "Mousse de Maracujá", "size": "900g"},
     ],
   },
   {
