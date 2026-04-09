@@ -95,6 +95,7 @@ const CATEGORIAS = [
   { id: "whey_protein_wpc_pouch", nome: "WHEY PROTEIN WPC POUCH" },
   { id: "xilitol_family", nome: "XILITOL FAMILY" },
   { id: "omega_3_epa_dha_certificado_in", nome: "ÔMEGA 3 EPA DHA -  CERTIFICADO INTERNACIONAL IFOS" },
+  { id: "vitamina_b12_gotas", nome: "VITAMINA B12 GOTAS" },
 ];
 
 const PRODUTOS = [
@@ -342,4 +343,5 @@ const PRODUTOS = [
   { codigo: "VPA280MT", nome: "VITAPOWER AIR POTE 280G SABOR SORVETE MORANGO TRUFADO", preco: 590.00, embalagem: 16, categoria: "linha_exclusiva_air_com_whey", categoriaNome: "LINHA EXCLUSIVA AIR COM WHEY", imagem: "https://vitafor.vteximg.com.br/arquivos/ids/213406/VPA280MT-01.jpg" },
   { codigo: "VPA280LT", nome: "VITAPOWER AIR POTE 280G SABOR SORVETE LEITINHO TRUFADO", preco: 590.00, embalagem: 16, categoria: "linha_exclusiva_air_com_whey", categoriaNome: "LINHA EXCLUSIVA AIR COM WHEY", imagem: "https://vitafor.vteximg.com.br/arquivos/ids/213423/VPA280LT-01.jpg" },
   { codigo: "VPA280BT", nome: "VITAPOWER AIR POTE 280G SABOR SORVETE BUENNA TRUFADO", preco: 590.00, embalagem: 16, categoria: "linha_exclusiva_air_com_whey", categoriaNome: "LINHA EXCLUSIVA AIR COM WHEY", imagem: "https://vitafor.vteximg.com.br/arquivos/ids/213283/VPA280BT-01.jpg" },
+  { codigo: "B1220ME", nome: "VITAMINA B12 GOTAS FRASCO 20ML MENTA", preco: 49.00, embalagem: 6, categoria: "vitamina_b12_gotas", categoriaNome: "VITAMINA B12 GOTAS", imagem: "https://vitafor.vteximg.com.br/arquivos/ids/611488/B1220-01.jpg" },
 ];
