@@ -20,6 +20,13 @@ async function ensureMigrations(client) {
   if (_migrationDone) return;
   try {
     await client.query(`ALTER TABLE compradores ADD COLUMN IF NOT EXISTS pin_hash TEXT`);
+    // Remove duplicatas mantendo o mais recente, e cria constraint UNIQUE em nome
+    await client.query(`
+      DELETE FROM compradores WHERE id NOT IN (
+        SELECT MAX(id) FROM compradores GROUP BY nome
+      )
+    `);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_compradores_nome_unique ON compradores(nome)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_compradores_nome_tel ON compradores(nome, telefone)`);
     // Atualiza constraint de status para incluir 'aberto_edicao'
     await client.query(`ALTER TABLE pedidos DROP CONSTRAINT IF EXISTS pedidos_status_check`);
@@ -264,12 +271,12 @@ export default async function handler(req) {
         // Upsert comprador com telefone e email
         if (telefone || email) {
           await client.query(
-            `INSERT INTO compradores (nome, telefone, email) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+            `INSERT INTO compradores (nome, telefone, email)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (nome) DO UPDATE SET
+               telefone = COALESCE(EXCLUDED.telefone, compradores.telefone),
+               email = COALESCE(EXCLUDED.email, compradores.email)`,
             [usuario, telefone || null, email || null]
-          );
-          await client.query(
-            `UPDATE compradores SET telefone = COALESCE($1, telefone), email = COALESCE($2, email) WHERE nome = $3`,
-            [telefone || null, email || null, usuario]
           );
         }
 
@@ -337,19 +344,19 @@ export default async function handler(req) {
           await client.end();
           return json({ success: false, error: 'PIN deve ter de 4 a 6 dígitos numéricos' }, 400);
         }
-        // Garante comprador
+        // Garante comprador (upsert por nome)
         await client.query(
-          `INSERT INTO compradores (nome, telefone, email) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+          `INSERT INTO compradores (nome, telefone, email)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (nome) DO UPDATE SET
+             telefone = COALESCE(EXCLUDED.telefone, compradores.telefone),
+             email = COALESCE(EXCLUDED.email, compradores.email)`,
           [n, t, email || null]
-        );
-        await client.query(
-          `UPDATE compradores SET telefone = COALESCE($1, telefone), email = COALESCE($2, email) WHERE nome = $3`,
-          [t, email || null, n]
         );
         // Verifica se já existe pin
         const existing = await client.query(
-          `SELECT pin_hash FROM compradores WHERE nome = $1 AND regexp_replace(COALESCE(telefone,''),'\\D','','g') = $2 LIMIT 1`,
-          [n, t]
+          `SELECT pin_hash FROM compradores WHERE nome = $1 LIMIT 1`,
+          [n]
         );
         const row = existing.rows[0];
         if (row && row.pin_hash) {
@@ -365,8 +372,8 @@ export default async function handler(req) {
         }
         const newHash = await hashPin(pin, n + ':' + t);
         await client.query(
-          `UPDATE compradores SET pin_hash = $1 WHERE nome = $2 AND regexp_replace(COALESCE(telefone,''),'\\D','','g') = $3`,
-          [newHash, n, t]
+          `UPDATE compradores SET pin_hash = $1 WHERE nome = $2`,
+          [newHash, n]
         );
         await client.end();
         return json({ success: true, message: 'PIN registrado' });
@@ -381,18 +388,20 @@ export default async function handler(req) {
           return json({ success: false, error: 'Dados incompletos' }, 400);
         }
         const r = await client.query(
-          `SELECT nome, telefone, email, pin_hash FROM compradores
-           WHERE nome = $1 AND regexp_replace(COALESCE(telefone,''),'\\D','','g') = $2 LIMIT 1`,
-          [n, t]
+          `SELECT nome, telefone, email, pin_hash FROM compradores WHERE nome = $1 LIMIT 1`,
+          [n]
         );
         if (!r.rows.length) {
           await client.end();
-          return json({ success: false, error: 'Comprador não encontrado', not_found: true }, 404);
+          return json({ success: false, error: 'Comprador não encontrado. Use "Criar cadastro".', not_found: true }, 404);
         }
         const row = r.rows[0];
         if (!row.pin_hash) {
+          // Comprador antigo sem PIN — permite definir direto
+          const newHash = await hashPin(pin, n + ':' + t);
+          await client.query('UPDATE compradores SET pin_hash = $1, telefone = $2 WHERE nome = $3', [newHash, t, n]);
           await client.end();
-          return json({ success: false, error: 'Este comprador ainda não definiu um PIN', no_pin: true }, 403);
+          return json({ success: true, data: { nome: row.nome, telefone: t, email: row.email }, pin_set: true });
         }
         const hash = await hashPin(pin, n + ':' + t);
         if (hash !== row.pin_hash) {

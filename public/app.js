@@ -1531,18 +1531,15 @@ const app = {
         <button class="btn btn-danger" onclick="app.clearAllOrders()">${icon(
           "trash"
         )} Apagar pedidos</button>
+        <button class="btn btn-danger" onclick="app.clearAllHistory()">${icon(
+          "trash"
+        )} Apagar histórico</button>
+        <button class="btn btn-ghost" onclick="app.exitAdmin()">${icon(
+          "user"
+        )} Sair do Admin</button>
       </div>
 
-      <div class="card report-card" style="margin-bottom:16px">
-        <div class="report-header">${icon("box")} Pedido consolidado por produto</div>
-        <p class="card-subtitle" style="padding:0 20px 12px">
-          Soma total de cada produto considerando todos os compradores, com valores
-          bruto (sem desconto) e final (com desconto aplicado). Use o botão
-          <strong>Exportar pedido (Excel)</strong> acima para gerar uma planilha pronta
-          para envio à Vitafor.
-        </p>
-        ${this.renderConsolidatedTable(con)}
-      </div>
+      ${this.renderConsolidatedSection(con)}
 
       <div class="card report-card">
         <div class="report-header">${icon("users")} Pedidos por comprador</div>
@@ -1574,6 +1571,36 @@ const app = {
         }
       });
     });
+  },
+
+  renderConsolidatedSection(con) {
+    if (!con.length) return `<div class="card report-card" style="margin-bottom:16px"><div style="padding:24px;text-align:center;color:var(--c-text-muted)">Nenhum pedido registrado.</div></div>`;
+    let tBruto = 0, tFinal = 0, tQtd = 0;
+    con.forEach((i) => {
+      tBruto += parseFloat(i.total_bruto);
+      tFinal += parseFloat(i.total_final);
+      tQtd += parseInt(i.quantidade_total);
+    });
+    return `
+      <div class="card report-card" style="margin-bottom:16px">
+        <div class="report-header consolidated-toggle" onclick="document.getElementById('consolidadoDetail').style.display=document.getElementById('consolidadoDetail').style.display==='none'?'block':'none';this.querySelector('.buyer-card-chevron').classList.toggle('open')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+          <span>${icon("box")} Pedido consolidado por produto</span>
+          <span class="buyer-card-chevron">&#9662;</span>
+        </div>
+        <div class="consolidated-summary" onclick="document.getElementById('consolidadoDetail').style.display=document.getElementById('consolidadoDetail').style.display==='none'?'block':'none'" style="cursor:pointer;padding:12px 20px;display:flex;gap:24px;flex-wrap:wrap;border-bottom:1px solid var(--c-border)">
+          <div><small style="color:var(--c-text-muted);font-size:0.72rem;text-transform:uppercase">Produtos</small><br><strong>${con.length}</strong></div>
+          <div><small style="color:var(--c-text-muted);font-size:0.72rem;text-transform:uppercase">Unidades</small><br><strong>${tQtd}</strong></div>
+          <div><small style="color:var(--c-text-muted);font-size:0.72rem;text-transform:uppercase">Total Bruto</small><br><strong>${fmt.brl(tBruto)}</strong></div>
+          <div><small style="color:var(--c-text-muted);font-size:0.72rem;text-transform:uppercase">Total Final</small><br><strong style="color:var(--c-brand)">${fmt.brl(tFinal)}</strong></div>
+          ${tBruto !== tFinal ? `<div><small style="color:var(--c-text-muted);font-size:0.72rem;text-transform:uppercase">Economia</small><br><strong style="color:var(--c-success)">${fmt.brl(tBruto - tFinal)}</strong></div>` : ""}
+        </div>
+        <div id="consolidadoDetail" style="display:none">
+          <p class="card-subtitle" style="padding:12px 20px 8px;font-size:0.8rem">
+            Clique no ícone ${icon("trash")} para remover um produto em falta de todos os pedidos.
+          </p>
+          ${this.renderConsolidatedTable(con)}
+        </div>
+      </div>`;
   },
 
   renderConsolidatedTable(con) {
@@ -1785,11 +1812,27 @@ const app = {
   },
 
   async clearAllOrders() {
-    if (!confirm("Apagar TODOS os pedidos?")) return;
+    if (!confirm("Apagar TODOS os pedidos atuais?")) return;
     if (!confirm("Confirmação final — esta ação é irreversível.")) return;
     await this.api("pedidos", "DELETE");
     this.renderAdmin();
     this.toast("Pedidos apagados", "info");
+  },
+
+  async clearAllHistory() {
+    if (!confirm("Apagar TODO o histórico de pedidos (incluindo pedidos antigos e atuais)?")) return;
+    if (!confirm("Confirmação final — esta ação é irreversível. Todos os pedidos de todos os compradores serão removidos.")) return;
+    await this.api("pedidos", "DELETE");
+    this.renderAdmin();
+    this.toast("Histórico completo apagado", "info");
+  },
+
+  exitAdmin() {
+    this.state.isAdminLoggedIn = false;
+    const tabAdmin = document.getElementById("tabAdmin");
+    if (tabAdmin) tabAdmin.hidden = true;
+    this.switchTab("produtos");
+    this.toast("Saiu do painel admin", "info");
   },
 
   // Tabela pronta para copy/paste no Excel do fornecedor.
