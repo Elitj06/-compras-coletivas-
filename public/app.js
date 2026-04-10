@@ -127,6 +127,7 @@ const app = {
     variantSelection: {},
     lastOrder: null,
     editingPedido: null,
+    orphanPedidos: [],
     _editCheckDone: false,
   },
 
@@ -143,7 +144,10 @@ const app = {
     await this.loadDiscountFromServer();
     // Cadastro obrigatório logo na entrada
     if (!this.state.isRegistered) {
-      this.showRegistrationModal(true);
+      this.showRegistrationModal(true, "login");
+    } else {
+      // Detecta pedidos órfãos do banco para limpar histórico
+      this.cleanupOrphanPedidos();
     }
   },
 
@@ -945,7 +949,31 @@ const app = {
     }
 
     if (!items.length && !this.state.editingPedido) {
-      c.innerHTML = `
+      // Mostra pedidos órfãos para limpeza se existirem
+      const orphans = this.state.orphanPedidos || [];
+      const orphanHtml = orphans.length ? `
+        <div class="card" style="margin-bottom:14px">
+          <div class="sent-order-banner" style="background:#fef3c7;border-color:#fde68a">
+            ${icon("alert")}
+            <div>
+              <strong style="color:#92400e">${orphans.length} pedido(s) de teste encontrado(s) no histórico</strong><br>
+              <small style="color:#92400e">Estes pedidos foram criados mas não correspondem a compras reais. Deseja removê-los?</small>
+            </div>
+          </div>
+          <div style="padding:0 20px 16px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-danger btn-sm" onclick="app.deleteAllOrphanPedidos()">${icon("trash")} Apagar todos os pedidos de teste</button>
+          </div>
+          ${orphans.map((p) => {
+            const dt = new Date(p.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+            const qtd = (p.itens || []).filter(it => it && it.codigo).length;
+            return `<div style="padding:6px 20px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--c-border)">
+              <span style="font-size:0.85rem">Pedido #${p.id} · ${dt} · ${qtd} itens · ${fmt.brl(p.total_final)}</span>
+              <button class="btn-icon btn-icon-danger" title="Remover" onclick="app.deleteOrphanPedido(${p.id})">${icon("trash")}</button>
+            </div>`;
+          }).join("")}
+        </div>` : "";
+
+      c.innerHTML = orphanHtml + `
         <div class="card">
           <div class="empty-state">
             ${icon("cart")}
@@ -1266,15 +1294,16 @@ const app = {
     this.renderInvoice();
   },
 
-  /* Cancelar pedido já enviado: remove do banco e limpa localmente. */
-  async cancelLastOrder() {
+  /* Cancelar pedido já enviado: remove do banco e limpa localmente.
+     skipConfirm=true é usado internamente (ex: reopenLastOrder já perguntou). */
+  async cancelLastOrder(skipConfirm = false) {
     const last = this.state.lastOrder;
     if (!last) return;
-    if (!confirm("Cancelar este pedido? Esta ação não pode ser desfeita.")) return;
+    if (!skipConfirm && !confirm("Cancelar este pedido? Esta ação não pode ser desfeita.")) return;
     if (last.id) {
       const res = await this.api(`pedidos/${last.id}`, "DELETE");
       if (res && res.success) {
-        this.toast("Pedido cancelado", "success");
+        this.toast("Pedido cancelado e removido do histórico", "success");
       } else {
         this.toast("Não foi possível cancelar no servidor", "error");
         return;
@@ -1287,15 +1316,69 @@ const app = {
     this.renderInvoice();
   },
 
-  /* Reabre o pedido enviado voltando os itens para o carrinho para edição. */
-  reopenLastOrder() {
+  /* Reabre o pedido enviado voltando os itens para o carrinho para edição.
+     Deleta o pedido antigo do banco para não ficar duplicado no histórico. */
+  async reopenLastOrder() {
     const last = this.state.lastOrder;
     if (!last) return;
-    if (!confirm("Editar este pedido? Os itens voltarão ao carrinho e o pedido atual será cancelado.")) return;
+    if (!confirm("Editar este pedido? Os itens voltarão ao carrinho e o pedido atual será cancelado no servidor.")) return;
+    // Carrega itens no carrinho
     last.itens.forEach((it) => {
       this.state.cart[it.codigo] = (this.state.cart[it.codigo] || 0) + it.quantidade;
     });
-    this.cancelLastOrder();
+    // Deleta do banco sem pedir confirmação de novo
+    await this.cancelLastOrder(true);
+    // Atualiza UI
+    this.saveLocal();
+    this.updateCartBar();
+    this.renderProducts();
+    this.renderInvoice();
+  },
+
+  /* Limpa pedidos pendentes órfãos do comprador logado no banco.
+     Chamado na inicialização para garantir que o histórico reflita a realidade. */
+  async cleanupOrphanPedidos() {
+    if (!this.state.isRegistered) return;
+    try {
+      const params = new URLSearchParams({
+        usuario: this.state.user.name,
+        telefone: this.state.user.phone || "",
+      });
+      const res = await this.api(`pedidos/historico?${params.toString()}`);
+      const pedidos = res?.data || [];
+      // Se não tem lastOrder no localStorage mas tem pedidos pendentes no banco,
+      // são pedidos órfãos de sessões anteriores — exibe no renderInvoice para o user decidir.
+      const pendentes = pedidos.filter((p) => p.status === "pendente");
+      if (pendentes.length && !this.state.lastOrder) {
+        this.state.orphanPedidos = pendentes;
+      }
+    } catch (e) {
+      console.error("cleanupOrphanPedidos:", e);
+    }
+  },
+
+  async deleteOrphanPedido(pedidoId) {
+    const res = await this.api(`pedidos/${pedidoId}`, "DELETE");
+    if (res?.success) {
+      this.toast("Pedido removido do histórico", "success");
+      if (this.state.orphanPedidos) {
+        this.state.orphanPedidos = this.state.orphanPedidos.filter((p) => p.id !== pedidoId);
+      }
+      this.renderInvoice();
+    } else {
+      this.toast("Erro ao remover pedido", "error");
+    }
+  },
+
+  async deleteAllOrphanPedidos() {
+    if (!this.state.orphanPedidos?.length) return;
+    if (!confirm(`Apagar ${this.state.orphanPedidos.length} pedido(s) de teste do histórico?`)) return;
+    for (const p of this.state.orphanPedidos) {
+      await this.api(`pedidos/${p.id}`, "DELETE");
+    }
+    this.state.orphanPedidos = [];
+    this.toast("Pedidos de teste removidos", "success");
+    this.renderInvoice();
   },
 
   /* ----------------- Admin ----------------- */

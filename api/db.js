@@ -213,7 +213,7 @@ export default async function handler(req) {
           FROM pedidos p
           LEFT JOIN itens_pedido ip ON ip.pedido_id = p.id
           LEFT JOIN compradores c ON c.nome = p.usuario
-          WHERE ${where}
+          WHERE ${where} AND p.status != 'cancelado'
           GROUP BY p.id
           ORDER BY p.created_at DESC
         `, params);
