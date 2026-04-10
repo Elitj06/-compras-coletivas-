@@ -1552,25 +1552,25 @@ const app = {
     c.innerHTML = html;
 
     // Listener accordion: só um card aberto por vez
-    document.querySelectorAll(".buyer-card-summary").forEach((summary) => {
+    c.querySelectorAll(".buyer-card-summary").forEach((summary) => {
       summary.addEventListener("click", (e) => {
         if (e.target.closest("button")) return;
         e.stopPropagation();
-        const card = summary.closest(".buyer-card");
-        const idx = card.dataset.buyerIdx;
+        const thisCard = summary.closest(".buyer-card");
+        const idx = thisCard.dataset.buyerIdx;
         const detail = document.getElementById("buyerDetail-" + idx);
         if (!detail) return;
-        const isOpen = detail.style.display !== "none";
-        // Fecha todos antes
-        document.querySelectorAll(".buyer-card").forEach((c) => {
-          c.classList.remove("buyer-card-open");
-          const d = c.querySelector(".buyer-card-detail");
-          if (d) d.style.display = "none";
+        const wasOpen = detail.style.display !== "none";
+        // Fecha TODOS os cards antes
+        c.querySelectorAll(".buyer-card").forEach((bc) => {
+          bc.classList.remove("buyer-card-open");
+          const bd = bc.querySelector(".buyer-card-detail");
+          if (bd) bd.style.display = "none";
         });
-        // Abre o clicado (se não estava aberto)
-        if (!isOpen) {
+        // Se NÃO estava aberto, abre este
+        if (!wasOpen) {
           detail.style.display = "block";
-          card.classList.add("buyer-card-open");
+          thisCard.classList.add("buyer-card-open");
         }
       });
     });
