@@ -21,6 +21,9 @@ async function ensureMigrations(client) {
   try {
     await client.query(`ALTER TABLE compradores ADD COLUMN IF NOT EXISTS pin_hash TEXT`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_compradores_nome_tel ON compradores(nome, telefone)`);
+    // Atualiza constraint de status para incluir 'aberto_edicao'
+    await client.query(`ALTER TABLE pedidos DROP CONSTRAINT IF EXISTS pedidos_status_check`);
+    await client.query(`ALTER TABLE pedidos ADD CONSTRAINT pedidos_status_check CHECK (status IN ('pendente','confirmado','cancelado','entregue','aberto_edicao'))`);
     _migrationDone = true;
   } catch (e) {
     console.error('Migration error:', e.message);
@@ -105,8 +108,9 @@ export default async function handler(req) {
             p.usuario,
             MAX(c.telefone) as telefone,
             MAX(c.email) as email,
-            json_agg(p.id) as pedido_ids,
-            json_agg(json_build_object(
+            array_agg(DISTINCT p.id) as pedido_ids,
+            array_agg(DISTINCT p.status) as statuses,
+            json_agg(DISTINCT jsonb_build_object(
               'item_id', ip.id,
               'pedido_id', p.id,
               'codigo', ip.codigo,
@@ -411,6 +415,48 @@ export default async function handler(req) {
           return json({ success: true, message: 'Login autorizado' });
         }
         return json({ success: false, error: 'Senha incorreta' }, 401);
+      }
+    }
+
+    // ===== PUT ROUTES =====
+    if (req.method === 'PUT') {
+      const body = await req.json();
+
+      // PUT /pedidos/:id/status { status: 'aberto_edicao' | 'pendente' | 'confirmado' }
+      const statusMatch = path.match(/^pedidos\/(\d+)\/status$/);
+      if (statusMatch) {
+        const pid = parseInt(statusMatch[1]);
+        const { status } = body;
+        const validos = ['pendente', 'confirmado', 'cancelado', 'entregue', 'aberto_edicao'];
+        if (!validos.includes(status)) {
+          await client.end();
+          return json({ success: false, error: `Status inválido. Opções: ${validos.join(', ')}` }, 400);
+        }
+        const r = await client.query(
+          'UPDATE pedidos SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id',
+          [status, pid]
+        );
+        await client.end();
+        if (!r.rowCount) return json({ success: false, error: 'Pedido não encontrado' }, 404);
+        return json({ success: true, message: `Pedido ${pid} → ${status}` });
+      }
+
+      // PUT /pedidos/usuario/:nome/status  (altera status de TODOS os pedidos de um comprador)
+      const userStatusMatch = path.match(/^pedidos\/usuario\/(.+)\/status$/);
+      if (userStatusMatch) {
+        const usuario = decodeURIComponent(userStatusMatch[1]);
+        const { status } = body;
+        const validos = ['pendente', 'confirmado', 'cancelado', 'entregue', 'aberto_edicao'];
+        if (!validos.includes(status)) {
+          await client.end();
+          return json({ success: false, error: `Status inválido` }, 400);
+        }
+        const r = await client.query(
+          `UPDATE pedidos SET status = $1, updated_at = NOW() WHERE usuario = $2 AND status != 'cancelado' RETURNING id`,
+          [status, usuario]
+        );
+        await client.end();
+        return json({ success: true, message: `${r.rowCount} pedido(s) de ${usuario} → ${status}` });
       }
     }
 

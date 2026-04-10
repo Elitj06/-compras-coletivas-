@@ -126,6 +126,8 @@ const app = {
     // Variante atualmente selecionada em cada grupo (grupoId -> codigo)
     variantSelection: {},
     lastOrder: null,
+    editingPedido: null,
+    _editCheckDone: false,
   },
 
   /* ----------------- Bootstrap ----------------- */
@@ -915,17 +917,34 @@ const app = {
   },
 
   /* ----------------- INVOICE (Meu Pedido) ----------------- */
-  renderInvoice() {
+  async renderInvoice() {
     const c = document.getElementById("myCartContent");
+
+    // Verifica se há pedido aberto para edição no servidor
+    if (this.state.isRegistered && !this.state._editCheckDone) {
+      await this.checkPedidoAberto();
+    }
+
     const items = Object.entries(this.state.cart);
 
+    // Banner de edição ativa
+    const editBanner = this.state.editingPedido
+      ? `<div class="sent-order-banner" style="background:#fef3c7;border-color:#fde68a;margin-bottom:16px">
+           ${icon("alert")}
+           <div>
+             <strong style="color:#92400e">Pedido aberto para edição</strong><br>
+             <small style="color:#92400e">O administrador liberou seu pedido para alterações. Ajuste os itens e clique em <strong>Reenviar pedido</strong> quando terminar.</small>
+           </div>
+         </div>`
+      : "";
+
     // Se o carrinho está vazio e existe um pedido enviado, mostra o pedido.
-    if (!items.length && this.state.lastOrder) {
+    if (!items.length && this.state.lastOrder && !this.state.editingPedido) {
       c.innerHTML = this.renderSentOrder(this.state.lastOrder);
       return;
     }
 
-    if (!items.length) {
+    if (!items.length && !this.state.editingPedido) {
       c.innerHTML = `
         <div class="card">
           <div class="empty-state">
@@ -993,7 +1012,12 @@ const app = {
       })
       .join("");
 
+    const editFinBtn = this.state.editingPedido
+      ? `<button class="btn btn-primary btn-block" onclick="app.resubmitEditedOrder()">Reenviar pedido editado</button>`
+      : `<button class="btn btn-primary btn-block" onclick="app.finalizeOrder()">Finalizar pedido</button>`;
+
     c.innerHTML = `
+      ${editBanner}
       <div class="invoice-grid">
         <div>
           <div class="card">
@@ -1045,11 +1069,61 @@ const app = {
               : ""
           }
           <div class="summary-actions">
-            <button class="btn btn-primary btn-block" onclick="app.finalizeOrder()">Finalizar pedido</button>
+            ${editFinBtn}
             <button class="btn btn-ghost btn-block" onclick="app.switchTab('produtos')">Continuar comprando</button>
           </div>
         </aside>
       </div>`;
+  },
+
+  // Verifica no servidor se existe pedido com status 'aberto_edicao'
+  async checkPedidoAberto() {
+    this.state._editCheckDone = true;
+    try {
+      const u = this.state.user.name;
+      const t = this.state.user.phone;
+      if (!u) return;
+      const params = new URLSearchParams({ usuario: u, telefone: t || "" });
+      const res = await this.api(`pedidos/historico?${params.toString()}`);
+      const pedidos = res?.data || [];
+      const aberto = pedidos.find((p) => p.status === "aberto_edicao");
+      if (aberto) {
+        this.state.editingPedido = aberto;
+        // Carrega itens do pedido aberto para o carrinho
+        const itens = (aberto.itens || []).filter((it) => it && it.codigo);
+        const newCart = {};
+        itens.forEach((it) => {
+          newCart[it.codigo] = (newCart[it.codigo] || 0) + it.quantidade;
+        });
+        this.state.cart = newCart;
+        this.saveLocal();
+        this.updateCartBar();
+        this.renderProducts();
+      }
+    } catch (e) {
+      console.error("checkPedidoAberto error:", e);
+    }
+  },
+
+  // Reenvia o pedido editado (exclui o antigo e cria novo)
+  async resubmitEditedOrder() {
+    const items = Object.entries(this.state.cart);
+    if (!items.length) {
+      this.toast("Adicione ao menos um item antes de reenviar", "error");
+      return;
+    }
+    if (!confirm("Confirma o reenvio do pedido editado?")) return;
+
+    const pedidoAberto = this.state.editingPedido;
+    // Apaga o pedido antigo
+    if (pedidoAberto?.id) {
+      await this.api(`pedidos/${pedidoAberto.id}`, "DELETE");
+    }
+    // Limpa estado de edição antes de finalizar
+    this.state.editingPedido = null;
+    this.state.lastOrder = null;
+    // Reenvia como novo pedido
+    await this.finalizeOrder();
   },
 
   /* Renderiza o pedido enviado para revisão do comprador. */
@@ -1394,17 +1468,27 @@ const app = {
 
     c.innerHTML = html;
 
-    // Listener para abrir/fechar pedidos inline
-    document.querySelectorAll(".buyer-card").forEach((card) => {
-      card.addEventListener("click", (e) => {
-        // Não expande se clicou num botão
+    // Listener accordion: só um card aberto por vez
+    document.querySelectorAll(".buyer-card-summary").forEach((summary) => {
+      summary.addEventListener("click", (e) => {
         if (e.target.closest("button")) return;
+        e.stopPropagation();
+        const card = summary.closest(".buyer-card");
         const idx = card.dataset.buyerIdx;
         const detail = document.getElementById("buyerDetail-" + idx);
         if (!detail) return;
         const isOpen = detail.style.display !== "none";
-        detail.style.display = isOpen ? "none" : "block";
-        card.classList.toggle("buyer-card-open", !isOpen);
+        // Fecha todos antes
+        document.querySelectorAll(".buyer-card").forEach((c) => {
+          c.classList.remove("buyer-card-open");
+          const d = c.querySelector(".buyer-card-detail");
+          if (d) d.style.display = "none";
+        });
+        // Abre o clicado (se não estava aberto)
+        if (!isOpen) {
+          detail.style.display = "block";
+          card.classList.add("buyer-card-open");
+        }
       });
     });
   },
@@ -1460,6 +1544,8 @@ const app = {
       const totalFinal = parseFloat(u.total_desconto || u.total_bruto || 0);
       const totalBruto = parseFloat(u.total_bruto || 0);
       const qtdItens = parseInt(u.total_itens || 0);
+      const statuses = u.statuses || [];
+      const emEdicao = statuses.includes("aberto_edicao");
 
       // Dedup itens
       const seen = new Set();
@@ -1489,7 +1575,7 @@ const app = {
             <div class="buyer-card-avatar">${initials}</div>
             <div class="buyer-card-info">
               <strong class="buyer-card-name">${fmt.escape(u.usuario)}</strong>
-              <span class="buyer-card-meta">${qtdItens} ${qtdItens === 1 ? "item" : "itens"}</span>
+              <span class="buyer-card-meta">${qtdItens} ${qtdItens === 1 ? "item" : "itens"}${emEdicao ? ' · <span style="color:#d97706;font-weight:600">Em edição</span>' : ""}</span>
             </div>
             <div class="buyer-card-value">
               <strong>${fmt.brl(totalFinal)}</strong>
@@ -1500,6 +1586,7 @@ const app = {
           <div class="buyer-card-detail" id="buyerDetail-${idx}" style="display:none">
             <div class="buyer-card-actions">
               <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();app.adminVerHistorico('${usuarioEsc}','${fmt.escape(u.telefone || '').replace(/'/g, "\\'")}')">${icon("receipt")} Histórico</button>
+              <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();app.adminLiberarEdicao('${usuarioEsc}')">${icon("refresh")} Liberar para edição</button>
               <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();app.deletePedidoUsuario('${usuarioEsc}')">${icon("trash")} Apagar pedido</button>
             </div>
             <table class="data-table">
@@ -1512,6 +1599,24 @@ const app = {
           </div>
         </div>`;
     }).join("")}</div>`;
+  },
+
+  async adminLiberarEdicao(usuario) {
+    if (!confirm(
+      `Liberar o pedido de "${usuario}" para edição?\n\n` +
+      `O comprador poderá remover itens, alterar quantidades ou ` +
+      `adicionar novos produtos. Útil quando um item está em falta no fornecedor.`
+    )) return;
+    const r = await this.api(
+      `pedidos/usuario/${encodeURIComponent(usuario)}/status`, "PUT",
+      { status: "aberto_edicao" }
+    );
+    if (r?.success) {
+      this.toast(`Pedido de ${usuario} liberado para edição`, "success");
+      this.renderAdmin();
+    } else {
+      this.toast(r?.error || "Erro ao liberar pedido", "error");
+    }
   },
 
   adminVerHistorico(usuario, telefone) {
@@ -1832,7 +1937,17 @@ const app = {
           <td>${fmt.brl(it.subtotal_bruto)}</td>
           <td>${fmt.brl(it.subtotal_final)}</td>
         </tr>`).join("");
-      const statusLabel = p.status === "cancelado" ? '<span style="color:#dc2626">Cancelado</span>' : p.status;
+      const statusMap = {
+        cancelado: '<span style="color:#dc2626">Cancelado</span>',
+        pendente: '<span style="color:var(--c-text-muted)">Pendente</span>',
+        confirmado: '<span style="color:var(--c-brand)">Confirmado</span>',
+        entregue: '<span style="color:var(--c-brand)">Entregue</span>',
+        aberto_edicao: '<span style="color:#d97706;font-weight:600">Aberto para edição</span>',
+      };
+      const statusLabel = statusMap[p.status] || p.status;
+      const editBtn = p.status === "aberto_edicao" && !isAdminView
+        ? `<button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="app.switchTab('meu-pedido')">Editar meu pedido</button>`
+        : "";
       return `
         <div class="card report-card" style="margin-bottom:14px">
           <div class="report-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
@@ -1847,6 +1962,7 @@ const app = {
             Bruto: <strong>${fmt.brl(p.total_bruto)}</strong> ·
             Desconto: <strong>${fmt.brl(p.total_desconto || 0)}</strong> ·
             Final: <strong>${fmt.brl(p.total_final)}</strong>
+            ${editBtn}
           </div>
         </div>`;
     }).join("");
