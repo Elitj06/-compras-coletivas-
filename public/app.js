@@ -1389,10 +1389,24 @@ const app = {
 
       <div class="card report-card">
         <div class="report-header">${icon("users")} Pedidos por comprador</div>
-        ${this.renderUsersTable(users)}
+        ${this.renderBuyerCards(users)}
       </div>`;
 
     c.innerHTML = html;
+
+    // Listener para abrir/fechar pedidos inline
+    document.querySelectorAll(".buyer-card").forEach((card) => {
+      card.addEventListener("click", (e) => {
+        // Não expande se clicou num botão
+        if (e.target.closest("button")) return;
+        const idx = card.dataset.buyerIdx;
+        const detail = document.getElementById("buyerDetail-" + idx);
+        if (!detail) return;
+        const isOpen = detail.style.display !== "none";
+        detail.style.display = isOpen ? "none" : "block";
+        card.classList.toggle("buyer-card-open", !isOpen);
+      });
+    });
   },
 
   renderConsolidatedTable(con) {
@@ -1436,56 +1450,68 @@ const app = {
       </table>`;
   },
 
-  renderUsersTable(users) {
+  renderBuyerCards(users) {
     if (!users.length)
       return `<div style="padding:24px;text-align:center;color:var(--c-text-muted)">Nenhum pedido registrado.</div>`;
-    return users
-      .map((u) => {
-        const contato = [u.telefone, u.email].filter(Boolean).join(" · ");
-        const usuarioEsc = fmt.escape(u.usuario).replace(/'/g, "\\'");
-        // Dedup itens caso o json_agg retorne duplicatas por join
-        const seen = new Set();
-        const itensList = (u.itens || []).filter((it) => {
-          const k = it.item_id;
-          if (seen.has(k)) return false;
-          seen.add(k);
-          return true;
-        });
-        const itens = itensList
-          .map(
-            (it) =>
-              `<tr>
-                <td>${fmt.escape(it.codigo)}</td>
-                <td>${fmt.escape(it.nome)}</td>
-                <td>${it.quantidade}</td>
-                <td>${fmt.brl(it.preco_bruto * it.quantidade)}</td>
-                <td>${fmt.brl(it.preco_desconto * it.quantidade)}</td>
-                <td><button class="btn-icon btn-icon-danger" title="Remover este item do pedido" onclick="app.removeItemFromPedido(${it.item_id}, '${fmt.escape(it.nome).replace(/'/g, "\\'")}')">${icon("trash")}</button></td>
-              </tr>`
-          )
-          .join("");
-        return `
-          <div class="user-section-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-            <div>
-              ${icon("user")} ${fmt.escape(u.usuario)}
-              ${contato ? `<small style="font-weight:400;color:var(--c-text-muted)">— ${fmt.escape(contato)}</small>` : ""}
+
+    return `<div class="buyer-cards-grid">${users.map((u, idx) => {
+      const usuarioEsc = fmt.escape(u.usuario).replace(/'/g, "\\'");
+      const initials = fmt.initials(u.usuario);
+      const totalFinal = parseFloat(u.total_desconto || u.total_bruto || 0);
+      const totalBruto = parseFloat(u.total_bruto || 0);
+      const qtdItens = parseInt(u.total_itens || 0);
+
+      // Dedup itens
+      const seen = new Set();
+      const itensList = (u.itens || []).filter((it) => {
+        const k = it.item_id;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+      const itensRows = itensList
+        .map(
+          (it) =>
+            `<tr>
+              <td>${fmt.escape(it.codigo)}</td>
+              <td>${fmt.escape(it.nome)}</td>
+              <td>${it.quantidade}</td>
+              <td>${fmt.brl(it.preco_bruto * it.quantidade)}</td>
+              <td>${fmt.brl(it.preco_desconto * it.quantidade)}</td>
+              <td><button class="btn-icon btn-icon-danger" title="Remover item" onclick="event.stopPropagation();app.removeItemFromPedido(${it.item_id}, '${fmt.escape(it.nome).replace(/'/g, "\\'")}')">${icon("trash")}</button></td>
+            </tr>`
+        )
+        .join("");
+
+      return `
+        <div class="buyer-card" data-buyer-idx="${idx}">
+          <div class="buyer-card-summary">
+            <div class="buyer-card-avatar">${initials}</div>
+            <div class="buyer-card-info">
+              <strong class="buyer-card-name">${fmt.escape(u.usuario)}</strong>
+              <span class="buyer-card-meta">${qtdItens} ${qtdItens === 1 ? "item" : "itens"}</span>
             </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn btn-secondary btn-sm" onclick="app.adminVerHistorico('${usuarioEsc}','${fmt.escape(u.telefone || '').replace(/'/g, "\\'")}')">${icon("receipt")} Ver histórico</button>
-              <button class="btn btn-danger btn-sm" onclick="app.deletePedidoUsuario('${usuarioEsc}')">${icon("trash")} Apagar pedido completo</button>
+            <div class="buyer-card-value">
+              <strong>${fmt.brl(totalFinal)}</strong>
+              ${totalBruto !== totalFinal ? `<small style="text-decoration:line-through;color:var(--c-text-muted);font-size:0.75rem">${fmt.brl(totalBruto)}</small>` : ""}
+            </div>
+            <span class="buyer-card-chevron">&#9662;</span>
+          </div>
+          <div class="buyer-card-detail" id="buyerDetail-${idx}" style="display:none">
+            <div class="buyer-card-actions">
+              <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();app.adminVerHistorico('${usuarioEsc}','${fmt.escape(u.telefone || '').replace(/'/g, "\\'")}')">${icon("receipt")} Histórico</button>
+              <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();app.deletePedidoUsuario('${usuarioEsc}')">${icon("trash")} Apagar pedido</button>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Bruto</th><th>Final</th><th></th></tr></thead>
+              <tbody>${itensRows}</tbody>
+            </table>
+            <div class="user-total-row">
+              ${qtdItens} itens · Bruto: <strong>${fmt.brl(totalBruto)}</strong> · Final: <strong>${fmt.brl(totalFinal)}</strong>
             </div>
           </div>
-          <table class="data-table">
-            <thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Bruto</th><th>Final</th><th></th></tr></thead>
-            <tbody>${itens}</tbody>
-          </table>
-          <div class="user-total-row">
-            ${u.total_itens} itens · Bruto: <strong>${fmt.brl(
-          u.total_bruto
-        )}</strong> · Final: <strong>${fmt.brl(u.total_desconto)}</strong>
-          </div>`;
-      })
-      .join("");
+        </div>`;
+    }).join("")}</div>`;
   },
 
   adminVerHistorico(usuario, telefone) {

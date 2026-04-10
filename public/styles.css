@@ -1289,3 +1289,90 @@ svg { width: 18px; height: 18px; flex-shrink: 0; }
 @media (max-width: 768px) {
   .tab-content { padding-bottom: 220px; }
 }
+
+/* ===== Cards de compradores (admin) ===== */
+.buyer-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  padding: 16px 20px;
+}
+.buyer-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius, 12px);
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.buyer-card:hover {
+  border-color: var(--c-brand-soft, #a7d5b8);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+.buyer-card-open {
+  border-color: var(--c-brand, #16a34a);
+  box-shadow: 0 4px 20px rgba(22,163,74,0.12);
+}
+.buyer-card-open .buyer-card-chevron { transform: rotate(180deg); }
+.buyer-card-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.buyer-card-avatar {
+  width: 40px; height: 40px; min-width: 40px;
+  border-radius: 999px;
+  background: var(--c-brand-softer, #e8f5ee);
+  color: var(--c-brand, #16a34a);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.85rem;
+  text-transform: uppercase;
+}
+.buyer-card-info {
+  flex: 1;
+  min-width: 0;
+  display: flex; flex-direction: column;
+}
+.buyer-card-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--c-text, #111);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.buyer-card-meta {
+  font-size: 0.78rem;
+  color: var(--c-text-muted, #666);
+}
+.buyer-card-value {
+  text-align: right;
+  display: flex; flex-direction: column; align-items: flex-end;
+}
+.buyer-card-value strong {
+  font-family: var(--font-display, sans-serif);
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--c-brand, #16a34a);
+}
+.buyer-card-chevron {
+  font-size: 0.8rem;
+  color: var(--c-text-muted, #666);
+  transition: transform 0.25s ease;
+  margin-left: 4px;
+}
+.buyer-card-detail {
+  border-top: 1px solid var(--c-border);
+  padding: 12px 16px 16px;
+  cursor: default;
+}
+.buyer-card-actions {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+@media (max-width: 600px) {
+  .buyer-cards-grid {
+    grid-template-columns: 1fr;
+    padding: 12px;
+    gap: 10px;
+  }
+}
