@@ -1704,7 +1704,13 @@ const app = {
             `<tr>
               <td>${fmt.escape(it.codigo)}</td>
               <td>${fmt.escape(it.nome)}</td>
-              <td>${it.quantidade}</td>
+              <td>
+                <div style="display:flex;align-items:center;gap:4px">
+                  <button class="btn-icon btn-sm" title="Diminuir" onclick="event.stopPropagation();app.adminChangeQty(${it.item_id},${it.quantidade - 1})">−</button>
+                  <span style="min-width:24px;text-align:center">${it.quantidade}</span>
+                  <button class="btn-icon btn-sm" title="Aumentar" onclick="event.stopPropagation();app.adminChangeQty(${it.item_id},${it.quantidade + 1})">+</button>
+                </div>
+              </td>
               <td>${fmt.brl(it.preco_bruto * it.quantidade)}</td>
               <td>${fmt.brl(it.preco_desconto * it.quantidade)}</td>
               <td><button class="btn-icon btn-icon-danger" title="Remover item" onclick="event.stopPropagation();app.removeItemFromPedido(${it.item_id}, '${fmt.escape(it.nome).replace(/'/g, "\\'")}')">${icon("trash")}</button></td>
@@ -1729,6 +1735,7 @@ const app = {
           <div class="buyer-card-detail" id="buyerDetail-${idx}" style="display:none">
             <div class="buyer-card-actions">
               <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();app.adminVerHistorico('${usuarioEsc}','${fmt.escape(u.telefone || '').replace(/'/g, "\\'")}')">${icon("receipt")} Histórico</button>
+              <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();app.showAdminAddItem(${u.pedido_ids[0]},'${usuarioEsc}')">${icon("plus")} Adicionar item</button>
               <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();app.adminLiberarEdicao('${usuarioEsc}')">${icon("refresh")} Liberar para edição</button>
               <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();app.deletePedidoUsuario('${usuarioEsc}')">${icon("trash")} Apagar pedido</button>
             </div>
@@ -1759,6 +1766,84 @@ const app = {
       this.renderAdmin();
     } else {
       this.toast(r?.error || "Erro ao liberar pedido", "error");
+    }
+  },
+
+  showAdminAddItem(pedidoId, usuario) {
+    // Modal para admin selecionar produto e quantidade para adicionar ao pedido
+    const pct = this.state.discountPct || 0;
+    const prodOptions = PRODUTOS.map(
+      (p) => `<option value="${p.codigo}" data-preco="${p.preco}" data-nome="${fmt.escape(p.nome)}" data-cat="${p.categoria || ''}">${p.nome} — ${fmt.brl(p.preco)}</option>`
+    ).join("");
+
+    const wrap = document.getElementById("confirmModalWrap");
+    wrap.innerHTML = `
+      <div class="modal-overlay" id="addItemOverlay">
+        <div class="modal-content" style="max-width:420px">
+          <div class="modal-header" style="padding:20px 24px 8px">
+            <h2 style="font-size:1.1rem">Adicionar item — ${fmt.escape(usuario)}</h2>
+          </div>
+          <div class="modal-body" style="padding:8px 24px 16px">
+            <div class="form-group">
+              <label for="adminAddProduto">Produto</label>
+              <select id="adminAddProduto" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--c-border);font-size:0.95rem;background:var(--c-surface)">
+                ${prodOptions}
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="adminAddQty">Quantidade</label>
+              <input type="number" id="adminAddQty" value="1" min="1" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--c-border);font-size:0.95rem" />
+            </div>
+            ${pct > 0 ? `<p style="font-size:0.85rem;color:var(--c-text-muted)">Desconto atual: ${pct}% será aplicado automaticamente.</p>` : ''}
+          </div>
+          <div class="modal-footer" style="padding:8px 24px 20px">
+            <button class="btn btn-ghost" onclick="document.getElementById('confirmModalWrap').innerHTML=''">Cancelar</button>
+            <button class="btn btn-primary" onclick="app.adminAddItem(${pedidoId})">Adicionar</button>
+          </div>
+        </div>
+      </div>`;
+  },
+
+  async adminChangeQty(itemId, newQty) {
+    if (newQty < 1) {
+      this.toast("Use o botão de lixeira para remover", "info");
+      return;
+    }
+    const r = await this.api(`itens/${itemId}/qty`, "PUT", { quantidade: newQty });
+    if (r?.success) {
+      this.renderAdmin();
+    } else {
+      this.toast(r?.error || "Erro ao alterar quantidade", "error");
+    }
+  },
+
+  async adminAddItem(pedidoId) {
+    const sel = document.getElementById("adminAddProduto");
+    const qty = parseInt(document.getElementById("adminAddQty").value) || 1;
+    const opt = sel.options[sel.selectedIndex];
+    const codigo = sel.value;
+    const nome = opt.dataset.nome;
+    const precoBruto = parseFloat(opt.dataset.preco);
+    const cat = opt.dataset.cat;
+    const pct = this.state.discountPct || 0;
+    const precoDesconto = pct > 0 ? precoBruto * (1 - pct / 100) : precoBruto;
+
+    const r = await this.api(`pedidos/${pedidoId}/itens`, "PUT", {
+      codigo,
+      nome,
+      quantidade: qty,
+      preco_bruto: precoBruto,
+      preco_desconto: precoDesconto,
+      categoria: cat,
+    });
+
+    document.getElementById("confirmModalWrap").innerHTML = "";
+
+    if (r?.success) {
+      this.toast(`${nome} adicionado ao pedido`, "success");
+      this.renderAdmin();
+    } else {
+      this.toast(r?.error || "Erro ao adicionar item", "error");
     }
   },
 

@@ -27,6 +27,7 @@ async function ensureMigrations(client) {
       )
     `);
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_compradores_nome_unique ON compradores(nome)`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_compradores_nome_lower ON compradores(LOWER(nome))`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_compradores_nome_tel ON compradores(nome, telefone)`);
     // Atualiza constraint de status para incluir 'aberto_edicao'
     await client.query(`ALTER TABLE pedidos DROP CONSTRAINT IF EXISTS pedidos_status_check`);
@@ -344,39 +345,43 @@ export default async function handler(req) {
           await client.end();
           return json({ success: false, error: 'PIN deve ter de 4 a 6 dígitos numéricos' }, 400);
         }
-        // Garante comprador (upsert por nome)
-        await client.query(
-          `INSERT INTO compradores (nome, telefone, email)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (nome) DO UPDATE SET
-             telefone = COALESCE(EXCLUDED.telefone, compradores.telefone),
-             email = COALESCE(EXCLUDED.email, compradores.email)`,
-          [n, t, email || null]
-        );
-        // Verifica se já existe pin
+        // Verifica se já existe (case-insensitive)
         const existing = await client.query(
-          `SELECT pin_hash FROM compradores WHERE nome = $1 LIMIT 1`,
+          `SELECT nome, telefone, pin_hash FROM compradores WHERE LOWER(nome) = LOWER($1) LIMIT 1`,
           [n]
         );
         const row = existing.rows[0];
-        if (row && row.pin_hash) {
-          if (!pin_atual) {
-            await client.end();
-            return json({ success: false, error: 'PIN já cadastrado. Faça login ou informe o PIN atual para alterá-lo.', requires_current_pin: true }, 409);
+        if (row) {
+          // Já existe — usa o nome exato do banco
+          const dbNome = row.nome;
+          const dbTel = (row.telefone || '').replace(/\D/g, '');
+          if (row.pin_hash) {
+            if (!pin_atual) {
+              await client.end();
+              return json({ success: false, error: 'PIN já cadastrado. Faça login ou informe o PIN atual para alterá-lo.', requires_current_pin: true }, 409);
+            }
+            const atualHash = await hashPin(pin_atual, dbNome + ':' + dbTel);
+            if (atualHash !== row.pin_hash) {
+              await client.end();
+              return json({ success: false, error: 'PIN atual incorreto' }, 401);
+            }
           }
-          const atualHash = await hashPin(pin_atual, n + ':' + t);
-          if (atualHash !== row.pin_hash) {
-            await client.end();
-            return json({ success: false, error: 'PIN atual incorreto' }, 401);
-          }
+          const newHash = await hashPin(pin, dbNome + ':' + (t || dbTel));
+          await client.query(
+            `UPDATE compradores SET pin_hash = $1, telefone = COALESCE($2, telefone), email = COALESCE($3, email) WHERE nome = $4`,
+            [newHash, t || null, email || null, dbNome]
+          );
+          await client.end();
+          return json({ success: true, message: 'PIN registrado' });
         }
+        // Novo comprador
         const newHash = await hashPin(pin, n + ':' + t);
         await client.query(
-          `UPDATE compradores SET pin_hash = $1 WHERE nome = $2`,
-          [newHash, n]
+          `INSERT INTO compradores (nome, telefone, email, pin_hash) VALUES ($1, $2, $3, $4)`,
+          [n, t, email || null, newHash]
         );
         await client.end();
-        return json({ success: true, message: 'PIN registrado' });
+        return json({ success: true, message: 'Cadastro criado com PIN' });
       }
 
       // POST /comprador/login  { nome, telefone, pin }
@@ -387,8 +392,9 @@ export default async function handler(req) {
           await client.end();
           return json({ success: false, error: 'Dados incompletos' }, 400);
         }
+        // Busca case-insensitive para tolerar diferenças de caixa
         const r = await client.query(
-          `SELECT nome, telefone, email, pin_hash FROM compradores WHERE nome = $1 LIMIT 1`,
+          `SELECT nome, telefone, email, pin_hash FROM compradores WHERE LOWER(nome) = LOWER($1) LIMIT 1`,
           [n]
         );
         if (!r.rows.length) {
@@ -396,20 +402,23 @@ export default async function handler(req) {
           return json({ success: false, error: 'Comprador não encontrado. Use "Criar cadastro".', not_found: true }, 404);
         }
         const row = r.rows[0];
+        // Usa o nome/telefone SALVOS no banco como salt (não o digitado)
+        const dbNome = row.nome;
+        const dbTel = (row.telefone || '').replace(/\D/g, '');
         if (!row.pin_hash) {
           // Comprador antigo sem PIN — permite definir direto
-          const newHash = await hashPin(pin, n + ':' + t);
-          await client.query('UPDATE compradores SET pin_hash = $1, telefone = $2 WHERE nome = $3', [newHash, t, n]);
+          const newHash = await hashPin(pin, dbNome + ':' + dbTel);
+          await client.query('UPDATE compradores SET pin_hash = $1, telefone = $2 WHERE nome = $3', [newHash, t || dbTel, dbNome]);
           await client.end();
-          return json({ success: true, data: { nome: row.nome, telefone: t, email: row.email }, pin_set: true });
+          return json({ success: true, data: { nome: dbNome, telefone: t || dbTel, email: row.email }, pin_set: true });
         }
-        const hash = await hashPin(pin, n + ':' + t);
+        const hash = await hashPin(pin, dbNome + ':' + dbTel);
         if (hash !== row.pin_hash) {
           await client.end();
           return json({ success: false, error: 'PIN incorreto' }, 401);
         }
         await client.end();
-        return json({ success: true, data: { nome: row.nome, telefone: row.telefone, email: row.email } });
+        return json({ success: true, data: { nome: dbNome, telefone: row.telefone, email: row.email } });
       }
 
       if (path === 'admin/login') {
@@ -466,6 +475,100 @@ export default async function handler(req) {
         );
         await client.end();
         return json({ success: true, message: `${r.rowCount} pedido(s) de ${usuario} → ${status}` });
+      }
+
+      // PUT /itens/:id/qty  — Admin: alterar quantidade de item existente
+      const qtyMatch = path.match(/^itens\/(\d+)\/qty$/);
+      if (qtyMatch) {
+        const iid = parseInt(qtyMatch[1]);
+        const { quantidade } = body;
+        const qty = parseInt(quantidade);
+        if (!qty || qty < 1) {
+          await client.end();
+          return json({ success: false, error: 'Quantidade deve ser >= 1' }, 400);
+        }
+        const item = await client.query(
+          'SELECT pedido_id, preco_unitario, preco_com_desconto FROM itens_pedido WHERE id = $1',
+          [iid]
+        );
+        if (!item.rows.length) {
+          await client.end();
+          return json({ success: false, error: 'Item não encontrado' }, 404);
+        }
+        const it = item.rows[0];
+        const pBruto = parseFloat(it.preco_unitario);
+        const pDesc = parseFloat(it.preco_com_desconto);
+        await client.query(
+          `UPDATE itens_pedido SET quantidade = $1, subtotal_bruto = $2, subtotal_final = $3 WHERE id = $4`,
+          [qty, pBruto * qty, pDesc * qty, iid]
+        );
+        // Recalcula totais do pedido
+        const totals = await client.query(
+          `SELECT COALESCE(SUM(subtotal_bruto),0)::numeric AS tb, COALESCE(SUM(subtotal_final),0)::numeric AS tf FROM itens_pedido WHERE pedido_id = $1`,
+          [it.pedido_id]
+        );
+        const tb = parseFloat(totals.rows[0].tb);
+        const tf = parseFloat(totals.rows[0].tf);
+        await client.query(
+          'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3, updated_at = NOW() WHERE id = $4',
+          [tb, tf, tb - tf, it.pedido_id]
+        );
+        await client.end();
+        return json({ success: true, message: `Quantidade atualizada para ${qty}` });
+      }
+
+      // PUT /pedidos/:id/itens  — Admin: adicionar item a pedido existente
+      // body: { codigo, nome, quantidade, preco_bruto, preco_desconto, categoria }
+      const addItemMatch = path.match(/^pedidos\/(\d+)\/itens$/);
+      if (addItemMatch) {
+        const pid = parseInt(addItemMatch[1]);
+        const { codigo, nome, quantidade, preco_bruto, preco_desconto, categoria } = body;
+        if (!codigo || !nome || !quantidade || !preco_bruto) {
+          await client.end();
+          return json({ success: false, error: 'Dados do item incompletos' }, 400);
+        }
+        const qty = parseInt(quantidade) || 1;
+        const pBruto = parseFloat(preco_bruto);
+        const pDesc = parseFloat(preco_desconto) || pBruto;
+        const subtBruto = pBruto * qty;
+        const subtFinal = pDesc * qty;
+
+        // Verifica se já existe esse produto no pedido — se sim, incrementa
+        const existingItem = await client.query(
+          'SELECT id, quantidade, subtotal_bruto, subtotal_final FROM itens_pedido WHERE pedido_id = $1 AND codigo = $2 LIMIT 1',
+          [pid, codigo]
+        );
+        if (existingItem.rows.length) {
+          const ei = existingItem.rows[0];
+          const newQty = ei.quantidade + qty;
+          await client.query(
+            `UPDATE itens_pedido SET quantidade = $1, subtotal_bruto = $2, subtotal_final = $3 WHERE id = $4`,
+            [newQty, pBruto * newQty, pDesc * newQty, ei.id]
+          );
+        } else {
+          const descPct = pBruto > 0 ? Math.round((1 - pDesc / pBruto) * 100) : 0;
+          await client.query(
+            `INSERT INTO itens_pedido (
+              pedido_id, codigo, nome_produto, quantidade,
+              preco_unitario, preco_bruto, preco_com_desconto, preco_desconto,
+              desconto_percentual, subtotal_bruto, subtotal_final, categoria
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+            [pid, codigo, nome, qty, pBruto, pBruto, pDesc, pDesc, descPct, subtBruto, subtFinal, categoria || '']
+          );
+        }
+        // Recalcula totais do pedido
+        const totals = await client.query(
+          `SELECT COALESCE(SUM(subtotal_bruto),0)::numeric AS tb, COALESCE(SUM(subtotal_final),0)::numeric AS tf FROM itens_pedido WHERE pedido_id = $1`,
+          [pid]
+        );
+        const tb = parseFloat(totals.rows[0].tb);
+        const tf = parseFloat(totals.rows[0].tf);
+        await client.query(
+          'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3, updated_at = NOW() WHERE id = $4',
+          [tb, tf, tb - tf, pid]
+        );
+        await client.end();
+        return json({ success: true, message: `Item ${nome} adicionado ao pedido ${pid}` });
       }
     }
 
