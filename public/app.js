@@ -20,6 +20,33 @@
 
 const API_BASE = "/api/db";
 
+/* ----------------------- Confirm modal customizado --------- */
+function customConfirm(msg) {
+  return new Promise((resolve) => {
+    const wrap = document.getElementById("confirmModalWrap");
+    const lines = msg.split("\n").filter(Boolean).map(l => `<p style="margin:4px 0">${l.replace(/</g,"&lt;")}</p>`).join("");
+    wrap.innerHTML = `
+      <div class="modal-overlay" id="confirmModalOverlay">
+        <div class="modal-content" style="max-width:380px">
+          <div class="modal-header" style="padding:20px 24px 8px">
+            <h2 style="font-size:1.1rem">Confirmação</h2>
+          </div>
+          <div class="modal-body" style="padding:8px 24px 16px;font-size:0.92rem;line-height:1.5">${lines}</div>
+          <div class="modal-footer" style="padding:8px 24px 20px">
+            <button class="btn btn-ghost" id="confirmNo">Cancelar</button>
+            <button class="btn btn-primary" id="confirmYes">Confirmar</button>
+          </div>
+        </div>
+      </div>`;
+    const close = (val) => { wrap.innerHTML = ""; resolve(val); };
+    document.getElementById("confirmYes").addEventListener("click", () => close(true));
+    document.getElementById("confirmNo").addEventListener("click", () => close(false));
+    document.getElementById("confirmModalOverlay").addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) close(false);
+    });
+  });
+}
+
 /* ----------------------- Utilidades ------------------------ */
 const fmt = {
   brl: (n) =>
@@ -398,8 +425,8 @@ const app = {
     if (typeof this.renderHistorico === "function") this.renderHistorico();
   },
 
-  logoutUser() {
-    if (!confirm("Sair da sua conta? O carrinho continuará salvo neste navegador.")) return;
+  async logoutUser() {
+    if (!(await customConfirm("Sair da sua conta? O carrinho continuará salvo neste navegador."))) return;
     this.state.isRegistered = false;
     this.state.user = { name: "", phone: "", email: "" };
     localStorage.removeItem("userRegistered");
@@ -1146,7 +1173,7 @@ const app = {
       this.toast("Adicione ao menos um item antes de reenviar", "error");
       return;
     }
-    if (!confirm("Confirma o reenvio do pedido editado?")) return;
+    if (!(await customConfirm("Confirma o reenvio do pedido editado?"))) return;
 
     const pedidoAberto = this.state.editingPedido;
     // Apaga o pedido antigo
@@ -1253,7 +1280,7 @@ const app = {
     )}\nDesconto: ${t.pct}%\nTotal: ${fmt.brl(t.total)}\nEconomia: ${fmt.brl(
       t.economia
     )}`;
-    if (!confirm(msg)) return;
+    if (!(await customConfirm(msg))) return;
 
     const itens = Object.entries(this.state.cart).map(([cod, qty]) => {
       const p = PRODUTOS.find((x) => x.codigo === cod);
@@ -1305,7 +1332,7 @@ const app = {
   async cancelLastOrder(skipConfirm = false) {
     const last = this.state.lastOrder;
     if (!last) return;
-    if (!skipConfirm && !confirm("Cancelar este pedido? Esta ação não pode ser desfeita.")) return;
+    if (!skipConfirm && !(await customConfirm("Cancelar este pedido? Esta ação não pode ser desfeita."))) return;
     if (last.id) {
       const res = await this.api(`pedidos/${last.id}`, "DELETE");
       if (res && res.success) {
@@ -1327,7 +1354,7 @@ const app = {
   async reopenLastOrder() {
     const last = this.state.lastOrder;
     if (!last) return;
-    if (!confirm("Editar este pedido? Os itens voltarão ao carrinho e o pedido atual será cancelado no servidor.")) return;
+    if (!(await customConfirm("Editar este pedido? Os itens voltarão ao carrinho e o pedido atual será cancelado no servidor."))) return;
     // Carrega itens no carrinho
     last.itens.forEach((it) => {
       this.state.cart[it.codigo] = (this.state.cart[it.codigo] || 0) + it.quantidade;
@@ -1378,7 +1405,7 @@ const app = {
 
   async deleteAllOrphanPedidos() {
     if (!this.state.orphanPedidos?.length) return;
-    if (!confirm(`Apagar ${this.state.orphanPedidos.length} pedido(s) de teste do histórico?`)) return;
+    if (!(await customConfirm(`Apagar ${this.state.orphanPedidos.length} pedido(s) de teste do histórico?`))) return;
     for (const p of this.state.orphanPedidos) {
       await this.api(`pedidos/${p.id}`, "DELETE");
     }
@@ -1718,11 +1745,11 @@ const app = {
   },
 
   async adminLiberarEdicao(usuario) {
-    if (!confirm(
+    if (!(await customConfirm(
       `Liberar o pedido de "${usuario}" para edição?\n\n` +
       `O comprador poderá remover itens, alterar quantidades ou ` +
       `adicionar novos produtos. Útil quando um item está em falta no fornecedor.`
-    )) return;
+    ))) return;
     const r = await this.api(
       `pedidos/usuario/${encodeURIComponent(usuario)}/status`, "PUT",
       { status: "aberto_edicao" }
@@ -1742,7 +1769,7 @@ const app = {
   },
 
   async deletePedidoUsuario(usuario) {
-    if (!confirm(`Apagar TODOS os pedidos de "${usuario}"?`)) return;
+    if (!(await customConfirm(`Apagar TODOS os pedidos de "${usuario}"?`))) return;
     const r = await this.api(`pedidos/usuario/${encodeURIComponent(usuario)}`, "DELETE");
     if (r?.success) {
       this.toast(`Pedidos de ${usuario} apagados`, "success");
@@ -1753,7 +1780,7 @@ const app = {
   },
 
   async removeItemFromPedido(itemId, nome) {
-    if (!confirm(`Remover o item "${nome}" deste pedido? Os demais itens serão mantidos.`)) return;
+    if (!(await customConfirm(`Remover o item "${nome}" deste pedido? Os demais itens serão mantidos.`))) return;
     const r = await this.api(`itens/${itemId}`, "DELETE");
     if (r?.success) {
       this.toast("Item removido", "success");
@@ -1764,11 +1791,11 @@ const app = {
   },
 
   async removeProdutoGlobal(codigo, nome) {
-    if (!confirm(
+    if (!(await customConfirm(
       `Remover o produto "${nome}" (${codigo}) de TODOS os pedidos?\n\n` +
       `Use esta opção quando o fornecedor estiver em falta. ` +
       `Os demais itens dos pedidos serão mantidos.`
-    )) return;
+    ))) return;
     const r = await this.api(`produtos/${encodeURIComponent(codigo)}`, "DELETE");
     if (r?.success) {
       this.toast(`Produto ${codigo} removido dos pedidos`, "success");
@@ -1818,16 +1845,16 @@ const app = {
   },
 
   async clearAllOrders() {
-    if (!confirm("Apagar TODOS os pedidos atuais?")) return;
-    if (!confirm("Confirmação final — esta ação é irreversível.")) return;
+    if (!(await customConfirm("Apagar TODOS os pedidos atuais?"))) return;
+    if (!(await customConfirm("Confirmação final — esta ação é irreversível."))) return;
     await this.api("pedidos", "DELETE");
     this.renderAdmin();
     this.toast("Pedidos apagados", "info");
   },
 
   async clearAllHistory() {
-    if (!confirm("Apagar TODO o histórico de pedidos (incluindo pedidos antigos e atuais)?")) return;
-    if (!confirm("Confirmação final — esta ação é irreversível. Todos os pedidos de todos os compradores serão removidos.")) return;
+    if (!(await customConfirm("Apagar TODO o histórico de pedidos (incluindo pedidos antigos e atuais)?"))) return;
+    if (!(await customConfirm("Confirmação final — esta ação é irreversível. Todos os pedidos de todos os compradores serão removidos."))) return;
     await this.api("pedidos", "DELETE");
     this.renderAdmin();
     this.toast("Histórico completo apagado", "info");
