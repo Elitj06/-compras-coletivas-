@@ -1521,33 +1521,35 @@ const app = {
 
     const pctAtual = this.state.discountPct || 0;
 
+    const valorBruto = parseFloat(stats.valor_bruto_geral || 0);
+    const economia = parseFloat(stats.economia_geral || 0);
+    const totalComDesconto = valorBruto - economia;
+
     let html = `
       <div class="stats-grid">
         ${statCard("users", "Compradores", stats.total_compradores || 0)}
         ${statCard("box", "Produtos", stats.produtos_distintos || 0)}
         ${statCard("cart", "Unidades", stats.unidades_totais || 0)}
-        ${statCard("dollar", "Valor bruto", fmt.brl(stats.valor_bruto_geral || 0))}
-        ${statCard("tag", "Economia", fmt.brl(stats.economia_geral || 0))}
+        ${statCard("dollar", "Valor bruto", fmt.brl(valorBruto))}
+        ${statCard("tag", "Economia", fmt.brl(economia))}
+        <div class="stat-card stat-highlight">
+          <div class="stat-card-icon">${icon("dollar")}</div>
+          <div class="stat-card-body">
+            <small>Total c/ desconto</small>
+            <strong>${fmt.brl(totalComDesconto)}</strong>
+          </div>
+        </div>
       </div>
 
       <div class="card discount-panel">
-        <h3 class="card-title">${icon("tag")} Desconto global</h3>
-        <p class="card-subtitle">
-          Defina um único percentual que será aplicado a TODOS os produtos.
-          O comprador verá o preço cheio nos cards e o valor com desconto somente no carrinho.
-        </p>
-        <div class="discount-current">
-          <span>Desconto ativo no momento:</span>
-          <strong>${pctAtual}%</strong>
-        </div>
-        <div class="discount-row">
-          <label for="discPctInput">Novo percentual</label>
+        <div class="discount-row" style="margin:0;align-items:center">
+          <span style="font-weight:600;font-size:0.88rem;white-space:nowrap">${icon("tag")} Desconto: <strong style="color:var(--c-brand)">${pctAtual}%</strong></span>
           <div class="discount-input-wrap">
             <input type="number" id="discPctInput" value="${pctAtual}" min="0" max="100" step="1" />
             <span class="discount-suffix">%</span>
           </div>
-          <button class="btn btn-primary" onclick="app.applyDiscount()">${icon("check")} Aplicar</button>
-          <button class="btn btn-secondary" onclick="app.clearDiscounts()">Remover desconto</button>
+          <button class="btn btn-primary btn-sm" onclick="app.applyDiscount()">${icon("check")} Aplicar</button>
+          <button class="btn btn-secondary btn-sm" onclick="app.clearDiscounts()">Remover</button>
         </div>
       </div>
 
