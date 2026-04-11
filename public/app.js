@@ -1736,7 +1736,10 @@ const app = {
             <div class="buyer-card-actions">
               <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();app.adminVerHistorico('${usuarioEsc}','${fmt.escape(u.telefone || '').replace(/'/g, "\\'")}')">${icon("receipt")} Histórico</button>
               <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();app.showAdminAddItem(${u.pedido_ids[0]},'${usuarioEsc}')">${icon("plus")} Adicionar item</button>
-              <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();app.adminLiberarEdicao('${usuarioEsc}')">${icon("refresh")} Liberar para edição</button>
+              ${emEdicao
+                ? `<button class="btn btn-secondary btn-sm" style="background:#059669;color:#fff;border-color:#059669" onclick="event.stopPropagation();app.adminConfirmarPedido('${usuarioEsc}')">${icon("check")} Confirmar pedido</button>`
+                : `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();app.adminLiberarEdicao('${usuarioEsc}')">${icon("refresh")} Liberar para edição</button>`
+              }
               <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();app.deletePedidoUsuario('${usuarioEsc}')">${icon("trash")} Apagar pedido</button>
             </div>
             <table class="data-table">
@@ -1749,6 +1752,22 @@ const app = {
           </div>
         </div>`;
     }).join("")}</div>`;
+  },
+
+  async adminConfirmarPedido(usuario) {
+    if (!(await customConfirm(
+      `Confirmar o pedido de "${usuario}"?\n\nO status será revertido de "em edição" para "pendente".`
+    ))) return;
+    const r = await this.api(
+      `pedidos/usuario/${encodeURIComponent(usuario)}/status`, "PUT",
+      { status: "pendente" }
+    );
+    if (r?.success) {
+      this.toast(`Pedido de ${usuario} confirmado`, "success");
+      this.renderAdmin();
+    } else {
+      this.toast(r?.error || "Erro ao confirmar pedido", "error");
+    }
   },
 
   async adminLiberarEdicao(usuario) {
