@@ -860,6 +860,9 @@ const app = {
     this.saveLocal();
     this.renderProducts();
     this.updateCartBar();
+    if (document.getElementById("tab-meu-pedido") &&
+        !document.getElementById("tab-meu-pedido").classList.contains("hidden"))
+      this.renderInvoice();
   },
 
   setQty(cod, v) {
@@ -869,6 +872,9 @@ const app = {
     else this.state.cart[cod] = q;
     this.saveLocal();
     this.updateCartBar();
+    if (document.getElementById("tab-meu-pedido") &&
+        !document.getElementById("tab-meu-pedido").classList.contains("hidden"))
+      this.renderInvoice();
   },
 
   removeFromCart(cod) {
