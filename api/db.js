@@ -281,6 +281,17 @@ export default async function handler(req) {
           );
         }
 
+        // Proteção contra envios duplicados: verifica se já existe pedido
+        // pendente do mesmo usuário criado nos últimos 60 segundos
+        const dup = await client.query(
+          `SELECT id FROM pedidos WHERE usuario = $1 AND status IN ('pendente','aberto_edicao') AND created_at > NOW() - INTERVAL '60 seconds' LIMIT 1`,
+          [usuario]
+        );
+        if (dup.rows.length) {
+          await client.end();
+          return json({ success: false, duplicate: true, error: 'Pedido recente já existe. Aguarde ou edite o pedido existente.' }, 409);
+        }
+
         const pedidoResult = await client.query(
           'INSERT INTO pedidos (usuario, status) VALUES ($1, $2) RETURNING id',
           [usuario, 'pendente']
@@ -515,6 +526,65 @@ export default async function handler(req) {
         );
         await client.end();
         return json({ success: true, message: `Quantidade atualizada para ${qty}` });
+      }
+
+      // PUT /pedidos/usuario/:nome/merge  — Admin: mescla pedidos duplicados
+      // Mantém o pedido mais recente e move todos os itens para ele, removendo duplicatas
+      const mergeMatch = path.match(/^pedidos\/usuario\/(.+)\/merge$/);
+      if (mergeMatch) {
+        const usuario = decodeURIComponent(mergeMatch[1]);
+        // Busca todos os pedidos ativos do usuário
+        const pedidos = await client.query(
+          `SELECT id FROM pedidos WHERE usuario = $1 AND status != 'cancelado' ORDER BY created_at DESC`,
+          [usuario]
+        );
+        if (pedidos.rows.length <= 1) {
+          await client.end();
+          return json({ success: true, message: 'Apenas 1 pedido encontrado, nada a mesclar.' });
+        }
+        const keepId = pedidos.rows[0].id; // mantém o mais recente
+        const removeIds = pedidos.rows.slice(1).map(r => r.id);
+
+        // Move itens únicos (por codigo) dos pedidos antigos para o principal
+        // Se o item já existe no pedido principal (mesmo codigo), soma a quantidade
+        for (const oldId of removeIds) {
+          const oldItems = await client.query(
+            'SELECT codigo, nome_produto, quantidade, preco_unitario, preco_com_desconto, preco_bruto, preco_desconto, desconto_percentual, subtotal_bruto, subtotal_final, categoria FROM itens_pedido WHERE pedido_id = $1',
+            [oldId]
+          );
+          for (const oi of oldItems.rows) {
+            const existing = await client.query(
+              'SELECT id, quantidade FROM itens_pedido WHERE pedido_id = $1 AND codigo = $2 LIMIT 1',
+              [keepId, oi.codigo]
+            );
+            if (existing.rows.length) {
+              // Já existe — não duplicar, manter o que está no pedido principal
+            } else {
+              // Mover item para o pedido principal
+              await client.query(
+                `INSERT INTO itens_pedido (pedido_id, codigo, nome_produto, quantidade, preco_unitario, preco_bruto, preco_com_desconto, preco_desconto, desconto_percentual, subtotal_bruto, subtotal_final, categoria)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+                [keepId, oi.codigo, oi.nome_produto, oi.quantidade, oi.preco_unitario, oi.preco_bruto, oi.preco_com_desconto, oi.preco_desconto, oi.desconto_percentual, oi.subtotal_bruto, oi.subtotal_final, oi.categoria]
+              );
+            }
+          }
+          // Remove itens e pedido antigo
+          await client.query('DELETE FROM itens_pedido WHERE pedido_id = $1', [oldId]);
+          await client.query('DELETE FROM pedidos WHERE id = $1', [oldId]);
+        }
+        // Recalcula totais do pedido mantido
+        const totals = await client.query(
+          `SELECT COALESCE(SUM(subtotal_bruto),0)::numeric AS tb, COALESCE(SUM(subtotal_final),0)::numeric AS tf FROM itens_pedido WHERE pedido_id = $1`,
+          [keepId]
+        );
+        const tb = parseFloat(totals.rows[0].tb);
+        const tf = parseFloat(totals.rows[0].tf);
+        await client.query(
+          'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3, status = $4, updated_at = NOW() WHERE id = $5',
+          [tb, tf, tb - tf, 'pendente', keepId]
+        );
+        await client.end();
+        return json({ success: true, message: `${removeIds.length} pedido(s) duplicado(s) removido(s). Pedido ${keepId} mantido.` });
       }
 
       // PUT /pedidos/:id/itens  — Admin: adicionar item a pedido existente

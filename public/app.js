@@ -169,6 +169,14 @@ const app = {
     this.renderProducts();
     this.updateCartBar();
     await this.loadDiscountFromServer();
+    // Restaura estado admin se estava logado
+    if (this.state.isAdminLoggedIn) {
+      const tabAdmin = document.getElementById("tabAdmin");
+      if (tabAdmin) tabAdmin.hidden = false;
+      document.getElementById("adminLoginSection")?.classList.add("hidden");
+      document.getElementById("adminContent")?.classList.remove("hidden");
+      this.switchTab("admin");
+    }
     // Cadastro obrigatório logo na entrada
     if (!this.state.isRegistered) {
       this.showRegistrationModal(true, "login");
@@ -1270,6 +1278,10 @@ const app = {
   /* ----------------- Finalizar pedido ----------------- */
   async finalizeOrder() {
     if (!this.requireRegistration()) return;
+    if (this.state._submitting) {
+      this.toast("Pedido já está sendo enviado, aguarde...", "info");
+      return;
+    }
     if (!Object.keys(this.state.cart).length) {
       this.toast("Carrinho vazio", "error");
       return;
@@ -1281,6 +1293,8 @@ const app = {
       t.economia
     )}`;
     if (!(await customConfirm(msg))) return;
+
+    this.state._submitting = true;
 
     const itens = Object.entries(this.state.cart).map(([cod, qty]) => {
       const p = PRODUTOS.find((x) => x.codigo === cod);
@@ -1294,14 +1308,28 @@ const app = {
       };
     });
 
-    const res = await this.api("pedidos", "POST", {
-      usuario: this.state.user.name,
-      telefone: this.state.user.phone,
-      email: this.state.user.email,
-      itens,
-    });
+    let res;
+    try {
+      res = await this.api("pedidos", "POST", {
+        usuario: this.state.user.name,
+        telefone: this.state.user.phone,
+        email: this.state.user.email,
+        itens,
+      });
+    } finally {
+      this.state._submitting = false;
+    }
+
     if (res && res.success) {
       this.toast("Pedido enviado com sucesso!", "success");
+    } else if (res && res.duplicate) {
+      this.toast("Você já tem um pedido enviado. Edite-o na aba Meu Pedido.", "info");
+      this.state.cart = {};
+      this.saveLocal();
+      this.updateCartBar();
+      this.renderProducts();
+      this.renderInvoice();
+      return;
     } else {
       this.toast("Pedido salvo localmente", "info");
     }
@@ -1691,6 +1719,7 @@ const app = {
       const qtdItens = parseInt(u.total_itens || 0);
       const statuses = u.statuses || [];
       const emEdicao = statuses.includes("aberto_edicao");
+      const qtdPedidos = (u.pedido_ids || []).length;
 
       // Dedup itens
       const seen = new Set();
@@ -1726,7 +1755,7 @@ const app = {
             <div class="buyer-card-avatar">${initials}</div>
             <div class="buyer-card-info">
               <strong class="buyer-card-name">${fmt.escape(u.usuario)}</strong>
-              <span class="buyer-card-meta">${qtdItens} ${qtdItens === 1 ? "item" : "itens"}${emEdicao ? ' · <span style="color:#d97706;font-weight:600">Em edição</span>' : ""}</span>
+              <span class="buyer-card-meta">${qtdItens} ${qtdItens === 1 ? "item" : "itens"}${qtdPedidos > 1 ? ` · <span style="color:#ef4444;font-weight:600">${qtdPedidos} pedidos duplicados</span>` : ''}${emEdicao ? ' · <span style="color:#d97706;font-weight:600">Em edição</span>' : ""}</span>
             </div>
             <div class="buyer-card-value">
               <strong>${fmt.brl(totalFinal)}</strong>
@@ -1742,6 +1771,9 @@ const app = {
                 ? `<button class="btn btn-secondary btn-sm" style="background:#059669;color:#fff;border-color:#059669" onclick="event.stopPropagation();app.adminConfirmarPedido('${usuarioEsc}')">${icon("check")} Confirmar pedido</button>`
                 : `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();app.adminLiberarEdicao('${usuarioEsc}')">${icon("refresh")} Liberar para edição</button>`
               }
+              ${qtdPedidos > 1
+                ? `<button class="btn btn-secondary btn-sm" style="background:#d97706;color:#fff;border-color:#d97706" onclick="event.stopPropagation();app.adminMergeOrders('${usuarioEsc}')">${icon("refresh")} Mesclar ${qtdPedidos} pedidos</button>`
+                : ''}
               <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();app.deletePedidoUsuario('${usuarioEsc}')">${icon("trash")} Apagar pedido</button>
             </div>
             <table class="data-table">
@@ -1754,6 +1786,23 @@ const app = {
           </div>
         </div>`;
     }).join("")}</div>`;
+  },
+
+  async adminMergeOrders(usuario) {
+    if (!(await customConfirm(
+      `Mesclar pedidos duplicados de "${usuario}"?\n\n` +
+      `Os pedidos serão unificados em um só, mantendo os itens sem duplicar. ` +
+      `Os pedidos extras serão removidos.`
+    ))) return;
+    const r = await this.api(
+      `pedidos/usuario/${encodeURIComponent(usuario)}/merge`, "PUT", {}
+    );
+    if (r?.success) {
+      this.toast(r.message || "Pedidos mesclados", "success");
+      this.renderAdmin();
+    } else {
+      this.toast(r?.error || "Erro ao mesclar pedidos", "error");
+    }
   },
 
   async adminConfirmarPedido(usuario) {
@@ -1968,6 +2017,7 @@ const app = {
 
   exitAdmin() {
     this.state.isAdminLoggedIn = false;
+    this.saveLocal();
     const tabAdmin = document.getElementById("tabAdmin");
     if (tabAdmin) tabAdmin.hidden = true;
     this.switchTab("produtos");
@@ -2238,6 +2288,7 @@ const app = {
     localStorage.setItem("cart", JSON.stringify(this.state.cart));
     localStorage.setItem("discountPct", String(this.state.discountPct || 0));
     localStorage.setItem("lastOrder", JSON.stringify(this.state.lastOrder || null));
+    localStorage.setItem("isAdminLoggedIn", this.state.isAdminLoggedIn ? "true" : "false");
   },
   loadLocal() {
     try {
@@ -2245,10 +2296,12 @@ const app = {
       const d = localStorage.getItem("discountPct");
       const theme = localStorage.getItem("theme");
       const lo = localStorage.getItem("lastOrder");
+      const adm = localStorage.getItem("isAdminLoggedIn");
       if (c) this.state.cart = JSON.parse(c);
       if (d) this.state.discountPct = parseFloat(d) || 0;
       if (theme === "dark" || theme === "light") this.state.theme = theme;
       if (lo && lo !== "null") this.state.lastOrder = JSON.parse(lo);
+      if (adm === "true") this.state.isAdminLoggedIn = true;
     } catch (e) {
       this.state.cart = {};
       this.state.discountPct = 0;
