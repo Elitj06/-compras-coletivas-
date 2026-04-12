@@ -528,8 +528,8 @@ export default async function handler(req) {
         return json({ success: true, message: `Quantidade atualizada para ${qty}` });
       }
 
-      // PUT /pedidos/usuario/:nome/merge  — Admin: mescla pedidos duplicados
-      // Mantém o pedido mais recente e move todos os itens para ele, removendo duplicatas
+      // PUT /pedidos/usuario/:nome/merge  — Admin: mescla pedidos somando quantidades
+      // Mantém o pedido mais recente; itens do mesmo produto têm quantidades SOMADAS
       const mergeMatch = path.match(/^pedidos\/usuario\/(.+)\/merge$/);
       if (mergeMatch) {
         const usuario = decodeURIComponent(mergeMatch[1]);
@@ -545,11 +545,10 @@ export default async function handler(req) {
         const keepId = pedidos.rows[0].id; // mantém o mais recente
         const removeIds = pedidos.rows.slice(1).map(r => r.id);
 
-        // Move itens únicos (por codigo) dos pedidos antigos para o principal
-        // Se o item já existe no pedido principal (mesmo codigo), soma a quantidade
+        // Mescla itens dos pedidos antigos no pedido principal SOMANDO quantidades
         for (const oldId of removeIds) {
           const oldItems = await client.query(
-            'SELECT codigo, nome_produto, quantidade, preco_unitario, preco_com_desconto, preco_bruto, preco_desconto, desconto_percentual, subtotal_bruto, subtotal_final, categoria FROM itens_pedido WHERE pedido_id = $1',
+            'SELECT codigo, nome_produto, quantidade, preco_unitario, preco_com_desconto, preco_bruto, preco_desconto, desconto_percentual, categoria FROM itens_pedido WHERE pedido_id = $1',
             [oldId]
           );
           for (const oi of oldItems.rows) {
@@ -558,13 +557,23 @@ export default async function handler(req) {
               [keepId, oi.codigo]
             );
             if (existing.rows.length) {
-              // Já existe — não duplicar, manter o que está no pedido principal
+              // Já existe — SOMA a quantidade do pedido antigo
+              const ei = existing.rows[0];
+              const newQty = ei.quantidade + oi.quantidade;
+              const pBruto = parseFloat(oi.preco_unitario);
+              const pDesc = parseFloat(oi.preco_com_desconto);
+              await client.query(
+                `UPDATE itens_pedido SET quantidade = $1, subtotal_bruto = $2, subtotal_final = $3 WHERE id = $4`,
+                [newQty, pBruto * newQty, pDesc * newQty, ei.id]
+              );
             } else {
-              // Mover item para o pedido principal
+              // Não existe — move item para o pedido principal
+              const pBruto = parseFloat(oi.preco_unitario);
+              const pDesc = parseFloat(oi.preco_com_desconto);
               await client.query(
                 `INSERT INTO itens_pedido (pedido_id, codigo, nome_produto, quantidade, preco_unitario, preco_bruto, preco_com_desconto, preco_desconto, desconto_percentual, subtotal_bruto, subtotal_final, categoria)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-                [keepId, oi.codigo, oi.nome_produto, oi.quantidade, oi.preco_unitario, oi.preco_bruto, oi.preco_com_desconto, oi.preco_desconto, oi.desconto_percentual, oi.subtotal_bruto, oi.subtotal_final, oi.categoria]
+                [keepId, oi.codigo, oi.nome_produto, oi.quantidade, pBruto, oi.preco_bruto, pDesc, oi.preco_desconto, oi.desconto_percentual, pBruto * oi.quantidade, pDesc * oi.quantidade, oi.categoria]
               );
             }
           }

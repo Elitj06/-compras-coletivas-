@@ -1755,7 +1755,7 @@ const app = {
             <div class="buyer-card-avatar">${initials}</div>
             <div class="buyer-card-info">
               <strong class="buyer-card-name">${fmt.escape(u.usuario)}</strong>
-              <span class="buyer-card-meta">${qtdItens} ${qtdItens === 1 ? "item" : "itens"}${qtdPedidos > 1 ? ` · <span style="color:#ef4444;font-weight:600">${qtdPedidos} pedidos duplicados</span>` : ''}${emEdicao ? ' · <span style="color:#d97706;font-weight:600">Em edição</span>' : ""}</span>
+              <span class="buyer-card-meta">${qtdItens} ${qtdItens === 1 ? "item" : "itens"}${qtdPedidos > 1 ? ` · <span style="color:#d97706;font-weight:600">${qtdPedidos} pedidos separados</span>` : ''}${emEdicao ? ' · <span style="color:#d97706;font-weight:600">Em edição</span>' : ""}</span>
             </div>
             <div class="buyer-card-value">
               <strong>${fmt.brl(totalFinal)}</strong>
@@ -1767,7 +1767,7 @@ const app = {
             <div class="buyer-card-actions">
               <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();app.adminVerHistorico('${usuarioEsc}','${fmt.escape(u.telefone || '').replace(/'/g, "\\'")}')">${icon("receipt")} Histórico</button>
               <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();app.showAdminAddItem(${u.pedido_ids[0]},'${usuarioEsc}')">${icon("plus")} Adicionar item</button>
-              ${emEdicao
+              ${emEdicao || qtdPedidos > 1
                 ? `<button class="btn btn-secondary btn-sm" style="background:#059669;color:#fff;border-color:#059669" onclick="event.stopPropagation();app.adminConfirmarPedido('${usuarioEsc}')">${icon("check")} Confirmar pedido</button>`
                 : `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();app.adminLiberarEdicao('${usuarioEsc}')">${icon("refresh")} Liberar para edição</button>`
               }
