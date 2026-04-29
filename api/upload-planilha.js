@@ -1,3 +1,15 @@
+/**
+ * @fileoverview API de Upload de Planilha — Compras Coletivas
+ *
+ * Processa upload de planilha Excel/CSV com catálogo de produtos
+ * e atualiza a tabela `produtos` no banco.
+ *
+ * Runtime: Node.js (não Edge — precisa de parsing de multipart)
+ * Autenticação: senha admin via query param `key` ou header `X-Admin-Key`
+ *
+ * @module api/upload-planilha
+ */
+
 // ============================================================
 // API: Upload de Planilha Excel
 // Processa planilha da empresa e atualiza produtos
@@ -22,7 +34,12 @@ function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers });
 }
 
-// Parse simples de multipart/form-data (para Vercel Edge)
+/**
+ * Parse simples de multipart/form-data para extrair campos de upload.
+ * @param {string} body - Body da requisição em texto.
+ * @param {string} boundary - Boundary do multipart (do Content-Type header).
+ * @returns {Object<string, string>} Campos extraídos (nome → valor).
+ */
 function parseMultipart(body, boundary) {
   const parts = body.split('--' + boundary);
   const result = {};
@@ -43,6 +60,20 @@ function parseMultipart(body, boundary) {
   return result;
 }
 
+/**
+ * Handler de upload de planilha.
+ *
+ * Aceita:
+ * - `multipart/form-data` com campo `planilha` ou `file`
+ * - `application/json` com campo `data` (base64 encoded)
+ *
+ * Formatos suportados:
+ * - JSON: array de `{ codigo, nome, preco, categoria, embalagem }`
+ * - CSV: linhas `codigo;nome;preco;categoria;embalagem`
+ *
+ * @param {Request} req - Requisição HTTP.
+ * @returns {Promise<Response>} JSON com resumo da importação.
+ */
 export default async function handler(req) {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers });

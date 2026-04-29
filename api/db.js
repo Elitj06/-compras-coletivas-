@@ -1,3 +1,23 @@
+/**
+ * @fileoverview Compras Coletivas API — Vida Forte Nutrientes
+ *
+ * API REST principal (Edge Runtime) para o sistema de compras coletivas.
+ * Todas as rotas estão sob `/api/db`.
+ *
+ * Funcionalidades:
+ * - CRUD de pedidos e itens
+ * - Autenticação de compradores via PIN (SHA-256)
+ * - Autenticação de admin via senha
+ * - Aplicação de descontos globais
+ * - Exportação CSV
+ * - Dashboard com estatísticas
+ *
+ * Banco: PostgreSQL (Supabase), schema isolado `compras_coletivas`
+ * Runtime: Vercel Edge (usa `@vercel/postgres` com connection pooler)
+ *
+ * @module api/db
+ */
+
 import { createClient } from '@vercel/postgres';
 
 // @vercel/postgres createClient with explicit connectionString
@@ -11,11 +31,25 @@ const headers = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+/**
+ * Cria uma Response JSON com headers CORS padrão.
+ * @param {object} data - Payload da resposta.
+ * @param {number} [status=200] - HTTP status code.
+ * @returns {Response}
+ */
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers });
 }
 
 let _migrationDone = false;
+/**
+ * Executa migrations pendentes (idempotente). Roda apenas uma vez por cold start.
+ * - Adiciona coluna pin_hash em compradores
+ * - Remove duplicatas e cria UNIQUE constraint em nome
+ * - Atualiza constraint de status para incluir 'aberto_edicao'
+ * @param {import('@vercel/postgres').Client} client - Cliente PostgreSQL conectado.
+ * @returns {Promise<void>}
+ */
 async function ensureMigrations(client) {
   if (_migrationDone) return;
   try {
@@ -38,6 +72,12 @@ async function ensureMigrations(client) {
   }
 }
 
+/**
+ * Cria e conecta um cliente PostgreSQL configurado para o schema `compras_coletivas`.
+ * Executa migrations pendentes na primeira chamada.
+ * @returns {Promise<import('@vercel/postgres').Client>} Cliente conectado.
+ * @throws {Error} Se POSTGRES_URL não estiver configurada.
+ */
 async function getClient() {
   const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
   if (!connectionString) {
@@ -50,7 +90,13 @@ async function getClient() {
   return client;
 }
 
-// Hash SHA-256 via WebCrypto (disponível no runtime Edge do Vercel)
+/**
+ * Gera hash SHA-256 de um PIN com salt.
+ * Usa WebCrypto API (disponível no Edge Runtime).
+ * @param {string} pin - PIN em texto plano (4-6 dígitos).
+ * @param {string} salt - Salt (formato: `nome:telefone` do banco).
+ * @returns {Promise<string>} Hash hexadecimal de 64 caracteres.
+ */
 async function hashPin(pin, salt) {
   const data = new TextEncoder().encode(`${salt}::${pin}`);
   const buf = await crypto.subtle.digest('SHA-256', data);
@@ -59,6 +105,12 @@ async function hashPin(pin, salt) {
     .join('');
 }
 
+/**
+ * Normaliza nome (trim) e telefone (remove não-dígitos).
+ * @param {string} nome - Nome do comprador.
+ * @param {string} telefone - Telefone com ou sem formatação.
+ * @returns {{ nome: string, telefone: string }} Dados normalizados.
+ */
 function normalizeNomeTel(nome, telefone) {
   return {
     nome: String(nome || '').trim(),
@@ -66,6 +118,49 @@ function normalizeNomeTel(nome, telefone) {
   };
 }
 
+/**
+ * Handler principal da API — roteia todas as requisições para `/api/db/*`.
+ *
+ * Rotas GET:
+ *   - `/` ou `/health` — Health check
+ *   - `/tables` — Lista tabelas do schema
+ *   - `/pedidos` — Todos os itens de pedidos
+ *   - `/pedidos/por-usuario` — Pedidos agregados por comprador
+ *   - `/pedidos/consolidado` — Relatório consolidado por produto
+ *   - `/stats` — Estatísticas do dashboard
+ *   - `/descontos` — Descontos ativos
+ *   - `/faixas-desconto` — Faixas de desconto progressivo
+ *   - `/categorias` — Categorias de produtos
+ *   - `/compradores` — Relatório de compradores
+ *   - `/compradores/lista` — Lista simples de compradores
+ *   - `/pedidos/historico?usuario=...&telefone=...` — Histórico de pedidos
+ *   - `/exportar-csv` — Download CSV
+ *
+ * Rotas POST:
+ *   - `/pedidos` — Criar pedido
+ *   - `/descontos` — Aplicar desconto
+ *   - `/comprador/registro` — Registrar/atualizar comprador com PIN
+ *   - `/comprador/login` — Login via PIN
+ *   - `/admin/login` — Login admin
+ *
+ * Rotas PUT:
+ *   - `/pedidos/:id/status` — Alterar status do pedido
+ *   - `/pedidos/usuario/:name/status` — Alterar status de todos os pedidos do comprador
+ *   - `/itens/:id/qty` — Alterar quantidade de item
+ *   - `/pedidos/usuario/:name/merge` — Mesclar pedidos duplicados
+ *   - `/pedidos/:id/itens` — Adicionar item a pedido
+ *
+ * Rotas DELETE:
+ *   - `/pedidos` — Apagar todos os pedidos
+ *   - `/pedidos/:id` — Apagar pedido por ID
+ *   - `/pedidos/usuario/:name` — Apagar pedidos de um comprador
+ *   - `/itens/:id` — Remover item específico
+ *   - `/produtos/:codigo` — Remover produto de todos os pedidos
+ *   - `/descontos` — Desativar descontos
+ *
+ * @param {Request} req - Requisição HTTP.
+ * @returns {Promise<Response>} Resposta JSON ou CSV.
+ */
 export default async function handler(req) {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers });

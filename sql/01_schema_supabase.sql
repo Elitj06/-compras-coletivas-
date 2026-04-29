@@ -182,11 +182,36 @@ CREATE OR REPLACE FUNCTION aplicar_desconto(
     p_percentual DECIMAL
 ) RETURNS VOID AS $$
 BEGIN
+    -- 1. Atualiza a tabela de descontos
     DELETE FROM descontos WHERE categoria = p_categoria;
     IF p_percentual > 0 THEN
         INSERT INTO descontos (categoria, percentual, ativo)
         VALUES (p_categoria, p_percentual, TRUE);
     END IF;
+
+    -- 2. Recalcula preco_com_desconto e subtotal_final de TODOS os itens
+    IF p_categoria = 'todos' THEN
+        UPDATE itens_pedido SET
+            preco_com_desconto = preco_unitario * (1 - p_percentual / 100),
+            preco_desconto = preco_unitario * (1 - p_percentual / 100),
+            desconto_percentual = p_percentual,
+            subtotal_final = quantidade * preco_unitario * (1 - p_percentual / 100);
+    END IF;
+
+    -- 3. Recalcula totais de todos os pedidos
+    UPDATE pedidos p SET
+        total_bruto = sub.bruto,
+        total_final = sub.final,
+        total_desconto = sub.bruto - sub.final,
+        updated_at = NOW()
+    FROM (
+        SELECT pedido_id,
+            SUM(subtotal_bruto)::DECIMAL as bruto,
+            SUM(subtotal_final)::DECIMAL as final
+        FROM itens_pedido
+        GROUP BY pedido_id
+    ) sub
+    WHERE p.id = sub.pedido_id;
 END;
 $$ LANGUAGE plpgsql;
 
