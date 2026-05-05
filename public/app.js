@@ -183,6 +183,19 @@ const app = {
     } else {
       // Detecta pedidos órfãos do banco para limpar histórico
       this.cleanupOrphanPedidos();
+      // Pré-carrega pedido do servidor se não tem lastOrder local
+      // (para quem acessa de outro dispositivo ou limpou o navegador)
+      if (!this.state.lastOrder && !Object.keys(this.state.cart).length) {
+        this.loadServerOrder().then(loaded => {
+          if (loaded) {
+            // Atualiza a tab Meu Pedido se estiver visível
+            const tab = document.getElementById("tab-meu-pedido");
+            if (tab && !tab.classList.contains("hidden")) {
+              this.renderInvoice();
+            }
+          }
+        });
+      }
     }
   },
 
@@ -961,6 +974,55 @@ const app = {
     }
   },
 
+  /* Busca o pedido mais recente do comprador no servidor e preenche
+     this.state.lastOrder para exibir na tab "Meu Pedido".
+     Só é chamado quando o carrinho está vazio E não há lastOrder no localStorage. */
+  async loadServerOrder() {
+    if (!this.state.isRegistered || !this.state.user.name) return false;
+    try {
+      const params = new URLSearchParams({
+        usuario: this.state.user.name,
+        telefone: this.state.user.phone || "",
+      });
+      const res = await this.api(`pedidos/historico?${params.toString()}`);
+      const pedidos = res?.data || [];
+      // Pega o pedido pendente mais recente
+      const pendente = pedidos.find(p => p.status === "pendente") || pedidos[0];
+      if (!pendente) return false;
+      // Converte formato do servidor para formato do lastOrder
+      const itens = (pendente.itens || []).filter(it => it && it.codigo).map(it => ({
+        codigo: it.codigo,
+        nome: it.nome,
+        quantidade: it.quantidade,
+        preco_bruto: it.preco_bruto,
+        preco_desconto: it.preco_desconto,
+      }));
+      if (!itens.length) return false;
+      const discountPct = itens[0] && itens[0].preco_bruto && itens[0].preco_desconto
+        ? Math.round((1 - itens[0].preco_desconto / itens[0].preco_bruto) * 100)
+        : 0;
+      const totalBruto = parseFloat(pendente.total_bruto) || 0;
+      const totalFinal = parseFloat(pendente.total_final) || 0;
+      this.state.lastOrder = {
+        id: pendente.id,
+        data: pendente.created_at,
+        usuario: this.state.user.name,
+        telefone: this.state.user.phone,
+        email: this.state.user.email,
+        itens,
+        discountPct,
+        totalBruto,
+        totalFinal,
+        economia: totalBruto - totalFinal,
+        _fromServer: true, // marca que veio do servidor (não localStorage)
+      };
+      return true;
+    } catch (e) {
+      console.error("loadServerOrder:", e);
+      return false;
+    }
+  },
+
   /* ----------------- INVOICE (Meu Pedido) ----------------- */
   async renderInvoice() {
     const c = document.getElementById("myCartContent");
@@ -987,6 +1049,17 @@ const app = {
     if (!items.length && this.state.lastOrder && !this.state.editingPedido) {
       c.innerHTML = this.renderSentOrder(this.state.lastOrder);
       return;
+    }
+
+    // Se o carrinho está vazio e o comprador está logado, tenta buscar do servidor
+    if (!items.length && !this.state.editingPedido && this.state.isRegistered && !this.state.lastOrder) {
+      c.innerHTML = `<div class="card"><div class="empty-state">${icon("refresh")}<h3>Buscando seu pedido...</h3></div></div>`;
+      const loaded = await this.loadServerOrder();
+      if (loaded && this.state.lastOrder) {
+        c.innerHTML = this.renderSentOrder(this.state.lastOrder);
+        return;
+      }
+      // Se não encontrou no servidor, cai para o fluxo normal abaixo
     }
 
     if (!items.length && !this.state.editingPedido) {
@@ -1226,8 +1299,8 @@ const app = {
       <div class="sent-order-banner">
         ${icon("check")}
         <div>
-          <strong>Pedido enviado</strong>
-          <small>${order.id ? "Nº " + order.id + " · " : ""}${dataFmt}</small>
+          <strong>${order._fromServer ? "Pedido recuperado do servidor" : "Pedido enviado"}</strong>
+          <small>${order.id ? "Nº " + order.id + " · " : ""}${dataFmt}${order._fromServer ? " · sincronizado" : ""}</small>
         </div>
       </div>
       <div class="invoice-grid">
