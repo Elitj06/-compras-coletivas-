@@ -1045,14 +1045,9 @@ const app = {
          </div>`
       : "";
 
-    // Se o carrinho está vazio e existe um pedido enviado, mostra o pedido.
-    if (!items.length && this.state.lastOrder && !this.state.editingPedido) {
-      c.innerHTML = this.renderSentOrder(this.state.lastOrder);
-      return;
-    }
-
-    // Se o carrinho está vazio e o comprador está logado, tenta buscar do servidor
-    if (!items.length && !this.state.editingPedido && this.state.isRegistered && !this.state.lastOrder) {
+    // Se o carrinho está vazio e o comprador está logado, busca sempre do servidor
+    // (garante que descontos aplicados pelo admin sejam refletidos no perfil do comprador)
+    if (!items.length && !this.state.editingPedido && this.state.isRegistered) {
       c.innerHTML = `<div class="card"><div class="empty-state">${icon("refresh")}<h3>Buscando seu pedido...</h3></div></div>`;
       const loaded = await this.loadServerOrder();
       if (loaded && this.state.lastOrder) {
@@ -1060,6 +1055,12 @@ const app = {
         return;
       }
       // Se não encontrou no servidor, cai para o fluxo normal abaixo
+    }
+
+    // Fallback: mostra lastOrder do cache local (quando não está logado)
+    if (!items.length && this.state.lastOrder && !this.state.editingPedido) {
+      c.innerHTML = this.renderSentOrder(this.state.lastOrder);
+      return;
     }
 
     if (!items.length && !this.state.editingPedido) {
