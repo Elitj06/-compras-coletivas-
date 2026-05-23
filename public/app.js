@@ -1655,6 +1655,19 @@ const app = {
         </div>
       </div>
 
+      <div class="card" style="margin-bottom:16px">
+        <div style="padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:10px">
+            ${icon("receipt")}
+            <div>
+              <strong>Controle de Pagamentos</strong><br>
+              <small style="color:var(--c-text-muted)">Acompanhe parcelas e pagamentos dos compradores</small>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="app.renderPagamentos()">${icon("dollar")} Gerenciar Pagamentos</button>
+        </div>
+      </div>
+
       <div class="admin-toolbar">
         <button class="btn btn-secondary" onclick="app.renderAdmin()">${icon(
           "refresh"
@@ -2294,6 +2307,190 @@ const app = {
   },
 
   /* ----------------- LocalStorage ----------------- */
+  /* ----------------- Pagamentos ----------------- */
+  async renderPagamentos() {
+    const c = document.getElementById("adminContent");
+    c.innerHTML = `<div class="card"><div class="empty-state">${icon("refresh")}<h3>Carregando pagamentos...</h3></div></div>`;
+
+    const [pgRes, resRes] = await Promise.all([
+      this.api("pagamentos"),
+      this.api("pagamentos/resumo"),
+    ]);
+
+    const pagamentos = pgRes?.data || [];
+    const resumo = resRes?.data || {};
+
+    if (!pagamentos.length) {
+      c.innerHTML = `
+        <div class="card">
+          <div class="empty-state">
+            ${icon("receipt")}
+            <h3>Nenhum pagamento registrado</h3>
+            <p>Clique em "Inicializar pagamentos" para criar registros a partir dos pedidos existentes.</p>
+            <div style="display:flex;gap:10px;justify-content:center;margin-top:12px">
+              <button class="btn btn-primary" onclick="app.initPagamentos()">${icon("plus")} Inicializar pagamentos</button>
+              <button class="btn btn-ghost" onclick="app.renderAdmin()">← Voltar</button>
+            </div>
+          </div>
+        </div>`;
+      return;
+    }
+
+    const totalCompras = parseFloat(resumo.total_compras) || 0;
+    const totalRecebido = parseFloat(resumo.total_recebido) || 0;
+    const totalPendente = parseFloat(resumo.total_pendente) || 0;
+
+    const rows = pagamentos.map((pg) => {
+      const tp = parseFloat(pg.total_pago) || 0;
+      const td = parseFloat(pg.total_devido) || 0;
+      const vc = parseFloat(pg.valor_compra) || 0;
+      const rowColor = td <= 0 ? "color:var(--c-success)" : td > 0 && tp > 0 ? "color:#d97706" : "";
+      return `
+        <tr style="cursor:pointer;${rowColor}" onclick="app.editPagamento(${pg.id})">
+          <td><strong>${fmt.escape(pg.comprador)}</strong></td>
+          <td>${fmt.brl(vc)}</td>
+          <td>${pg.parc1 != null ? fmt.brl(pg.parc1) : "—"}</td>
+          <td>${pg.parc2 != null ? fmt.brl(pg.parc2) : "—"}</td>
+          <td>${pg.parc3 != null ? fmt.brl(pg.parc3) : "—"}</td>
+          <td>${pg.parc4 != null ? fmt.brl(pg.parc4) : "—"}</td>
+          <td>${pg.parc5 != null ? fmt.brl(pg.parc5) : "—"}</td>
+          <td><strong>${fmt.brl(tp)}</strong></td>
+          <td style="font-weight:700;${td <= 0 ? 'color:var(--c-success)' : 'color:#dc2626'}">${fmt.brl(td)}</td>
+          <td><button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();app.editPagamento(${pg.id})">${icon("edit") || '✏'} Editar</button></td>
+        </tr>`;
+    }).join("");
+
+    c.innerHTML = `
+      <div class="card" style="margin-bottom:16px">
+        <div style="padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:10px">
+            ${icon("receipt")}
+            <strong style="font-size:1.05rem">Controle de Pagamentos</strong>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" onclick="app.initPagamentos()">${icon("plus")} Inicializar</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.renderPagamentos()">${icon("refresh")} Atualizar</button>
+            <button class="btn btn-ghost btn-sm" onclick="app.renderAdmin()">← Voltar</button>
+          </div>
+        </div>
+        <div class="stats-grid" style="margin:0 20px 16px">
+          <div class="stat-card">
+            <div class="stat-card-icon">${icon("users")}</div>
+            <div class="stat-card-body"><small>Compradores</small><strong>${resumo.total_compradores || 0}</strong></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon">${icon("dollar")}</div>
+            <div class="stat-card-body"><small>Total Compras</small><strong>${fmt.brl(totalCompras)}</strong></div>
+          </div>
+          <div class="stat-card stat-highlight">
+            <div class="stat-card-icon">${icon("check")}</div>
+            <div class="stat-card-body"><small>Total Recebido</small><strong style="color:var(--c-success)">${fmt.brl(totalRecebido)}</strong></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon">${icon("alert")}</div>
+            <div class="stat-card-body"><small>Total Pendente</small><strong style="color:#dc2626">${fmt.brl(totalPendente)}</strong></div>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Valor Compra</th>
+                <th>Parc 1</th>
+                <th>Parc 2</th>
+                <th>Parc 3</th>
+                <th>Parc 4</th>
+                <th>Parc 5</th>
+                <th>Total Pago</th>
+                <th>Total Devido</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+            <tfoot>
+              <tr class="total-row">
+                <td><strong>TOTAL</strong></td>
+                <td>${fmt.brl(totalCompras)}</td>
+                <td colspan="5"></td>
+                <td><strong>${fmt.brl(totalRecebido)}</strong></td>
+                <td style="color:#dc2626"><strong>${fmt.brl(totalPendente)}</strong></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>`;
+  },
+
+  async initPagamentos() {
+    if (!(await customConfirm("Inicializar registros de pagamento para pedidos que ainda não têm?\n\nIsso criará um registro para cada pedido ativo (não cancelado)."))) return;
+    const r = await this.api("pagamentos/inicializar", "POST");
+    if (r?.success) {
+      this.toast(r.message || "Pagamentos inicializados", "success");
+      this.renderPagamentos();
+    } else {
+      this.toast(r?.error || "Erro ao inicializar pagamentos", "error");
+    }
+  },
+
+  editPagamento(id) {
+    // Busca dados do pagamento do estado atual
+    // Primeiro precisa ter os dados carregados; se não, busca
+    const openEditModal = (pg) => {
+      const wrap = document.getElementById("confirmModalWrap");
+      wrap.innerHTML = `
+        <div class="modal-overlay" id="editPgOverlay">
+          <div class="modal-content" style="max-width:460px">
+            <div class="modal-header" style="padding:20px 24px 8px">
+              <h2 style="font-size:1.1rem">Editar Pagamento — ${fmt.escape(pg.comprador)}</h2>
+              <p style="font-size:0.85rem;color:var(--c-text-muted)">Valor da compra: ${fmt.brl(pg.valor_compra)}</p>
+            </div>
+            <div class="modal-body" style="padding:8px 24px 16px">
+              ${[1,2,3,4,5].map(i => `
+                <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                  <label style="min-width:60px;font-weight:600;font-size:0.88rem" for="pgParc${i}">Parcela ${i}</label>
+                  <input type="number" id="pgParc${i}" value="${pg["parc"+i] != null ? pg["parc"+i] : ""}" step="0.01" min="0" placeholder="0,00" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--c-border);font-size:0.95rem" />
+                </div>`).join("")}
+              <div class="form-group" style="margin-top:12px">
+                <label for="pgObs" style="font-weight:600;font-size:0.88rem">Observações</label>
+                <textarea id="pgObs" rows="2" placeholder="Notas sobre o pagamento..." style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--c-border);font-size:0.95rem;resize:vertical">${fmt.escape(pg.observacoes || "")}</textarea>
+              </div>
+            </div>
+            <div class="modal-footer" style="padding:8px 24px 20px;display:flex;gap:10px">
+              <button class="btn btn-ghost" onclick="document.getElementById('confirmModalWrap').innerHTML=''">Cancelar</button>
+              <button class="btn btn-primary" style="flex:1" onclick="app.savePagamento(${id})">Salvar</button>
+            </div>
+          </div>
+        </div>`;
+    };
+
+    // Se já temos os dados em cache, usa direto
+    // Senão busca da API
+    this.api("pagamentos").then(res => {
+      const pg = (res?.data || []).find(p => p.id === id);
+      if (pg) openEditModal(pg);
+      else this.toast("Pagamento não encontrado", "error");
+    });
+  },
+
+  async savePagamento(id) {
+    const parc = {};
+    for (let i = 1; i <= 5; i++) {
+      const val = document.getElementById(`pgParc${i}`).value;
+      parc[`parc${i}`] = val !== "" ? parseFloat(val) : null;
+    }
+    const observacoes = document.getElementById("pgObs").value.trim();
+    const r = await this.api(`pagamentos/${id}`, "PUT", { ...parc, observacoes });
+    document.getElementById("confirmModalWrap").innerHTML = "";
+    if (r?.success) {
+      this.toast("Pagamento atualizado", "success");
+      this.renderPagamentos();
+    } else {
+      this.toast(r?.error || "Erro ao salvar pagamento", "error");
+    }
+  },
+
   /* ----------------- Histórico do comprador ----------------- */
   async renderHistorico(forcedUsuario, forcedTelefone) {
     const c = document.getElementById("historicoContent");

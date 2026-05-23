@@ -324,6 +324,30 @@ export default async function handler(req) {
         return json({ success: true, data: rows.rows });
       }
 
+      // GET /pagamentos — lista todos os pagamentos com totais calculados
+      if (path === 'pagamentos') {
+        const rows = await client.query(`
+          SELECT p.*, 
+            COALESCE(p.parc1,0) + COALESCE(p.parc2,0) + COALESCE(p.parc3,0) + COALESCE(p.parc4,0) + COALESCE(p.parc5,0) as total_pago,
+            p.valor_compra - (COALESCE(p.parc1,0) + COALESCE(p.parc2,0) + COALESCE(p.parc3,0) + COALESCE(p.parc4,0) + COALESCE(p.parc5,0)) as total_devido
+          FROM pagamentos p ORDER BY p.comprador
+        `);
+        await client.end();
+        return json({ success: true, data: rows.rows });
+      }
+
+      // GET /pagamentos/resumo — totais gerais
+      if (path === 'pagamentos/resumo') {
+        const rows = await client.query(`
+          SELECT COUNT(*) as total_compradores, SUM(valor_compra) as total_compras, 
+            SUM(COALESCE(parc1,0)+COALESCE(parc2,0)+COALESCE(parc3,0)+COALESCE(parc4,0)+COALESCE(parc5,0)) as total_recebido,
+            SUM(valor_compra) - SUM(COALESCE(parc1,0)+COALESCE(parc2,0)+COALESCE(parc3,0)+COALESCE(parc4,0)+COALESCE(parc5,0)) as total_pendente
+          FROM pagamentos
+        `);
+        await client.end();
+        return json({ success: true, data: rows.rows[0] });
+      }
+
       if (path === 'exportar-csv') {
         const rows = await client.query(`
           SELECT p.usuario AS comprador, ip.codigo, ip.nome_produto AS produto,
@@ -527,6 +551,19 @@ export default async function handler(req) {
         return json({ success: true, data: { nome: dbNome, telefone: row.telefone, email: row.email } });
       }
 
+      // POST /pagamentos/inicializar — cria registros de pagamento para pedidos pendentes
+      if (path === 'pagamentos/inicializar') {
+        const r = await client.query(`
+          INSERT INTO pagamentos (pedido_id, comprador, valor_compra)
+          SELECT p.id, p.usuario, p.total_final
+          FROM pedidos p
+          WHERE p.status != 'cancelado'
+          AND NOT EXISTS (SELECT 1 FROM pagamentos pg WHERE pg.pedido_id = p.id)
+        `);
+        await client.end();
+        return json({ success: true, message: `${r.rowCount} registro(s) de pagamento criado(s)`, created: r.rowCount });
+      }
+
       if (path === 'admin/login') {
         const { senha } = body;
         const config = await client.query("SELECT valor FROM configuracoes WHERE chave = 'admin_senha'");
@@ -545,6 +582,20 @@ export default async function handler(req) {
     // ===== PUT ROUTES =====
     if (req.method === 'PUT') {
       const body = await req.json();
+
+      // PUT /pagamentos/:id — atualiza parcelas/obs de um pagamento
+      const pgtoMatch = path.match(/^pagamentos\/(\d+)$/);
+      if (pgtoMatch) {
+        const pgId = parseInt(pgtoMatch[1]);
+        const { parc1, parc2, parc3, parc4, parc5, observacoes } = body;
+        const r = await client.query(
+          'UPDATE pagamentos SET parc1=$1, parc2=$2, parc3=$3, parc4=$4, parc5=$5, observacoes=$6, updated_at=NOW() WHERE id=$7 RETURNING id',
+          [parc1 ?? null, parc2 ?? null, parc3 ?? null, parc4 ?? null, parc5 ?? null, observacoes ?? null, pgId]
+        );
+        await client.end();
+        if (!r.rowCount) return json({ success: false, error: 'Pagamento não encontrado' }, 404);
+        return json({ success: true, message: `Pagamento ${pgId} atualizado` });
+      }
 
       // PUT /pedidos/:id/status { status: 'aberto_edicao' | 'pendente' | 'confirmado' }
       const statusMatch = path.match(/^pedidos\/(\d+)\/status$/);
