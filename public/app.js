@@ -2447,7 +2447,7 @@ const app = {
               <p style="font-size:0.85rem;color:var(--c-text-muted)">Valor da compra: ${fmt.brl(pg.valor_compra)}</p>
             </div>
             <div class="modal-body" style="padding:8px 24px 16px">
-              ${[1,2,3,4,5].map(i => `
+              ${[1,2,3].map(i => `
                 <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
                   <label style="min-width:60px;font-weight:600;font-size:0.88rem" for="pgParc${i}">Parcela ${i}</label>
                   <input type="number" id="pgParc${i}" value="${pg["parc"+i] != null ? pg["parc"+i] : ""}" step="0.01" min="0" placeholder="0,00" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--c-border);font-size:0.95rem" />
@@ -2476,7 +2476,7 @@ const app = {
 
   async savePagamento(id) {
     const parc = {};
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 3; i++) {
       const val = document.getElementById(`pgParc${i}`).value;
       parc[`parc${i}`] = val !== "" ? parseFloat(val) : null;
     }
