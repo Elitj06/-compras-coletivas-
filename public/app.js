@@ -269,12 +269,17 @@ const app = {
   /* ----------------- API ----------------- */
   async api(path, method = "GET", body = null) {
     try {
+      const isBuyerRoute =
+        path === "comprador/session" ||
+        path === "pedidos/historico" ||
+        (path === "pedidos" && method === "POST") ||
+        (/^pedidos\/\d+$/.test(path) && method === "DELETE");
+      const token = isBuyerRoute ? this.state.buyerToken : (this.state.adminToken || this.state.buyerToken);
       const opts = {
         method,
         headers: {
           "Content-Type": "application/json",
-          ...(this.state.adminToken ? { "X-Admin-Token": this.state.adminToken } : {}),
-          ...(this.state.buyerToken ? { "X-Buyer-Token": this.state.buyerToken } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       };
       if (body) opts.body = JSON.stringify(body);
@@ -342,15 +347,15 @@ const app = {
 
   /* ----------------- Cadastro ----------------- */
   checkRegistration() {
+    this.state.buyerToken = sessionStorage.getItem("buyerToken") || "";
+    this.state.adminToken = sessionStorage.getItem("adminToken") || "";
     const reg = localStorage.getItem("userRegistered");
-    if (reg === "true") {
+    if (reg === "true" && this.state.buyerToken) {
       this.state.isRegistered = true;
       this.state.user.name = localStorage.getItem("registeredName") || "";
       this.state.user.phone = localStorage.getItem("registeredPhone") || "";
       this.state.user.email = localStorage.getItem("registeredEmail") || "";
     }
-    this.state.buyerToken = localStorage.getItem("buyerToken") || "";
-    this.state.adminToken = localStorage.getItem("adminToken") || "";
   },
 
   clearBuyerSession(showModal = true) {
@@ -361,7 +366,7 @@ const app = {
     localStorage.removeItem("registeredName");
     localStorage.removeItem("registeredPhone");
     localStorage.removeItem("registeredEmail");
-    localStorage.removeItem("buyerToken");
+    sessionStorage.removeItem("buyerToken");
     this.state.lastOrder = null;
     this.renderHeaderUser();
     this.saveLocal();
@@ -371,7 +376,7 @@ const app = {
   clearAdminSession() {
     this.state.isAdminLoggedIn = false;
     this.state.adminToken = "";
-    localStorage.removeItem("adminToken");
+    sessionStorage.removeItem("adminToken");
     this.saveLocal();
   },
 
@@ -474,7 +479,7 @@ const app = {
         res?.data?.nome || name,
         res?.data?.telefone || phone,
         res?.data?.email || email,
-        res?.data?.token || ""
+        res?.token || res?.data?.token || ""
       );
       return;
     }
@@ -496,7 +501,13 @@ const app = {
       }
       return;
     }
-    this._saveUserSession(res.data.nome, res.data.telefone || phone, res.data.email || "", res.data.token || "");
+    const comprador = res.comprador || res.data || {};
+    this._saveUserSession(
+      comprador.nome,
+      comprador.telefone || phone,
+      comprador.email || "",
+      res.token || comprador.token || ""
+    );
   },
 
   _saveUserSession(name, phone, email, token) {
@@ -509,7 +520,7 @@ const app = {
     localStorage.setItem("registeredName", name);
     localStorage.setItem("registeredPhone", phone);
     localStorage.setItem("registeredEmail", email);
-    if (this.state.buyerToken) localStorage.setItem("buyerToken", this.state.buyerToken);
+    if (this.state.buyerToken) sessionStorage.setItem("buyerToken", this.state.buyerToken);
     document.getElementById("registrationModal")?.remove();
     this.renderHeaderUser();
     this.toast(`Olá, ${name.split(" ")[0]}!`, "success");
@@ -1317,14 +1328,12 @@ const app = {
     if (!(await customConfirm("Confirma o reenvio do pedido editado?"))) return;
 
     const pedidoAberto = this.state.editingPedido;
-    // Apaga o pedido antigo
-    if (pedidoAberto?.id) {
-      await this.api(`pedidos/${pedidoAberto.id}`, "DELETE");
+    if (!pedidoAberto?.id) {
+      this.toast("Pedido em edição não encontrado", "error");
+      return;
     }
-    // Limpa estado de edição antes de finalizar
-    this.state.editingPedido = null;
     this.state.lastOrder = null;
-    // Reenvia como novo pedido
+    // O backend substitui o pedido antigo e cria o novo em uma única transação.
     await this.finalizeOrder();
   },
 
@@ -1448,6 +1457,7 @@ const app = {
         telefone: this.state.user.phone,
         email: this.state.user.email,
         itens,
+        replace_pedido_id: this.state.editingPedido?.id || null,
       });
     } finally {
       this.state._submitting = false;
@@ -1457,10 +1467,6 @@ const app = {
       this.toast("Pedido enviado com sucesso!", "success");
     } else if (res && res.duplicate) {
       this.toast("Você já tem um pedido enviado. Edite-o na aba Meu Pedido.", "info");
-      this.state.cart = {};
-      this.saveLocal();
-      this.updateCartBar();
-      this.renderProducts();
       this.renderInvoice();
       return;
     } else {
@@ -1483,6 +1489,7 @@ const app = {
     };
 
     this.state.cart = {};
+    this.state.editingPedido = null;
     this.saveLocal();
     this.updateCartBar();
     this.renderProducts();
@@ -1637,8 +1644,8 @@ const app = {
     const res = await this.api("admin/login", "POST", { senha: pwd });
     if (res && res.success) {
       this.state.isAdminLoggedIn = true;
-      this.state.adminToken = res?.data?.token || "";
-      if (this.state.adminToken) localStorage.setItem("adminToken", this.state.adminToken);
+      this.state.adminToken = res?.token || res?.data?.token || "";
+      if (this.state.adminToken) sessionStorage.setItem("adminToken", this.state.adminToken);
       const tabAdmin = document.getElementById("tabAdmin");
       if (tabAdmin) tabAdmin.hidden = false;
       document
@@ -2617,11 +2624,10 @@ const app = {
     localStorage.setItem("cart", JSON.stringify(this.state.cart));
     localStorage.setItem("discountPct", String(this.state.discountPct || 0));
     localStorage.setItem("lastOrder", JSON.stringify(this.state.lastOrder || null));
-    localStorage.setItem("isAdminLoggedIn", this.state.isAdminLoggedIn ? "true" : "false");
-    if (this.state.adminToken) localStorage.setItem("adminToken", this.state.adminToken);
-    else localStorage.removeItem("adminToken");
-    if (this.state.buyerToken) localStorage.setItem("buyerToken", this.state.buyerToken);
-    else localStorage.removeItem("buyerToken");
+    if (this.state.adminToken) sessionStorage.setItem("adminToken", this.state.adminToken);
+    else sessionStorage.removeItem("adminToken");
+    if (this.state.buyerToken) sessionStorage.setItem("buyerToken", this.state.buyerToken);
+    else sessionStorage.removeItem("buyerToken");
   },
   loadLocal() {
     try {
@@ -2629,14 +2635,13 @@ const app = {
       const d = localStorage.getItem("discountPct");
       const theme = localStorage.getItem("theme");
       const lo = localStorage.getItem("lastOrder");
-      const adm = localStorage.getItem("isAdminLoggedIn");
-      const adminToken = localStorage.getItem("adminToken");
-      const buyerToken = localStorage.getItem("buyerToken");
+      const adminToken = sessionStorage.getItem("adminToken");
+      const buyerToken = sessionStorage.getItem("buyerToken");
       if (c) this.state.cart = JSON.parse(c);
       if (d) this.state.discountPct = parseFloat(d) || 0;
       if (theme === "dark" || theme === "light") this.state.theme = theme;
       if (lo && lo !== "null") this.state.lastOrder = JSON.parse(lo);
-      if (adm === "true" && adminToken) this.state.isAdminLoggedIn = true;
+      if (adminToken) this.state.isAdminLoggedIn = true;
       if (adminToken) this.state.adminToken = adminToken;
       if (buyerToken) this.state.buyerToken = buyerToken;
     } catch (e) {

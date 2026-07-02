@@ -225,6 +225,16 @@ App de compras coletivas para produtos Vitafor. O grupo já está formado com 23
 
 ## Pendências
 
+### Segurança — 2026-07-02
+- [x] Admin agora autentica no servidor com senha PBKDF2 e sessão em `admin_sessions` expirada em 8h.
+- [x] Comprador agora recebe sessão em `buyer_sessions` expirada em 24h; histórico e criação de pedidos exigem Bearer token.
+- [x] `POST /api/db/pedidos` grava `comprador_id` e substitui pedido em edição dentro da mesma transação.
+- [x] Escritas críticas de pedidos/itens/merge/remoções foram protegidas com `BEGIN/COMMIT/ROLLBACK`.
+- [x] CORS deixou de usar wildcard nas APIs e `vercel.json`; allowlist: produção e `localhost:3000`.
+- [x] Runtime não executa mais `ensureMigrations()`; nova migration manual: `sql/04_security_sessions.sql`.
+- [x] Frontend usa `sessionStorage` para tokens admin/comprador e mantém carrinho em falhas de envio.
+- [ ] Executar `sql/04_security_sessions.sql` no Supabase antes do próximo deploy.
+
 ### Backend
 - [ ] Implementar rota `POST /api/db/upload-planilha` para processar .xlsx
 - [ ] Testar integração com Evolution API para envio de pedido

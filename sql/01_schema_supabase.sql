@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS pedidos (
     total_bruto DECIMAL(10,2) DEFAULT 0,
     total_desconto DECIMAL(10,2) DEFAULT 0,
     total_final DECIMAL(10,2) DEFAULT 0,
-    status VARCHAR(20) DEFAULT 'pendente' CHECK (status IN ('pendente', 'confirmado', 'cancelado', 'entregue')),
+    status VARCHAR(20) DEFAULT 'pendente' CHECK (status IN ('pendente', 'confirmado', 'cancelado', 'entregue', 'aberto_edicao')),
     observacoes TEXT,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
@@ -87,6 +87,30 @@ CREATE TABLE IF NOT EXISTS pedidos (
 CREATE INDEX IF NOT EXISTS idx_pedidos_comprador ON pedidos(comprador_id);
 CREATE INDEX IF NOT EXISTS idx_pedidos_status ON pedidos(status);
 CREATE INDEX IF NOT EXISTS idx_pedidos_usuario ON pedidos(usuario);
+
+-- ============================================================
+-- SESSÕES
+-- ============================================================
+CREATE TABLE IF NOT EXISTS admin_sessions (
+    id BIGSERIAL PRIMARY KEY,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires_at ON admin_sessions(expires_at);
+
+CREATE TABLE IF NOT EXISTS buyer_sessions (
+    id BIGSERIAL PRIMARY KEY,
+    comprador_id INTEGER NOT NULL REFERENCES compradores(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_buyer_sessions_token_hash ON buyer_sessions(token_hash);
+CREATE INDEX IF NOT EXISTS idx_buyer_sessions_comprador_id ON buyer_sessions(comprador_id);
+CREATE INDEX IF NOT EXISTS idx_buyer_sessions_expires_at ON buyer_sessions(expires_at);
 
 -- ============================================================
 -- ITENS DO PEDIDO
@@ -141,7 +165,6 @@ CREATE TABLE IF NOT EXISTS configuracoes (
 INSERT INTO configuracoes (chave, valor)
 VALUES
     ('nome_app', 'Compras Coletivas — Vitafor & VitaPower'),
-    ('admin_senha', 'admin123'),
     ('prazo_pedido', '2026-04-30'),
     ('mensagem_boas_vindas', 'Bem-vindo às Compras Coletivas!')
 ON CONFLICT (chave) DO NOTHING;

@@ -24,12 +24,28 @@ import { createClient } from '@vercel/postgres';
 // Bypasses POSTGRES_URL_NON_POOLING env var check
 // Supabase pooler URL doesn't match Vercel's "-pooler." pattern so we pass it explicitly
 
-const headers = {
+const ALLOWED_ORIGINS = new Set([
+  'https://compras-coletivas-phi.vercel.app',
+  'http://localhost:3000',
+]);
+
+const BASE_HEADERS = {
   'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Token, X-Buyer-Token',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Vary': 'Origin',
 };
+
+let headers = { ...BASE_HEADERS };
+
+function corsHeadersFor(req) {
+  const origin = req?.headers?.get('origin') || '';
+  const responseHeaders = { ...BASE_HEADERS };
+  if (ALLOWED_ORIGINS.has(origin)) {
+    responseHeaders['Access-Control-Allow-Origin'] = origin;
+  }
+  return responseHeaders;
+}
 
 /**
  * Cria uma Response JSON com headers CORS padrão.
@@ -41,30 +57,10 @@ function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers });
 }
 
-const SESSION_TTL_SECONDS = 60 * 60 * 12;
 const ADMIN_SESSION_TTL_SECONDS = 60 * 60 * 8;
+const BUYER_SESSION_TTL_SECONDS = 60 * 60 * 24;
+const PASSWORD_PBKDF2_ITERATIONS = 210000;
 const SESSION_ENCODER = new TextEncoder();
-
-function toBase64Url(input) {
-  const text = typeof input === 'string' ? input : JSON.stringify(input);
-  return btoa(text).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
-
-function fromBase64Url(input) {
-  const normalized = input.replace(/-/g, '+').replace(/_/g, '/');
-  const padded = normalized + '='.repeat((4 - (normalized.length % 4 || 4)) % 4);
-  return atob(padded);
-}
-
-function getSessionSecret() {
-  return (
-    process.env.APP_SESSION_SECRET ||
-    process.env.ADMIN_SESSION_SECRET ||
-    process.env.POSTGRES_URL ||
-    process.env.DATABASE_URL ||
-    'compras-coletivas-session-secret'
-  );
-}
 
 async function sha256Hex(text) {
   const buffer = await crypto.subtle.digest('SHA-256', SESSION_ENCODER.encode(text));
@@ -73,27 +69,36 @@ async function sha256Hex(text) {
     .join('');
 }
 
-async function signSessionToken(payload, ttlSeconds = SESSION_TTL_SECONDS) {
-  const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
-  const body = { ...payload, exp };
-  const encodedBody = toBase64Url(body);
-  const signature = await sha256Hex(`${encodedBody}.${getSessionSecret()}`);
-  return `${encodedBody}.${signature}`;
+function bytesToHex(bytes) {
+  return Array.from(bytes)
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
 }
 
-async function verifySessionToken(token, expectedType) {
-  if (!token || !token.includes('.')) return null;
-  const [encodedBody, signature] = token.split('.');
-  const expectedSignature = await sha256Hex(`${encodedBody}.${getSessionSecret()}`);
-  if (signature !== expectedSignature) return null;
-  try {
-    const body = JSON.parse(fromBase64Url(encodedBody));
-    if (!body?.exp || body.exp < Math.floor(Date.now() / 1000)) return null;
-    if (expectedType && body.type !== expectedType) return null;
-    return body;
-  } catch {
-    return null;
+function hexToBytes(hex) {
+  const clean = String(hex || '');
+  const bytes = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < bytes.length; i += 1) {
+    bytes[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
   }
+  return bytes;
+}
+
+function randomHex(bytes = 32) {
+  const data = new Uint8Array(bytes);
+  crypto.getRandomValues(data);
+  return bytesToHex(data);
+}
+
+function constantTimeEqual(left, right) {
+  const a = String(left || '');
+  const b = String(right || '');
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
 }
 
 function getTokenFromRequest(req, headerName) {
@@ -103,28 +108,104 @@ function getTokenFromRequest(req, headerName) {
   return authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
 }
 
-async function requireAdminSession(req) {
-  return verifySessionToken(getTokenFromRequest(req, 'x-admin-token'), 'admin');
+async function hashToken(token) {
+  return sha256Hex(`session:${token}`);
 }
 
-async function requireBuyerSession(req) {
-  return verifySessionToken(getTokenFromRequest(req, 'x-buyer-token'), 'buyer');
+async function createAdminSession(client) {
+  const token = randomHex(32);
+  await client.query(
+    `INSERT INTO admin_sessions (token_hash, expires_at)
+     VALUES ($1, NOW() + ($2 || ' seconds')::interval)`,
+    [await hashToken(token), ADMIN_SESSION_TTL_SECONDS]
+  );
+  return token;
 }
 
-async function hashAdminPassword(password) {
-  return `sha256:${await sha256Hex(`admin::${password}::${getSessionSecret()}`)}`;
+async function createBuyerSession(client, compradorId) {
+  const token = randomHex(32);
+  await client.query(
+    `INSERT INTO buyer_sessions (comprador_id, token_hash, expires_at)
+     VALUES ($1, $2, NOW() + ($3 || ' seconds')::interval)`,
+    [compradorId, await hashToken(token), BUYER_SESSION_TTL_SECONDS]
+  );
+  return token;
+}
+
+async function requireAdmin(req, client) {
+  const token = getTokenFromRequest(req, 'x-admin-token');
+  if (!token) return null;
+  const session = await client.query(
+    `SELECT id FROM admin_sessions
+     WHERE token_hash = $1 AND expires_at > NOW()
+     LIMIT 1`,
+    [await hashToken(token)]
+  );
+  if (!session.rows.length) return null;
+  return { id: session.rows[0].id };
+}
+
+async function requireBuyer(req, client) {
+  const token = getTokenFromRequest(req, 'x-buyer-token');
+  if (!token) return null;
+  const session = await client.query(
+    `SELECT c.id, c.nome, c.telefone, c.email
+     FROM buyer_sessions bs
+     JOIN compradores c ON c.id = bs.comprador_id
+     WHERE bs.token_hash = $1 AND bs.expires_at > NOW()
+     LIMIT 1`,
+    [await hashToken(token)]
+  );
+  return session.rows[0] || null;
+}
+
+async function hashAdminPassword(password, saltHex = randomHex(16)) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    SESSION_ENCODER.encode(String(password || '')),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      hash: 'SHA-256',
+      salt: hexToBytes(saltHex),
+      iterations: PASSWORD_PBKDF2_ITERATIONS,
+    },
+    key,
+    256
+  );
+  return `pbkdf2:sha256:${PASSWORD_PBKDF2_ITERATIONS}:${saltHex}:${bytesToHex(new Uint8Array(bits))}`;
+}
+
+async function verifyPbkdf2Password(password, savedValue) {
+  const [, algorithm, iterationsRaw, saltHex, hashHex] = String(savedValue || '').split(':');
+  if (algorithm !== 'sha256' || !iterationsRaw || !saltHex || !hashHex) return false;
+  const iterations = Number(iterationsRaw);
+  if (!Number.isInteger(iterations) || iterations < 100000) return false;
+  const key = await crypto.subtle.importKey(
+    'raw',
+    SESSION_ENCODER.encode(String(password || '')),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', hash: 'SHA-256', salt: hexToBytes(saltHex), iterations },
+    key,
+    256
+  );
+  return constantTimeEqual(hashHex, bytesToHex(new Uint8Array(bits)));
 }
 
 async function verifyAdminPassword(client, password) {
-  const envPassword = process.env.ADMIN_PASSWORD;
-  if (envPassword) {
-    return password === envPassword;
-  }
   const config = await client.query("SELECT valor FROM configuracoes WHERE chave = 'admin_senha'");
   if (!config.rows.length) return false;
   const savedValue = String(config.rows[0].valor || '');
-  if (savedValue.startsWith('sha256:')) {
-    return (await hashAdminPassword(password)) === savedValue;
+  if (savedValue.startsWith('pbkdf2:sha256:')) {
+    return verifyPbkdf2Password(password, savedValue);
   }
   if (password !== savedValue) return false;
   await client.query(
@@ -136,46 +217,6 @@ async function verifyAdminPassword(client, password) {
 
 function unauthorized(message = 'Não autorizado') {
   return json({ success: false, error: message }, 401);
-}
-
-let _migrationDone = false;
-/**
- * Executa migrations pendentes (idempotente). Roda apenas uma vez por cold start.
- * - Adiciona coluna pin_hash em compradores
- * - Remove duplicatas e cria UNIQUE constraint em nome
- * - Atualiza constraint de status para incluir 'aberto_edicao'
- * @param {import('@vercel/postgres').Client} client - Cliente PostgreSQL conectado.
- * @returns {Promise<void>}
- */
-async function ensureMigrations(client) {
-  if (_migrationDone) return;
-  try {
-    await client.query(`ALTER TABLE compradores ADD COLUMN IF NOT EXISTS pin_hash TEXT`);
-    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_compradores_nome_unique ON compradores(nome)`);
-    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_compradores_nome_lower ON compradores(LOWER(nome))`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_compradores_nome_tel ON compradores(nome, telefone)`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_compradores_telefone_digits ON compradores((regexp_replace(COALESCE(telefone,''), '\\D', '', 'g')))`);
-    // Atualiza constraint de status para incluir 'aberto_edicao'
-    await client.query(`ALTER TABLE pedidos DROP CONSTRAINT IF EXISTS pedidos_status_check`);
-    await client.query(`ALTER TABLE pedidos ADD CONSTRAINT pedidos_status_check CHECK (status IN ('pendente','confirmado','cancelado','entregue','aberto_edicao'))`);
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS pagamentos (
-        id SERIAL PRIMARY KEY,
-        pedido_id INTEGER UNIQUE REFERENCES pedidos(id) ON DELETE CASCADE,
-        comprador TEXT NOT NULL,
-        valor_compra DECIMAL(10,2) NOT NULL DEFAULT 0,
-        parc1 DECIMAL(10,2),
-        parc2 DECIMAL(10,2),
-        parc3 DECIMAL(10,2),
-        observacoes TEXT,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-    _migrationDone = true;
-  } catch (e) {
-    console.error('Migration error:', e.message);
-  }
 }
 
 /**
@@ -192,7 +233,6 @@ async function getClient() {
   const client = createClient({ connectionString });
   await client.connect();
   await client.query('SET search_path TO compras_coletivas');
-  await ensureMigrations(client);
   return client;
 }
 
@@ -268,18 +308,21 @@ function normalizeNomeTel(nome, telefone) {
  * @returns {Promise<Response>} Resposta JSON ou CSV.
  */
 export default async function handler(req) {
+  headers = corsHeadersFor(req);
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers });
   }
 
   const url = new URL(req.url);
   const path = url.pathname.replace('/api/db', '').replace(/^\//, '');
-  const adminSession = await requireAdminSession(req);
-  const buyerSession = await requireBuyerSession(req);
+  let adminSession = null;
+  let buyerSession = null;
 
   let client;
   try {
     client = await getClient();
+    adminSession = await requireAdmin(req, client);
+    buyerSession = await requireBuyer(req, client);
 
     // ===== GET ROUTES =====
     if (req.method === 'GET') {
@@ -378,6 +421,10 @@ export default async function handler(req) {
       }
 
       if (path === 'descontos') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const rows = await client.query('SELECT * FROM descontos WHERE ativo = TRUE ORDER BY categoria');
         await client.end();
         return json({ success: true, data: rows.rows });
@@ -421,21 +468,19 @@ export default async function handler(req) {
         return json({ success: true, data: rows.rows });
       }
 
-      // Histórico de pedidos de um comprador (por nome + telefone)
-      // GET /pedidos/historico?usuario=...&telefone=...
+      // Histórico de pedidos de um comprador autenticado.
       if (path === 'pedidos/historico') {
-        const usuario = adminSession
-          ? (url.searchParams.get('usuario') || '')
-          : String(buyerSession?.nome || '');
-        const telefone = adminSession
-          ? (url.searchParams.get('telefone') || '').replace(/\D/g, '')
-          : String(buyerSession?.telefone || '').replace(/\D/g, '');
-        if (!usuario || !telefone) {
+        const usuario = url.searchParams.get('usuario') || '';
+        const telefone = (url.searchParams.get('telefone') || '').replace(/\D/g, '');
+        const isAdminLookup = adminSession && usuario && telefone;
+        if (!buyerSession && !isAdminLookup) {
           await client.end();
-          return unauthorized('Sessão do comprador inválida');
+          return unauthorized();
         }
-        const params = [usuario, telefone];
-        const where = `LOWER(p.usuario) = LOWER($1) AND regexp_replace(COALESCE(c.telefone,''), '\\D', '', 'g') = $2`;
+        const params = isAdminLookup ? [usuario, telefone] : [buyerSession.id];
+        const where = isAdminLookup
+          ? `LOWER(p.usuario) = LOWER($1) AND regexp_replace(COALESCE(c.telefone,''), '\\D', '', 'g') = $2`
+          : `p.comprador_id = $1`;
         const rows = await client.query(`
           SELECT p.id, p.created_at, p.status, p.total_bruto, p.total_final, p.total_desconto,
             json_agg(json_build_object(
@@ -450,7 +495,7 @@ export default async function handler(req) {
             ) ORDER BY ip.nome_produto) AS itens
           FROM pedidos p
           LEFT JOIN itens_pedido ip ON ip.pedido_id = p.id
-          LEFT JOIN compradores c ON c.nome = p.usuario
+          LEFT JOIN compradores c ON c.id = p.comprador_id OR (p.comprador_id IS NULL AND c.nome = p.usuario)
           WHERE ${where} AND p.status != 'cancelado'
           GROUP BY p.id
           ORDER BY p.created_at DESC
@@ -517,9 +562,9 @@ export default async function handler(req) {
         return new Response('\uFEFF' + csv, {
           status: 200,
           headers: {
+            ...headers,
             'Content-Type': 'text/csv; charset=utf-8',
             'Content-Disposition': 'attachment; filename=relatorio_compras_coletivas.csv',
-            'Access-Control-Allow-Origin': '*',
           }
         });
       }
@@ -546,7 +591,7 @@ export default async function handler(req) {
           await client.end();
           return unauthorized('Faça login novamente para enviar seu pedido');
         }
-        const { usuario, telefone, email, itens } = body;
+        const { usuario, telefone, email, itens, replace_pedido_id } = body;
         if (!usuario || !itens || !itens.length) {
           await client.end();
           return json({ success: false, error: 'Dados incompletos' }, 400);
@@ -562,22 +607,44 @@ export default async function handler(req) {
 
         await client.query('BEGIN');
         try {
-          // Upsert comprador com telefone e email
+          const replacePedidoId = replace_pedido_id ? parseInt(replace_pedido_id) : null;
+          if (replacePedidoId) {
+            const editable = await client.query(
+              `SELECT id FROM pedidos
+               WHERE id = $1 AND comprador_id = $2 AND status = 'aberto_edicao'
+               LIMIT 1`,
+              [replacePedidoId, buyerSession.id]
+            );
+            if (!editable.rows.length) {
+              await client.query('ROLLBACK');
+              await client.end();
+              return unauthorized('Pedido em edição inválido');
+            }
+            await client.query('DELETE FROM itens_pedido WHERE pedido_id = $1', [replacePedidoId]);
+            await client.query('DELETE FROM pedidos WHERE id = $1', [replacePedidoId]);
+          }
+
+          // Atualiza dados complementares do comprador autenticado.
           if (telefone || email) {
             await client.query(
-              `INSERT INTO compradores (nome, telefone, email)
-               VALUES ($1, $2, $3)
-               ON CONFLICT (nome) DO UPDATE SET
-                 telefone = COALESCE(EXCLUDED.telefone, compradores.telefone),
-                 email = COALESCE(EXCLUDED.email, compradores.email)`,
-              [usuario, telefone || null, email || null]
+              `UPDATE compradores
+               SET telefone = COALESCE($1, telefone),
+                   email = COALESCE($2, email)
+               WHERE id = $3`,
+              [telefone || null, email || null, buyerSession.id]
             );
           }
 
           // Proteção contra envios duplicados: verifica se já existe pedido
           const dup = await client.query(
-            `SELECT id FROM pedidos WHERE usuario = $1 AND status IN ('pendente','aberto_edicao') AND created_at > NOW() - INTERVAL '60 seconds' LIMIT 1`,
-            [usuario]
+            `SELECT id
+             FROM pedidos
+             WHERE (comprador_id = $1 OR (comprador_id IS NULL AND usuario = $2))
+               AND status IN ('pendente','aberto_edicao')
+               AND created_at > NOW() - INTERVAL '60 seconds'
+               AND ($3::int IS NULL OR id <> $3)
+             LIMIT 1`,
+            [buyerSession.id, usuario, replacePedidoId]
           );
           if (dup.rows.length) {
             await client.query('ROLLBACK');
@@ -586,8 +653,8 @@ export default async function handler(req) {
           }
 
           const pedidoResult = await client.query(
-            'INSERT INTO pedidos (usuario, status) VALUES ($1, $2) RETURNING id',
-            [usuario, 'pendente']
+            'INSERT INTO pedidos (comprador_id, usuario, status) VALUES ($1, $2, $3) RETURNING id',
+            [buyerSession.id, usuario, 'pendente']
           );
           const pedidoId = pedidoResult.rows[0].id;
 
@@ -686,15 +753,24 @@ export default async function handler(req) {
             `UPDATE compradores SET pin_hash = $1, telefone = COALESCE($2, telefone), email = COALESCE($3, email) WHERE nome = $4`,
             [newHash, t || null, email || null, dbNome]
           );
+          const token = await createBuyerSession(client, row.id);
           await client.end();
           return json({
             success: true,
             message: 'PIN registrado',
-            data: {
+            token,
+            comprador: {
+              id: row.id,
               nome: dbNome,
               telefone: t || dbTel,
               email: email || row.email || '',
-              token: await signSessionToken({ type: 'buyer', buyerId: row.id, nome: dbNome, telefone: t || dbTel })
+            },
+            data: {
+              id: row.id,
+              nome: dbNome,
+              telefone: t || dbTel,
+              email: email || row.email || '',
+              token,
             }
           });
         }
@@ -704,15 +780,25 @@ export default async function handler(req) {
           `INSERT INTO compradores (nome, telefone, email, pin_hash) VALUES ($1, $2, $3, $4) RETURNING id`,
           [n, t, email || null, newHash]
         );
+        const compradorId = inserted.rows?.[0]?.id || null;
+        const token = await createBuyerSession(client, compradorId);
         await client.end();
         return json({
           success: true,
           message: 'Cadastro criado com PIN',
-          data: {
+          token,
+          comprador: {
+            id: compradorId,
             nome: n,
             telefone: t,
             email: email || '',
-            token: await signSessionToken({ type: 'buyer', buyerId: inserted.rows?.[0]?.id || null, nome: n, telefone: t })
+          },
+          data: {
+            id: compradorId,
+            nome: n,
+            telefone: t,
+            email: email || '',
+            token,
           }
         });
       }
@@ -725,13 +811,11 @@ export default async function handler(req) {
           await client.end();
           return json({ success: false, error: 'Dados incompletos' }, 400);
         }
-        // Busca por nome (case-insensitive) OU telefone normalizado
-        // Telefone é mais confiável em aparelhos novos onde o usuário pode
-        // não lembrar o nome exato usado no cadastro
         const tNormalized = (t || '').replace(/\D/g, '');
         const r = await client.query(
           `SELECT id, nome, telefone, email, pin_hash FROM compradores
-           WHERE regexp_replace(COALESCE(telefone, ''), '\\D', '', 'g') = $2
+           WHERE LOWER(nome) = LOWER($1)
+             AND regexp_replace(COALESCE(telefone, ''), '\\D', '', 'g') = $2
            LIMIT 1`,
           [n, tNormalized]
         );
@@ -745,21 +829,30 @@ export default async function handler(req) {
         const dbTel = (row.telefone || '').replace(/\D/g, '');
         if (!row.pin_hash) {
           await client.end();
-          return json({ success: false, error: 'Este cadastro ainda não possui PIN. Use "Criar cadastro" com o mesmo nome e telefone para ativar o acesso.', no_pin: true }, 409);
+          return json({ success: false, error: 'Conta não ativada', no_pin: true }, 409);
         }
         const hash = await hashPin(pin, dbNome + ':' + dbTel);
         if (hash !== row.pin_hash) {
           await client.end();
           return json({ success: false, error: 'PIN incorreto' }, 401);
         }
+        const token = await createBuyerSession(client, row.id);
         await client.end();
         return json({
           success: true,
-          data: {
+          token,
+          comprador: {
+            id: row.id,
             nome: dbNome,
             telefone: row.telefone,
             email: row.email,
-            token: await signSessionToken({ type: 'buyer', buyerId: row.id, nome: dbNome, telefone: dbTel })
+          },
+          data: {
+            id: row.id,
+            nome: dbNome,
+            telefone: row.telefone,
+            email: row.email,
+            token,
           }
         });
       }
@@ -784,16 +877,17 @@ export default async function handler(req) {
       if (path === 'admin/login') {
         const { senha } = body;
         const isValid = await verifyAdminPassword(client, senha);
-        await client.end();
         if (isValid) {
+          const token = await createAdminSession(client);
+          await client.end();
           return json({
             success: true,
             message: 'Login autorizado',
-            data: {
-              token: await signSessionToken({ type: 'admin' }, ADMIN_SESSION_TTL_SECONDS)
-            }
+            token,
+            data: { token }
           });
         }
+        await client.end();
         return json({ success: false, error: 'Senha incorreta' }, 401);
       }
     }
@@ -812,7 +906,7 @@ export default async function handler(req) {
         const pgId = parseInt(pgtoMatch[1]);
         const { parc1, parc2, parc3, observacoes } = body;
         const r = await client.query(
-          'UPDATE pagamentos SET parc1=$1, parc2=$2, parc3=$3, parc4=NULL, parc5=NULL, observacoes=$4, updated_at=NOW() WHERE id=$5 RETURNING id',
+          'UPDATE pagamentos SET parc1=$1, parc2=$2, parc3=$3, observacoes=$4, updated_at=NOW() WHERE id=$5 RETURNING id',
           [parc1 ?? null, parc2 ?? null, parc3 ?? null, observacoes ?? null, pgId]
         );
         await client.end();
@@ -879,34 +973,41 @@ export default async function handler(req) {
           await client.end();
           return json({ success: false, error: 'Quantidade deve ser >= 1' }, 400);
         }
-        const item = await client.query(
-          'SELECT pedido_id, preco_unitario, preco_com_desconto FROM itens_pedido WHERE id = $1',
-          [iid]
-        );
-        if (!item.rows.length) {
+        await client.query('BEGIN');
+        try {
+          const item = await client.query(
+            'SELECT pedido_id, preco_unitario, preco_com_desconto FROM itens_pedido WHERE id = $1',
+            [iid]
+          );
+          if (!item.rows.length) {
+            await client.query('ROLLBACK');
+            await client.end();
+            return json({ success: false, error: 'Item não encontrado' }, 404);
+          }
+          const it = item.rows[0];
+          const pBruto = parseFloat(it.preco_unitario);
+          const pDesc = parseFloat(it.preco_com_desconto);
+          await client.query(
+            `UPDATE itens_pedido SET quantidade = $1, subtotal_bruto = $2, subtotal_final = $3 WHERE id = $4`,
+            [qty, pBruto * qty, pDesc * qty, iid]
+          );
+          const totals = await client.query(
+            `SELECT COALESCE(SUM(subtotal_bruto),0)::numeric AS tb, COALESCE(SUM(subtotal_final),0)::numeric AS tf FROM itens_pedido WHERE pedido_id = $1`,
+            [it.pedido_id]
+          );
+          const tb = parseFloat(totals.rows[0].tb);
+          const tf = parseFloat(totals.rows[0].tf);
+          await client.query(
+            'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3, updated_at = NOW() WHERE id = $4',
+            [tb, tf, tb - tf, it.pedido_id]
+          );
+          await client.query('COMMIT');
           await client.end();
-          return json({ success: false, error: 'Item não encontrado' }, 404);
+          return json({ success: true, message: `Quantidade atualizada para ${qty}` });
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
         }
-        const it = item.rows[0];
-        const pBruto = parseFloat(it.preco_unitario);
-        const pDesc = parseFloat(it.preco_com_desconto);
-        await client.query(
-          `UPDATE itens_pedido SET quantidade = $1, subtotal_bruto = $2, subtotal_final = $3 WHERE id = $4`,
-          [qty, pBruto * qty, pDesc * qty, iid]
-        );
-        // Recalcula totais do pedido
-        const totals = await client.query(
-          `SELECT COALESCE(SUM(subtotal_bruto),0)::numeric AS tb, COALESCE(SUM(subtotal_final),0)::numeric AS tf FROM itens_pedido WHERE pedido_id = $1`,
-          [it.pedido_id]
-        );
-        const tb = parseFloat(totals.rows[0].tb);
-        const tf = parseFloat(totals.rows[0].tf);
-        await client.query(
-          'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3, updated_at = NOW() WHERE id = $4',
-          [tb, tf, tb - tf, it.pedido_id]
-        );
-        await client.end();
-        return json({ success: true, message: `Quantidade atualizada para ${qty}` });
       }
 
       // PUT /pedidos/usuario/:nome/merge  — Admin: mescla pedidos somando quantidades
@@ -1009,42 +1110,49 @@ export default async function handler(req) {
         const subtBruto = pBruto * qty;
         const subtFinal = pDesc * qty;
 
-        // Verifica se já existe esse produto no pedido — se sim, incrementa
-        const existingItem = await client.query(
-          'SELECT id, quantidade, subtotal_bruto, subtotal_final FROM itens_pedido WHERE pedido_id = $1 AND codigo = $2 LIMIT 1',
-          [pid, codigo]
-        );
-        if (existingItem.rows.length) {
-          const ei = existingItem.rows[0];
-          const newQty = ei.quantidade + qty;
-          await client.query(
-            `UPDATE itens_pedido SET quantidade = $1, subtotal_bruto = $2, subtotal_final = $3 WHERE id = $4`,
-            [newQty, pBruto * newQty, pDesc * newQty, ei.id]
+        await client.query('BEGIN');
+        try {
+          // Verifica se já existe esse produto no pedido — se sim, incrementa
+          const existingItem = await client.query(
+            'SELECT id, quantidade, subtotal_bruto, subtotal_final FROM itens_pedido WHERE pedido_id = $1 AND codigo = $2 LIMIT 1',
+            [pid, codigo]
           );
-        } else {
-          const descPct = pBruto > 0 ? Math.round((1 - pDesc / pBruto) * 100) : 0;
-          await client.query(
-            `INSERT INTO itens_pedido (
-              pedido_id, codigo, nome_produto, quantidade,
-              preco_unitario, preco_bruto, preco_com_desconto, preco_desconto,
-              desconto_percentual, subtotal_bruto, subtotal_final, categoria
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-            [pid, codigo, nome, qty, pBruto, pBruto, pDesc, pDesc, descPct, subtBruto, subtFinal, categoria || '']
+          if (existingItem.rows.length) {
+            const ei = existingItem.rows[0];
+            const newQty = ei.quantidade + qty;
+            await client.query(
+              `UPDATE itens_pedido SET quantidade = $1, subtotal_bruto = $2, subtotal_final = $3 WHERE id = $4`,
+              [newQty, pBruto * newQty, pDesc * newQty, ei.id]
+            );
+          } else {
+            const descPct = pBruto > 0 ? Math.round((1 - pDesc / pBruto) * 100) : 0;
+            await client.query(
+              `INSERT INTO itens_pedido (
+                pedido_id, codigo, nome_produto, quantidade,
+                preco_unitario, preco_bruto, preco_com_desconto, preco_desconto,
+                desconto_percentual, subtotal_bruto, subtotal_final, categoria
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+              [pid, codigo, nome, qty, pBruto, pBruto, pDesc, pDesc, descPct, subtBruto, subtFinal, categoria || '']
+            );
+          }
+          // Recalcula totais do pedido
+          const totals = await client.query(
+            `SELECT COALESCE(SUM(subtotal_bruto),0)::numeric AS tb, COALESCE(SUM(subtotal_final),0)::numeric AS tf FROM itens_pedido WHERE pedido_id = $1`,
+            [pid]
           );
+          const tb = parseFloat(totals.rows[0].tb);
+          const tf = parseFloat(totals.rows[0].tf);
+          await client.query(
+            'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3, updated_at = NOW() WHERE id = $4',
+            [tb, tf, tb - tf, pid]
+          );
+          await client.query('COMMIT');
+          await client.end();
+          return json({ success: true, message: `Item ${nome} adicionado ao pedido ${pid}` });
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
         }
-        // Recalcula totais do pedido
-        const totals = await client.query(
-          `SELECT COALESCE(SUM(subtotal_bruto),0)::numeric AS tb, COALESCE(SUM(subtotal_final),0)::numeric AS tf FROM itens_pedido WHERE pedido_id = $1`,
-          [pid]
-        );
-        const tb = parseFloat(totals.rows[0].tb);
-        const tf = parseFloat(totals.rows[0].tf);
-        await client.query(
-          'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3, updated_at = NOW() WHERE id = $4',
-          [tb, tf, tb - tf, pid]
-        );
-        await client.end();
-        return json({ success: true, message: `Item ${nome} adicionado ao pedido ${pid}` });
       }
     }
 
@@ -1055,10 +1163,17 @@ export default async function handler(req) {
           await client.end();
           return unauthorized();
         }
-        await client.query('DELETE FROM itens_pedido');
-        await client.query('DELETE FROM pedidos');
-        await client.end();
-        return json({ success: true, message: 'Todos os pedidos foram apagados' });
+        await client.query('BEGIN');
+        try {
+          await client.query('DELETE FROM itens_pedido');
+          await client.query('DELETE FROM pedidos');
+          await client.query('COMMIT');
+          await client.end();
+          return json({ success: true, message: 'Todos os pedidos foram apagados' });
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        }
       }
       const pedidoMatch = path.match(/^pedidos\/(\d+)$/);
       if (pedidoMatch) {
@@ -1071,22 +1186,27 @@ export default async function handler(req) {
           const owner = await client.query(
             `SELECT p.id
              FROM pedidos p
-             LEFT JOIN compradores c ON c.nome = p.usuario
              WHERE p.id = $1
-               AND LOWER(p.usuario) = LOWER($2)
-               AND regexp_replace(COALESCE(c.telefone,''), '\\D', '', 'g') = $3`,
-            [pid, buyerSession.nome, String(buyerSession.telefone || '').replace(/\D/g, '')]
+               AND p.comprador_id = $2`,
+            [pid, buyerSession.id]
           );
           if (!owner.rows.length) {
             await client.end();
             return unauthorized();
           }
         }
-        await client.query('DELETE FROM itens_pedido WHERE pedido_id = $1', [pid]);
-        const r = await client.query('DELETE FROM pedidos WHERE id = $1 RETURNING id', [pid]);
-        await client.end();
-        if (!r.rowCount) return json({ success: false, error: 'Pedido não encontrado' }, 404);
-        return json({ success: true, message: `Pedido ${pid} cancelado` });
+        await client.query('BEGIN');
+        try {
+          await client.query('DELETE FROM itens_pedido WHERE pedido_id = $1', [pid]);
+          const r = await client.query('DELETE FROM pedidos WHERE id = $1 RETURNING id', [pid]);
+          await client.query('COMMIT');
+          await client.end();
+          if (!r.rowCount) return json({ success: false, error: 'Pedido não encontrado' }, 404);
+          return json({ success: true, message: `Pedido ${pid} cancelado` });
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        }
       }
 
       // Apaga todos os pedidos de um comprador (por nome de usuário)
@@ -1097,13 +1217,20 @@ export default async function handler(req) {
           return unauthorized();
         }
         const usuario = decodeURIComponent(pedidoUserMatch[1]);
-        await client.query(
-          'DELETE FROM itens_pedido WHERE pedido_id IN (SELECT id FROM pedidos WHERE usuario = $1)',
-          [usuario]
-        );
-        const r = await client.query('DELETE FROM pedidos WHERE usuario = $1 RETURNING id', [usuario]);
-        await client.end();
-        return json({ success: true, message: `${r.rowCount} pedido(s) de ${usuario} apagados` });
+        await client.query('BEGIN');
+        try {
+          await client.query(
+            'DELETE FROM itens_pedido WHERE pedido_id IN (SELECT id FROM pedidos WHERE usuario = $1)',
+            [usuario]
+          );
+          const r = await client.query('DELETE FROM pedidos WHERE usuario = $1 RETURNING id', [usuario]);
+          await client.query('COMMIT');
+          await client.end();
+          return json({ success: true, message: `${r.rowCount} pedido(s) de ${usuario} apagados` });
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        }
       }
 
       // Remove um item específico de um pedido
@@ -1114,18 +1241,24 @@ export default async function handler(req) {
           return unauthorized();
         }
         const iid = parseInt(itemMatch[1]);
-        const r = await client.query('DELETE FROM itens_pedido WHERE id = $1 RETURNING pedido_id', [iid]);
-        if (r.rowCount) {
-          const pedidoId = r.rows[0].pedido_id;
-          // Se o pedido ficou sem itens, remove o pedido também
-          const count = await client.query('SELECT COUNT(*)::int AS c FROM itens_pedido WHERE pedido_id = $1', [pedidoId]);
-          if (count.rows[0].c === 0) {
-            await client.query('DELETE FROM pedidos WHERE id = $1', [pedidoId]);
+        await client.query('BEGIN');
+        try {
+          const r = await client.query('DELETE FROM itens_pedido WHERE id = $1 RETURNING pedido_id', [iid]);
+          if (r.rowCount) {
+            const pedidoId = r.rows[0].pedido_id;
+            const count = await client.query('SELECT COUNT(*)::int AS c FROM itens_pedido WHERE pedido_id = $1', [pedidoId]);
+            if (count.rows[0].c === 0) {
+              await client.query('DELETE FROM pedidos WHERE id = $1', [pedidoId]);
+            }
           }
+          await client.query('COMMIT');
+          await client.end();
+          if (!r.rowCount) return json({ success: false, error: 'Item não encontrado' }, 404);
+          return json({ success: true, message: `Item ${iid} removido` });
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
         }
-        await client.end();
-        if (!r.rowCount) return json({ success: false, error: 'Item não encontrado' }, 404);
-        return json({ success: true, message: `Item ${iid} removido` });
       }
 
       // Remove um produto (por código) de TODOS os pedidos — útil quando o
@@ -1137,13 +1270,19 @@ export default async function handler(req) {
           return unauthorized();
         }
         const codigo = decodeURIComponent(produtoMatch[1]);
-        const r = await client.query('DELETE FROM itens_pedido WHERE codigo = $1 RETURNING pedido_id', [codigo]);
-        // Limpa pedidos que ficaram vazios
-        await client.query(`
-          DELETE FROM pedidos WHERE id NOT IN (SELECT DISTINCT pedido_id FROM itens_pedido)
-        `);
-        await client.end();
-        return json({ success: true, message: `${r.rowCount} ocorrência(s) do produto ${codigo} removidas` });
+        await client.query('BEGIN');
+        try {
+          const r = await client.query('DELETE FROM itens_pedido WHERE codigo = $1 RETURNING pedido_id', [codigo]);
+          await client.query(`
+            DELETE FROM pedidos WHERE id NOT IN (SELECT DISTINCT pedido_id FROM itens_pedido)
+          `);
+          await client.query('COMMIT');
+          await client.end();
+          return json({ success: true, message: `${r.rowCount} ocorrência(s) do produto ${codigo} removidas` });
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        }
       }
 
       if (path === 'descontos') {
@@ -1163,7 +1302,7 @@ export default async function handler(req) {
   } catch (error) {
     console.error('API Error:', error);
     if (client) try { await client.end(); } catch (_) {}
-    return json({ success: false, error: 'Erro interno do servidor' }, 500);
+    return json({ success: false, error: 'Erro interno. Tente novamente.' }, 500);
   }
 }
 

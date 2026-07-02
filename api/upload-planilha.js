@@ -23,15 +23,57 @@ const DB_URL = (process.env.DATABASE_URL || '').includes('?')
   : process.env.DATABASE_URL + '?options=--search_path%3Dcompras_coletivas';
 const sql = neon(DB_URL);
 
-const headers = {
+const ALLOWED_ORIGINS = new Set([
+  'https://compras-coletivas-phi.vercel.app',
+  'http://localhost:3000',
+]);
+
+const BASE_HEADERS = {
   'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Vary': 'Origin',
 };
+
+let headers = { ...BASE_HEADERS };
+
+function corsHeadersFor(req) {
+  const origin = req?.headers?.get('origin') || '';
+  const responseHeaders = { ...BASE_HEADERS };
+  if (ALLOWED_ORIGINS.has(origin)) {
+    responseHeaders['Access-Control-Allow-Origin'] = origin;
+  }
+  return responseHeaders;
+}
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers });
+}
+
+async function sha256Hex(text) {
+  const data = new TextEncoder().encode(text);
+  const buffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buffer))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function getBearerToken(req) {
+  const authHeader = req.headers.get('authorization') || '';
+  return authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+}
+
+async function requireAdmin(req) {
+  const token = getBearerToken(req);
+  if (!token) return false;
+  const tokenHash = await sha256Hex(`session:${token}`);
+  const sessions = await sql`
+    SELECT id FROM admin_sessions
+    WHERE token_hash = ${tokenHash}
+      AND expires_at > NOW()
+    LIMIT 1
+  `;
+  return sessions.length > 0;
 }
 
 /**
@@ -75,6 +117,7 @@ function parseMultipart(body, boundary) {
  * @returns {Promise<Response>} JSON com resumo da importação.
  */
 export default async function handler(req) {
+  headers = corsHeadersFor(req);
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers });
   }
@@ -84,14 +127,7 @@ export default async function handler(req) {
   }
 
   try {
-    // Verificar autenticação admin (simples)
-    const url = new URL(req.url);
-    const adminKey = url.searchParams.get('key') || req.headers.get('X-Admin-Key');
-    
-    const config = await sql`SELECT valor FROM configuracoes WHERE chave = 'admin_senha'`;
-    const adminSenha = config.length > 0 ? config[0].valor : 'admin123';
-    
-    if (adminKey !== adminSenha) {
+    if (!(await requireAdmin(req))) {
       return json({ success: false, error: 'Não autorizado' }, 401);
     }
 
@@ -227,7 +263,7 @@ export default async function handler(req) {
 
   } catch (error) {
     console.error('Upload error:', error);
-    return json({ success: false, error: error.message }, 500);
+    return json({ success: false, error: 'Erro interno. Tente novamente.' }, 500);
   }
 }
 
