@@ -6,6 +6,41 @@
 
 ---
 
+## 🔄 Atualização 2026-07-02 19:16 UTC
+
+**Status:** ✅ HARDENING + PERFORMANCE EM PRODUÇÃO
+
+### O que foi feito
+
+#### 1. ✅ Sessões reais para comprador e admin
+- Backend agora emite e valida tokens assinados para comprador e administrador
+- Histórico do comprador passou a exigir sessão válida; acesso anônimo agora retorna `401`
+- Rotas sensíveis do admin (`stats`, relatórios, pagamentos, mutações) foram protegidas no servidor
+
+#### 2. ✅ Fluxo do comprador corrigido e mais seguro
+- Login continua aceitando acesso por telefone, mas agora sem takeover automático de cadastro sem PIN
+- Envio de pedido exige sessão do comprador correspondente
+- Falha no envio não apaga mais o carrinho nem cria “pedido salvo localmente” falso
+- Cancelamento de pedido pelo comprador só funciona para pedido que pertence à própria sessão
+
+#### 3. ✅ Performance e fluidez
+- Frontend passou a reutilizar índice em memória por código de produto, eliminando buscas lineares repetidas
+- Sessões restauradas no bootstrap com validação no backend, reduzindo estado inconsistente
+- Histórico e recuperação do pedido passaram a usar sessão autenticada, com menos parâmetros e menos fragilidade
+
+#### 4. ✅ Schema alinhado com o código
+- `sql/01_schema.sql` e `sql/01_schema_supabase.sql` atualizados com `pin_hash`, índice de telefone normalizado e tabela `pagamentos`
+
+#### 5. ✅ Entrega validada
+- Commit: `df4ce36` — `fix: harden sessions and speed up buyer flows`
+- Push GitHub: ✅
+- Deploy Vercel produção: ✅
+- URL ativa: `https://compras-coletivas-phi.vercel.app`
+- Verificações no ar:
+  - `GET /api/db/health` → `200`
+  - `GET /api/db/pedidos/por-usuario` sem sessão → `401`
+  - fluxo real comprador temporário: cadastro → pedido → histórico → cancelamento ✅
+
 ## 🔄 Atualização 2026-04-08 00:32 UTC
 
 **Status:** ✅ CORREÇÕES CONCLUÍDAS
