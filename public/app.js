@@ -2352,8 +2352,6 @@ const app = {
           <td>${pg.parc1 != null ? fmt.brl(pg.parc1) : "—"}</td>
           <td>${pg.parc2 != null ? fmt.brl(pg.parc2) : "—"}</td>
           <td>${pg.parc3 != null ? fmt.brl(pg.parc3) : "—"}</td>
-          <td>${pg.parc4 != null ? fmt.brl(pg.parc4) : "—"}</td>
-          <td>${pg.parc5 != null ? fmt.brl(pg.parc5) : "—"}</td>
           <td><strong>${fmt.brl(tp)}</strong></td>
           <td style="font-weight:700;${td <= 0 ? 'color:var(--c-success)' : 'color:#dc2626'}">${fmt.brl(td)}</td>
           <td><button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();app.editPagamento(${pg.id})">${icon("edit") || '✏'} Editar</button></td>
@@ -2400,8 +2398,6 @@ const app = {
                 <th>Parc 1</th>
                 <th>Parc 2</th>
                 <th>Parc 3</th>
-                <th>Parc 4</th>
-                <th>Parc 5</th>
                 <th>Total Pago</th>
                 <th>Total Devido</th>
                 <th>Ações</th>
@@ -2412,7 +2408,7 @@ const app = {
               <tr class="total-row">
                 <td><strong>TOTAL</strong></td>
                 <td>${fmt.brl(totalCompras)}</td>
-                <td colspan="5"></td>
+                <td colspan="3"></td>
                 <td><strong>${fmt.brl(totalRecebido)}</strong></td>
                 <td style="color:#dc2626"><strong>${fmt.brl(totalPendente)}</strong></td>
                 <td></td>

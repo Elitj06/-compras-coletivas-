@@ -324,24 +324,25 @@ export default async function handler(req) {
         return json({ success: true, data: rows.rows });
       }
 
-      // GET /pagamentos — lista todos os pagamentos com totais calculados
+      // GET /pagamentos — lista todos os pagamentos com totais calculados (máx 3 parcelas)
       if (path === 'pagamentos') {
         const rows = await client.query(`
-          SELECT p.*, 
-            COALESCE(p.parc1,0) + COALESCE(p.parc2,0) + COALESCE(p.parc3,0) + COALESCE(p.parc4,0) + COALESCE(p.parc5,0) as total_pago,
-            p.valor_compra - (COALESCE(p.parc1,0) + COALESCE(p.parc2,0) + COALESCE(p.parc3,0) + COALESCE(p.parc4,0) + COALESCE(p.parc5,0)) as total_devido
+          SELECT p.id, p.pedido_id, p.comprador, p.valor_compra,
+            p.parc1, p.parc2, p.parc3, p.observacoes, p.created_at, p.updated_at,
+            COALESCE(p.parc1,0) + COALESCE(p.parc2,0) + COALESCE(p.parc3,0) as total_pago,
+            p.valor_compra - (COALESCE(p.parc1,0) + COALESCE(p.parc2,0) + COALESCE(p.parc3,0)) as total_devido
           FROM pagamentos p ORDER BY p.comprador
         `);
         await client.end();
         return json({ success: true, data: rows.rows });
       }
 
-      // GET /pagamentos/resumo — totais gerais
+      // GET /pagamentos/resumo — totais gerais (máx 3 parcelas)
       if (path === 'pagamentos/resumo') {
         const rows = await client.query(`
           SELECT COUNT(*) as total_compradores, SUM(valor_compra) as total_compras, 
-            SUM(COALESCE(parc1,0)+COALESCE(parc2,0)+COALESCE(parc3,0)+COALESCE(parc4,0)+COALESCE(parc5,0)) as total_recebido,
-            SUM(valor_compra) - SUM(COALESCE(parc1,0)+COALESCE(parc2,0)+COALESCE(parc3,0)+COALESCE(parc4,0)+COALESCE(parc5,0)) as total_pendente
+            SUM(COALESCE(parc1,0)+COALESCE(parc2,0)+COALESCE(parc3,0)) as total_recebido,
+            SUM(valor_compra) - SUM(COALESCE(parc1,0)+COALESCE(parc2,0)+COALESCE(parc3,0)) as total_pendente
           FROM pagamentos
         `);
         await client.end();
@@ -522,10 +523,15 @@ export default async function handler(req) {
           await client.end();
           return json({ success: false, error: 'Dados incompletos' }, 400);
         }
-        // Busca case-insensitive para tolerar diferenças de caixa
+        // Busca por nome (case-insensitive) OU telefone normalizado
+        // Telefone é mais confiável em aparelhos novos onde o usuário pode
+        // não lembrar o nome exato usado no cadastro
+        const tNormalized = (t || '').replace(/\D/g, '');
         const r = await client.query(
-          `SELECT nome, telefone, email, pin_hash FROM compradores WHERE LOWER(nome) = LOWER($1) LIMIT 1`,
-          [n]
+          `SELECT nome, telefone, email, pin_hash FROM compradores
+           WHERE LOWER(nome) = LOWER($1) OR (telefone IS NOT NULL AND regexp_replace(telefone, '\\D', '', 'g') = $2)
+           LIMIT 1`,
+          [n, tNormalized]
         );
         if (!r.rows.length) {
           await client.end();
@@ -587,10 +593,10 @@ export default async function handler(req) {
       const pgtoMatch = path.match(/^pagamentos\/(\d+)$/);
       if (pgtoMatch) {
         const pgId = parseInt(pgtoMatch[1]);
-        const { parc1, parc2, parc3, parc4, parc5, observacoes } = body;
+        const { parc1, parc2, parc3, observacoes } = body;
         const r = await client.query(
-          'UPDATE pagamentos SET parc1=$1, parc2=$2, parc3=$3, parc4=$4, parc5=$5, observacoes=$6, updated_at=NOW() WHERE id=$7 RETURNING id',
-          [parc1 ?? null, parc2 ?? null, parc3 ?? null, parc4 ?? null, parc5 ?? null, observacoes ?? null, pgId]
+          'UPDATE pagamentos SET parc1=$1, parc2=$2, parc3=$3, parc4=NULL, parc5=NULL, observacoes=$4, updated_at=NOW() WHERE id=$5 RETURNING id',
+          [parc1 ?? null, parc2 ?? null, parc3 ?? null, observacoes ?? null, pgId]
         );
         await client.end();
         if (!r.rowCount) return json({ success: false, error: 'Pagamento não encontrado' }, 404);
