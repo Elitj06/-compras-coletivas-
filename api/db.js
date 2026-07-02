@@ -28,7 +28,7 @@ const headers = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Token, X-Buyer-Token',
 };
 
 /**
@@ -39,6 +39,103 @@ const headers = {
  */
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers });
+}
+
+const SESSION_TTL_SECONDS = 60 * 60 * 12;
+const ADMIN_SESSION_TTL_SECONDS = 60 * 60 * 8;
+const SESSION_ENCODER = new TextEncoder();
+
+function toBase64Url(input) {
+  const text = typeof input === 'string' ? input : JSON.stringify(input);
+  return btoa(text).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function fromBase64Url(input) {
+  const normalized = input.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized + '='.repeat((4 - (normalized.length % 4 || 4)) % 4);
+  return atob(padded);
+}
+
+function getSessionSecret() {
+  return (
+    process.env.APP_SESSION_SECRET ||
+    process.env.ADMIN_SESSION_SECRET ||
+    process.env.POSTGRES_URL ||
+    process.env.DATABASE_URL ||
+    'compras-coletivas-session-secret'
+  );
+}
+
+async function sha256Hex(text) {
+  const buffer = await crypto.subtle.digest('SHA-256', SESSION_ENCODER.encode(text));
+  return Array.from(new Uint8Array(buffer))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function signSessionToken(payload, ttlSeconds = SESSION_TTL_SECONDS) {
+  const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
+  const body = { ...payload, exp };
+  const encodedBody = toBase64Url(body);
+  const signature = await sha256Hex(`${encodedBody}.${getSessionSecret()}`);
+  return `${encodedBody}.${signature}`;
+}
+
+async function verifySessionToken(token, expectedType) {
+  if (!token || !token.includes('.')) return null;
+  const [encodedBody, signature] = token.split('.');
+  const expectedSignature = await sha256Hex(`${encodedBody}.${getSessionSecret()}`);
+  if (signature !== expectedSignature) return null;
+  try {
+    const body = JSON.parse(fromBase64Url(encodedBody));
+    if (!body?.exp || body.exp < Math.floor(Date.now() / 1000)) return null;
+    if (expectedType && body.type !== expectedType) return null;
+    return body;
+  } catch {
+    return null;
+  }
+}
+
+function getTokenFromRequest(req, headerName) {
+  const explicitToken = req.headers.get(headerName);
+  if (explicitToken) return explicitToken;
+  const authHeader = req.headers.get('authorization') || '';
+  return authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+}
+
+async function requireAdminSession(req) {
+  return verifySessionToken(getTokenFromRequest(req, 'x-admin-token'), 'admin');
+}
+
+async function requireBuyerSession(req) {
+  return verifySessionToken(getTokenFromRequest(req, 'x-buyer-token'), 'buyer');
+}
+
+async function hashAdminPassword(password) {
+  return `sha256:${await sha256Hex(`admin::${password}::${getSessionSecret()}`)}`;
+}
+
+async function verifyAdminPassword(client, password) {
+  const envPassword = process.env.ADMIN_PASSWORD;
+  if (envPassword) {
+    return password === envPassword;
+  }
+  const config = await client.query("SELECT valor FROM configuracoes WHERE chave = 'admin_senha'");
+  if (!config.rows.length) return false;
+  const savedValue = String(config.rows[0].valor || '');
+  if (savedValue.startsWith('sha256:')) {
+    return (await hashAdminPassword(password)) === savedValue;
+  }
+  if (password !== savedValue) return false;
+  await client.query(
+    "UPDATE configuracoes SET valor = $1, updated_at = NOW() WHERE chave = 'admin_senha'",
+    [await hashAdminPassword(password)]
+  );
+  return true;
+}
+
+function unauthorized(message = 'Não autorizado') {
+  return json({ success: false, error: message }, 401);
 }
 
 let _migrationDone = false;
@@ -54,18 +151,27 @@ async function ensureMigrations(client) {
   if (_migrationDone) return;
   try {
     await client.query(`ALTER TABLE compradores ADD COLUMN IF NOT EXISTS pin_hash TEXT`);
-    // Remove duplicatas mantendo o mais recente, e cria constraint UNIQUE em nome
-    await client.query(`
-      DELETE FROM compradores WHERE id NOT IN (
-        SELECT MAX(id) FROM compradores GROUP BY nome
-      )
-    `);
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_compradores_nome_unique ON compradores(nome)`);
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_compradores_nome_lower ON compradores(LOWER(nome))`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_compradores_nome_tel ON compradores(nome, telefone)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_compradores_telefone_digits ON compradores((regexp_replace(COALESCE(telefone,''), '\\D', '', 'g')))`);
     // Atualiza constraint de status para incluir 'aberto_edicao'
     await client.query(`ALTER TABLE pedidos DROP CONSTRAINT IF EXISTS pedidos_status_check`);
     await client.query(`ALTER TABLE pedidos ADD CONSTRAINT pedidos_status_check CHECK (status IN ('pendente','confirmado','cancelado','entregue','aberto_edicao'))`);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS pagamentos (
+        id SERIAL PRIMARY KEY,
+        pedido_id INTEGER UNIQUE REFERENCES pedidos(id) ON DELETE CASCADE,
+        comprador TEXT NOT NULL,
+        valor_compra DECIMAL(10,2) NOT NULL DEFAULT 0,
+        parc1 DECIMAL(10,2),
+        parc2 DECIMAL(10,2),
+        parc3 DECIMAL(10,2),
+        observacoes TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
     _migrationDone = true;
   } catch (e) {
     console.error('Migration error:', e.message);
@@ -168,6 +274,8 @@ export default async function handler(req) {
 
   const url = new URL(req.url);
   const path = url.pathname.replace('/api/db', '').replace(/^\//, '');
+  const adminSession = await requireAdminSession(req);
+  const buyerSession = await requireBuyerSession(req);
 
   let client;
   try {
@@ -188,12 +296,20 @@ export default async function handler(req) {
       }
 
       if (path === 'tables') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const rows = await client.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'compras_coletivas' ORDER BY table_name");
         await client.end();
         return json({ success: true, data: rows.rows });
       }
 
       if (path === 'pedidos') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const rows = await client.query(`
           SELECT ip.*, p.usuario, p.status, p.created_at as pedido_data
           FROM itens_pedido ip
@@ -206,6 +322,10 @@ export default async function handler(req) {
       }
 
       if (path === 'pedidos/por-usuario') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const rows = await client.query(`
           SELECT
             p.usuario,
@@ -238,12 +358,20 @@ export default async function handler(req) {
       }
 
       if (path === 'pedidos/consolidado') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const rows = await client.query('SELECT * FROM vw_relatorio_produtos');
         await client.end();
         return json({ success: true, data: rows.rows });
       }
 
       if (path === 'stats') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const stats = await client.query('SELECT * FROM vw_dashboard_stats');
         await client.end();
         return json({ success: true, data: stats.rows[0] });
@@ -268,6 +396,10 @@ export default async function handler(req) {
       }
 
       if (path === 'compradores') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const rows = await client.query('SELECT * FROM vw_relatorio_compradores');
         await client.end();
         return json({ success: true, data: rows.rows });
@@ -275,6 +407,10 @@ export default async function handler(req) {
 
       // Lista todos os compradores (para o admin escolher de quem ver o histórico)
       if (path === 'compradores/lista') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const rows = await client.query(`
           SELECT DISTINCT c.nome, c.telefone, c.email,
             (SELECT COUNT(*) FROM pedidos p WHERE p.usuario = c.nome AND p.status != 'cancelado') AS total_pedidos
@@ -288,19 +424,18 @@ export default async function handler(req) {
       // Histórico de pedidos de um comprador (por nome + telefone)
       // GET /pedidos/historico?usuario=...&telefone=...
       if (path === 'pedidos/historico') {
-        const usuario = url.searchParams.get('usuario') || '';
-        const telefone = (url.searchParams.get('telefone') || '').replace(/\D/g, '');
-        if (!usuario) {
+        const usuario = adminSession
+          ? (url.searchParams.get('usuario') || '')
+          : String(buyerSession?.nome || '');
+        const telefone = adminSession
+          ? (url.searchParams.get('telefone') || '').replace(/\D/g, '')
+          : String(buyerSession?.telefone || '').replace(/\D/g, '');
+        if (!usuario || !telefone) {
           await client.end();
-          return json({ success: false, error: 'Usuário não informado' }, 400);
+          return unauthorized('Sessão do comprador inválida');
         }
-        // Filtra por nome; se telefone informado, exige match (privacidade)
-        const params = [usuario];
-        let where = `p.usuario = $1`;
-        if (telefone) {
-          params.push(telefone);
-          where += ` AND regexp_replace(COALESCE(c.telefone,''), '\\D', '', 'g') = $2`;
-        }
+        const params = [usuario, telefone];
+        const where = `LOWER(p.usuario) = LOWER($1) AND regexp_replace(COALESCE(c.telefone,''), '\\D', '', 'g') = $2`;
         const rows = await client.query(`
           SELECT p.id, p.created_at, p.status, p.total_bruto, p.total_final, p.total_desconto,
             json_agg(json_build_object(
@@ -326,6 +461,10 @@ export default async function handler(req) {
 
       // GET /pagamentos — lista todos os pagamentos com totais calculados (máx 3 parcelas)
       if (path === 'pagamentos') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const rows = await client.query(`
           SELECT p.id, p.pedido_id, p.comprador, p.valor_compra,
             p.parc1, p.parc2, p.parc3, p.observacoes, p.created_at, p.updated_at,
@@ -339,6 +478,10 @@ export default async function handler(req) {
 
       // GET /pagamentos/resumo — totais gerais (máx 3 parcelas)
       if (path === 'pagamentos/resumo') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const rows = await client.query(`
           SELECT COUNT(*) as total_compradores, SUM(valor_compra) as total_compras, 
             SUM(COALESCE(parc1,0)+COALESCE(parc2,0)+COALESCE(parc3,0)) as total_recebido,
@@ -350,6 +493,10 @@ export default async function handler(req) {
       }
 
       if (path === 'exportar-csv') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const rows = await client.query(`
           SELECT p.usuario AS comprador, ip.codigo, ip.nome_produto AS produto,
             ip.quantidade, ip.preco_unitario, ip.desconto_percentual,
@@ -376,6 +523,18 @@ export default async function handler(req) {
           }
         });
       }
+
+      if (path === 'admin/session') {
+        await client.end();
+        if (!adminSession) return unauthorized();
+        return json({ success: true, data: adminSession });
+      }
+
+      if (path === 'comprador/session') {
+        await client.end();
+        if (!buyerSession) return unauthorized();
+        return json({ success: true, data: buyerSession });
+      }
     }
 
     // ===== POST ROUTES =====
@@ -383,77 +542,100 @@ export default async function handler(req) {
       const body = await req.json();
 
       if (path === 'pedidos') {
+        if (!buyerSession) {
+          await client.end();
+          return unauthorized('Faça login novamente para enviar seu pedido');
+        }
         const { usuario, telefone, email, itens } = body;
         if (!usuario || !itens || !itens.length) {
           await client.end();
           return json({ success: false, error: 'Dados incompletos' }, 400);
         }
-
-        // Upsert comprador com telefone e email
-        if (telefone || email) {
-          await client.query(
-            `INSERT INTO compradores (nome, telefone, email)
-             VALUES ($1, $2, $3)
-             ON CONFLICT (nome) DO UPDATE SET
-               telefone = COALESCE(EXCLUDED.telefone, compradores.telefone),
-               email = COALESCE(EXCLUDED.email, compradores.email)`,
-            [usuario, telefone || null, email || null]
-          );
-        }
-
-        // Proteção contra envios duplicados: verifica se já existe pedido
-        // pendente do mesmo usuário criado nos últimos 60 segundos
-        const dup = await client.query(
-          `SELECT id FROM pedidos WHERE usuario = $1 AND status IN ('pendente','aberto_edicao') AND created_at > NOW() - INTERVAL '60 seconds' LIMIT 1`,
-          [usuario]
-        );
-        if (dup.rows.length) {
+        const normalizedBody = normalizeNomeTel(usuario, telefone);
+        if (
+          normalizedBody.nome.toLowerCase() !== String(buyerSession.nome || '').toLowerCase() ||
+          normalizedBody.telefone !== String(buyerSession.telefone || '').replace(/\D/g, '')
+        ) {
           await client.end();
-          return json({ success: false, duplicate: true, error: 'Pedido recente já existe. Aguarde ou edite o pedido existente.' }, 409);
+          return unauthorized('Sessão não corresponde ao comprador informado');
         }
 
-        const pedidoResult = await client.query(
-          'INSERT INTO pedidos (usuario, status) VALUES ($1, $2) RETURNING id',
-          [usuario, 'pendente']
-        );
-        const pedidoId = pedidoResult.rows[0].id;
+        await client.query('BEGIN');
+        try {
+          // Upsert comprador com telefone e email
+          if (telefone || email) {
+            await client.query(
+              `INSERT INTO compradores (nome, telefone, email)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (nome) DO UPDATE SET
+                 telefone = COALESCE(EXCLUDED.telefone, compradores.telefone),
+                 email = COALESCE(EXCLUDED.email, compradores.email)`,
+              [usuario, telefone || null, email || null]
+            );
+          }
 
-        let totalBruto = 0;
-        let totalFinal = 0;
+          // Proteção contra envios duplicados: verifica se já existe pedido
+          const dup = await client.query(
+            `SELECT id FROM pedidos WHERE usuario = $1 AND status IN ('pendente','aberto_edicao') AND created_at > NOW() - INTERVAL '60 seconds' LIMIT 1`,
+            [usuario]
+          );
+          if (dup.rows.length) {
+            await client.query('ROLLBACK');
+            await client.end();
+            return json({ success: false, duplicate: true, error: 'Pedido recente já existe. Aguarde ou edite o pedido existente.' }, 409);
+          }
 
-        for (const item of itens) {
-          const precoBruto = parseFloat(item.preco_bruto) || 0;
-          const precoDesconto = parseFloat(item.preco_desconto) || precoBruto;
-          const qty = parseInt(item.quantidade) || 1;
-          const subtBruto = precoBruto * qty;
-          const subtFinal = precoDesconto * qty;
+          const pedidoResult = await client.query(
+            'INSERT INTO pedidos (usuario, status) VALUES ($1, $2) RETURNING id',
+            [usuario, 'pendente']
+          );
+          const pedidoId = pedidoResult.rows[0].id;
+
+          let totalBruto = 0;
+          let totalFinal = 0;
+
+          for (const item of itens) {
+            const precoBruto = parseFloat(item.preco_bruto) || 0;
+            const precoDesconto = parseFloat(item.preco_desconto) || precoBruto;
+            const qty = parseInt(item.quantidade) || 1;
+            const subtBruto = precoBruto * qty;
+            const subtFinal = precoDesconto * qty;
+
+            await client.query(
+              `INSERT INTO itens_pedido (
+                pedido_id, codigo, nome_produto, quantidade,
+                preco_unitario, preco_bruto, preco_com_desconto, preco_desconto,
+                desconto_percentual, subtotal_bruto, subtotal_final, categoria
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+              [pedidoId, item.codigo, item.nome, qty, precoBruto, precoBruto, precoDesconto, precoDesconto, item.desconto || 0, subtBruto, subtFinal, item.categoria || '']
+            );
+            totalBruto += subtBruto;
+            totalFinal += subtFinal;
+          }
 
           await client.query(
-            `INSERT INTO itens_pedido (
-              pedido_id, codigo, nome_produto, quantidade,
-              preco_unitario, preco_bruto, preco_com_desconto, preco_desconto,
-              desconto_percentual, subtotal_bruto, subtotal_final, categoria
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-            [pedidoId, item.codigo, item.nome, qty, precoBruto, precoBruto, precoDesconto, precoDesconto, item.desconto || 0, subtBruto, subtFinal, item.categoria || '']
+            'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3 WHERE id = $4',
+            [totalBruto, totalFinal, totalBruto - totalFinal, pedidoId]
           );
-          totalBruto += subtBruto;
-          totalFinal += subtFinal;
+          await client.query('COMMIT');
+
+          await client.end();
+          return json({
+            success: true,
+            message: `Pedido de ${usuario} registrado com ${itens.length} itens`,
+            pedido_id: pedidoId
+          });
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
         }
-
-        await client.query(
-          'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3 WHERE id = $4',
-          [totalBruto, totalFinal, totalBruto - totalFinal, pedidoId]
-        );
-
-        await client.end();
-        return json({
-          success: true,
-          message: `Pedido de ${usuario} registrado com ${itens.length} itens`,
-          pedido_id: pedidoId
-        });
       }
 
       if (path === 'descontos') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const { categoria, percentual } = body;
         if (categoria === undefined || percentual === undefined) {
           await client.end();
@@ -478,8 +660,10 @@ export default async function handler(req) {
         }
         // Verifica se já existe (case-insensitive)
         const existing = await client.query(
-          `SELECT nome, telefone, pin_hash FROM compradores WHERE LOWER(nome) = LOWER($1) LIMIT 1`,
-          [n]
+          `SELECT id, nome, telefone, email, pin_hash FROM compradores
+           WHERE LOWER(nome) = LOWER($1) AND regexp_replace(COALESCE(telefone,''), '\\D', '', 'g') = $2
+           LIMIT 1`,
+          [n, t]
         );
         const row = existing.rows[0];
         if (row) {
@@ -503,16 +687,34 @@ export default async function handler(req) {
             [newHash, t || null, email || null, dbNome]
           );
           await client.end();
-          return json({ success: true, message: 'PIN registrado' });
+          return json({
+            success: true,
+            message: 'PIN registrado',
+            data: {
+              nome: dbNome,
+              telefone: t || dbTel,
+              email: email || row.email || '',
+              token: await signSessionToken({ type: 'buyer', buyerId: row.id, nome: dbNome, telefone: t || dbTel })
+            }
+          });
         }
         // Novo comprador
         const newHash = await hashPin(pin, n + ':' + t);
-        await client.query(
-          `INSERT INTO compradores (nome, telefone, email, pin_hash) VALUES ($1, $2, $3, $4)`,
+        const inserted = await client.query(
+          `INSERT INTO compradores (nome, telefone, email, pin_hash) VALUES ($1, $2, $3, $4) RETURNING id`,
           [n, t, email || null, newHash]
         );
         await client.end();
-        return json({ success: true, message: 'Cadastro criado com PIN' });
+        return json({
+          success: true,
+          message: 'Cadastro criado com PIN',
+          data: {
+            nome: n,
+            telefone: t,
+            email: email || '',
+            token: await signSessionToken({ type: 'buyer', buyerId: inserted.rows?.[0]?.id || null, nome: n, telefone: t })
+          }
+        });
       }
 
       // POST /comprador/login  { nome, telefone, pin }
@@ -528,8 +730,8 @@ export default async function handler(req) {
         // não lembrar o nome exato usado no cadastro
         const tNormalized = (t || '').replace(/\D/g, '');
         const r = await client.query(
-          `SELECT nome, telefone, email, pin_hash FROM compradores
-           WHERE LOWER(nome) = LOWER($1) OR (telefone IS NOT NULL AND regexp_replace(telefone, '\\D', '', 'g') = $2)
+          `SELECT id, nome, telefone, email, pin_hash FROM compradores
+           WHERE regexp_replace(COALESCE(telefone, ''), '\\D', '', 'g') = $2
            LIMIT 1`,
           [n, tNormalized]
         );
@@ -542,11 +744,8 @@ export default async function handler(req) {
         const dbNome = row.nome;
         const dbTel = (row.telefone || '').replace(/\D/g, '');
         if (!row.pin_hash) {
-          // Comprador antigo sem PIN — permite definir direto
-          const newHash = await hashPin(pin, dbNome + ':' + dbTel);
-          await client.query('UPDATE compradores SET pin_hash = $1, telefone = $2 WHERE nome = $3', [newHash, t || dbTel, dbNome]);
           await client.end();
-          return json({ success: true, data: { nome: dbNome, telefone: t || dbTel, email: row.email }, pin_set: true });
+          return json({ success: false, error: 'Este cadastro ainda não possui PIN. Use "Criar cadastro" com o mesmo nome e telefone para ativar o acesso.', no_pin: true }, 409);
         }
         const hash = await hashPin(pin, dbNome + ':' + dbTel);
         if (hash !== row.pin_hash) {
@@ -554,11 +753,23 @@ export default async function handler(req) {
           return json({ success: false, error: 'PIN incorreto' }, 401);
         }
         await client.end();
-        return json({ success: true, data: { nome: dbNome, telefone: row.telefone, email: row.email } });
+        return json({
+          success: true,
+          data: {
+            nome: dbNome,
+            telefone: row.telefone,
+            email: row.email,
+            token: await signSessionToken({ type: 'buyer', buyerId: row.id, nome: dbNome, telefone: dbTel })
+          }
+        });
       }
 
       // POST /pagamentos/inicializar — cria registros de pagamento para pedidos pendentes
       if (path === 'pagamentos/inicializar') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const r = await client.query(`
           INSERT INTO pagamentos (pedido_id, comprador, valor_compra)
           SELECT p.id, p.usuario, p.total_final
@@ -572,14 +783,16 @@ export default async function handler(req) {
 
       if (path === 'admin/login') {
         const { senha } = body;
-        const config = await client.query("SELECT valor FROM configuracoes WHERE chave = 'admin_senha'");
+        const isValid = await verifyAdminPassword(client, senha);
         await client.end();
-        if (!config.rows.length) {
-          return json({ success: false, error: 'Senha de admin não configurada no banco' }, 500);
-        }
-        const adminPwd = config.rows[0].valor;
-        if (senha === adminPwd) {
-          return json({ success: true, message: 'Login autorizado' });
+        if (isValid) {
+          return json({
+            success: true,
+            message: 'Login autorizado',
+            data: {
+              token: await signSessionToken({ type: 'admin' }, ADMIN_SESSION_TTL_SECONDS)
+            }
+          });
         }
         return json({ success: false, error: 'Senha incorreta' }, 401);
       }
@@ -592,6 +805,10 @@ export default async function handler(req) {
       // PUT /pagamentos/:id — atualiza parcelas/obs de um pagamento
       const pgtoMatch = path.match(/^pagamentos\/(\d+)$/);
       if (pgtoMatch) {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const pgId = parseInt(pgtoMatch[1]);
         const { parc1, parc2, parc3, observacoes } = body;
         const r = await client.query(
@@ -606,6 +823,10 @@ export default async function handler(req) {
       // PUT /pedidos/:id/status { status: 'aberto_edicao' | 'pendente' | 'confirmado' }
       const statusMatch = path.match(/^pedidos\/(\d+)\/status$/);
       if (statusMatch) {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const pid = parseInt(statusMatch[1]);
         const { status } = body;
         const validos = ['pendente', 'confirmado', 'cancelado', 'entregue', 'aberto_edicao'];
@@ -625,6 +846,10 @@ export default async function handler(req) {
       // PUT /pedidos/usuario/:nome/status  (altera status de TODOS os pedidos de um comprador)
       const userStatusMatch = path.match(/^pedidos\/usuario\/(.+)\/status$/);
       if (userStatusMatch) {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const usuario = decodeURIComponent(userStatusMatch[1]);
         const { status } = body;
         const validos = ['pendente', 'confirmado', 'cancelado', 'entregue', 'aberto_edicao'];
@@ -643,6 +868,10 @@ export default async function handler(req) {
       // PUT /itens/:id/qty  — Admin: alterar quantidade de item existente
       const qtyMatch = path.match(/^itens\/(\d+)\/qty$/);
       if (qtyMatch) {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const iid = parseInt(qtyMatch[1]);
         const { quantidade } = body;
         const qty = parseInt(quantidade);
@@ -684,13 +913,20 @@ export default async function handler(req) {
       // Mantém o pedido mais recente; itens do mesmo produto têm quantidades SOMADAS
       const mergeMatch = path.match(/^pedidos\/usuario\/(.+)\/merge$/);
       if (mergeMatch) {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const usuario = decodeURIComponent(mergeMatch[1]);
+        await client.query('BEGIN');
+        try {
         // Busca todos os pedidos ativos do usuário
         const pedidos = await client.query(
           `SELECT id FROM pedidos WHERE usuario = $1 AND status != 'cancelado' ORDER BY created_at DESC`,
           [usuario]
         );
         if (pedidos.rows.length <= 1) {
+          await client.query('ROLLBACK');
           await client.end();
           return json({ success: true, message: 'Apenas 1 pedido encontrado, nada a mesclar.' });
         }
@@ -744,14 +980,23 @@ export default async function handler(req) {
           'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3, status = $4, updated_at = NOW() WHERE id = $5',
           [tb, tf, tb - tf, 'pendente', keepId]
         );
+        await client.query('COMMIT');
         await client.end();
         return json({ success: true, message: `${removeIds.length} pedido(s) duplicado(s) removido(s). Pedido ${keepId} mantido.` });
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        }
       }
 
       // PUT /pedidos/:id/itens  — Admin: adicionar item a pedido existente
       // body: { codigo, nome, quantidade, preco_bruto, preco_desconto, categoria }
       const addItemMatch = path.match(/^pedidos\/(\d+)\/itens$/);
       if (addItemMatch) {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const pid = parseInt(addItemMatch[1]);
         const { codigo, nome, quantidade, preco_bruto, preco_desconto, categoria } = body;
         if (!codigo || !nome || !quantidade || !preco_bruto) {
@@ -806,6 +1051,10 @@ export default async function handler(req) {
     // ===== DELETE ROUTES =====
     if (req.method === 'DELETE') {
       if (path === 'pedidos') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         await client.query('DELETE FROM itens_pedido');
         await client.query('DELETE FROM pedidos');
         await client.end();
@@ -814,6 +1063,25 @@ export default async function handler(req) {
       const pedidoMatch = path.match(/^pedidos\/(\d+)$/);
       if (pedidoMatch) {
         const pid = parseInt(pedidoMatch[1]);
+        if (!adminSession) {
+          if (!buyerSession) {
+            await client.end();
+            return unauthorized();
+          }
+          const owner = await client.query(
+            `SELECT p.id
+             FROM pedidos p
+             LEFT JOIN compradores c ON c.nome = p.usuario
+             WHERE p.id = $1
+               AND LOWER(p.usuario) = LOWER($2)
+               AND regexp_replace(COALESCE(c.telefone,''), '\\D', '', 'g') = $3`,
+            [pid, buyerSession.nome, String(buyerSession.telefone || '').replace(/\D/g, '')]
+          );
+          if (!owner.rows.length) {
+            await client.end();
+            return unauthorized();
+          }
+        }
         await client.query('DELETE FROM itens_pedido WHERE pedido_id = $1', [pid]);
         const r = await client.query('DELETE FROM pedidos WHERE id = $1 RETURNING id', [pid]);
         await client.end();
@@ -824,6 +1092,10 @@ export default async function handler(req) {
       // Apaga todos os pedidos de um comprador (por nome de usuário)
       const pedidoUserMatch = path.match(/^pedidos\/usuario\/(.+)$/);
       if (pedidoUserMatch) {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const usuario = decodeURIComponent(pedidoUserMatch[1]);
         await client.query(
           'DELETE FROM itens_pedido WHERE pedido_id IN (SELECT id FROM pedidos WHERE usuario = $1)',
@@ -837,6 +1109,10 @@ export default async function handler(req) {
       // Remove um item específico de um pedido
       const itemMatch = path.match(/^itens\/(\d+)$/);
       if (itemMatch) {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const iid = parseInt(itemMatch[1]);
         const r = await client.query('DELETE FROM itens_pedido WHERE id = $1 RETURNING pedido_id', [iid]);
         if (r.rowCount) {
@@ -856,6 +1132,10 @@ export default async function handler(req) {
       // fornecedor está em falta e precisamos manter os demais itens dos pedidos.
       const produtoMatch = path.match(/^produtos\/(.+)$/);
       if (produtoMatch) {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const codigo = decodeURIComponent(produtoMatch[1]);
         const r = await client.query('DELETE FROM itens_pedido WHERE codigo = $1 RETURNING pedido_id', [codigo]);
         // Limpa pedidos que ficaram vazios
@@ -867,6 +1147,10 @@ export default async function handler(req) {
       }
 
       if (path === 'descontos') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         await client.query('UPDATE descontos SET ativo = FALSE');
         await client.end();
         return json({ success: true, message: 'Descontos desativados' });
@@ -879,7 +1163,7 @@ export default async function handler(req) {
   } catch (error) {
     console.error('API Error:', error);
     if (client) try { await client.end(); } catch (_) {}
-    return json({ success: false, error: error.message }, 500);
+    return json({ success: false, error: 'Erro interno do servidor' }, 500);
   }
 }
 

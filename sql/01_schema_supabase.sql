@@ -47,10 +47,13 @@ CREATE TABLE IF NOT EXISTS compradores (
     nome VARCHAR(200) NOT NULL,
     email VARCHAR(200),
     telefone VARCHAR(20),
+    pin_hash TEXT,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_compradores_nome ON compradores(nome);
+CREATE INDEX IF NOT EXISTS idx_compradores_nome_lower ON compradores(LOWER(nome));
+CREATE INDEX IF NOT EXISTS idx_compradores_telefone_digits ON compradores((regexp_replace(COALESCE(telefone,''), '\D', '', 'g')));
 
 -- ============================================================
 -- DESCONTOS (por categoria ou global)
@@ -108,6 +111,22 @@ CREATE TABLE IF NOT EXISTS itens_pedido (
 
 CREATE INDEX IF NOT EXISTS idx_itens_pedido ON itens_pedido(pedido_id);
 CREATE INDEX IF NOT EXISTS idx_itens_produto ON itens_pedido(produto_id);
+
+-- ============================================================
+-- PAGAMENTOS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS pagamentos (
+    id SERIAL PRIMARY KEY,
+    pedido_id INTEGER UNIQUE REFERENCES pedidos(id) ON DELETE CASCADE,
+    comprador TEXT NOT NULL,
+    valor_compra DECIMAL(10,2) NOT NULL DEFAULT 0,
+    parc1 DECIMAL(10,2),
+    parc2 DECIMAL(10,2),
+    parc3 DECIMAL(10,2),
+    observacoes TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
 
 -- ============================================================
 -- CONFIGURAÇÕES GERAIS

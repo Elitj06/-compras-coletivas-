@@ -136,6 +136,10 @@ const icon = (name, attrs = "") => {
   return svg.replace("<svg ", `<svg ${attrs} `);
 };
 
+const PRODUTO_INDEX = Object.fromEntries(
+  (typeof PRODUTOS !== "undefined" ? PRODUTOS : []).map((produto) => [produto.codigo, produto])
+);
+
 /* ====================== App ====================== */
 const app = {
   state: {
@@ -148,6 +152,8 @@ const app = {
     isAdminLoggedIn: false,
     isRegistered: false,
     user: { name: "", phone: "", email: "" },
+    buyerToken: "",
+    adminToken: "",
     useServer: true,
     theme: "light", // 'light' | 'dark'
     // Variante atualmente selecionada em cada grupo (grupoId -> codigo)
@@ -169,6 +175,7 @@ const app = {
     this.renderProducts();
     this.updateCartBar();
     await this.loadDiscountFromServer();
+    await this.restoreSessions();
     // Restaura estado admin se estava logado
     if (this.state.isAdminLoggedIn) {
       const tabAdmin = document.getElementById("tabAdmin");
@@ -264,15 +271,49 @@ const app = {
     try {
       const opts = {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(this.state.adminToken ? { "X-Admin-Token": this.state.adminToken } : {}),
+          ...(this.state.buyerToken ? { "X-Buyer-Token": this.state.buyerToken } : {}),
+        },
       };
       if (body) opts.body = JSON.stringify(body);
       const res = await fetch(`${API_BASE}/${path}`, opts);
-      return await res.json();
+      const data = await res.json();
+      if (res.status === 401) {
+        if (path.startsWith("admin/") || path.startsWith("pagamentos") || path.startsWith("pedidos/por-usuario") || path.startsWith("pedidos/consolidado") || path.startsWith("stats") || path.startsWith("compradores") || path.startsWith("descontos")) {
+          this.clearAdminSession();
+        }
+        if (path.includes("historico") || path === "pedidos") {
+          this.clearBuyerSession(false);
+        }
+      }
+      return data;
     } catch (e) {
       console.warn("API offline:", e.message);
       this.state.useServer = false;
       return null;
+    }
+  },
+
+  async restoreSessions() {
+    if (this.state.adminToken) {
+      const adminSession = await this.api("admin/session");
+      if (adminSession?.success) {
+        this.state.isAdminLoggedIn = true;
+      } else {
+        this.clearAdminSession();
+      }
+    }
+    if (this.state.buyerToken) {
+      const buyerSession = await this.api("comprador/session");
+      if (buyerSession?.success) {
+        this.state.isRegistered = true;
+        this.state.user.name = buyerSession.data.nome || this.state.user.name;
+        this.state.user.phone = buyerSession.data.telefone || this.state.user.phone;
+      } else {
+        this.clearBuyerSession(false);
+      }
     }
   },
 
@@ -308,6 +349,30 @@ const app = {
       this.state.user.phone = localStorage.getItem("registeredPhone") || "";
       this.state.user.email = localStorage.getItem("registeredEmail") || "";
     }
+    this.state.buyerToken = localStorage.getItem("buyerToken") || "";
+    this.state.adminToken = localStorage.getItem("adminToken") || "";
+  },
+
+  clearBuyerSession(showModal = true) {
+    this.state.isRegistered = false;
+    this.state.buyerToken = "";
+    this.state.user = { name: "", phone: "", email: "" };
+    localStorage.removeItem("userRegistered");
+    localStorage.removeItem("registeredName");
+    localStorage.removeItem("registeredPhone");
+    localStorage.removeItem("registeredEmail");
+    localStorage.removeItem("buyerToken");
+    this.state.lastOrder = null;
+    this.renderHeaderUser();
+    this.saveLocal();
+    if (showModal) this.showRegistrationModal(true, "login");
+  },
+
+  clearAdminSession() {
+    this.state.isAdminLoggedIn = false;
+    this.state.adminToken = "";
+    localStorage.removeItem("adminToken");
+    this.saveLocal();
   },
 
   requireRegistration() {
@@ -405,7 +470,12 @@ const app = {
         this.toast(res?.error || "Falha no cadastro", "error");
         return;
       }
-      this._saveUserSession(name, phone, email);
+      this._saveUserSession(
+        res?.data?.nome || name,
+        res?.data?.telefone || phone,
+        res?.data?.email || email,
+        res?.data?.token || ""
+      );
       return;
     }
     // login
@@ -426,36 +496,32 @@ const app = {
       }
       return;
     }
-    this._saveUserSession(res.data.nome, res.data.telefone || phone, res.data.email || "");
+    this._saveUserSession(res.data.nome, res.data.telefone || phone, res.data.email || "", res.data.token || "");
   },
 
-  _saveUserSession(name, phone, email) {
+  _saveUserSession(name, phone, email, token) {
     this.state.user.name = name;
     this.state.user.phone = phone;
     this.state.user.email = email;
     this.state.isRegistered = true;
+    this.state.buyerToken = token || this.state.buyerToken;
     localStorage.setItem("userRegistered", "true");
     localStorage.setItem("registeredName", name);
     localStorage.setItem("registeredPhone", phone);
     localStorage.setItem("registeredEmail", email);
+    if (this.state.buyerToken) localStorage.setItem("buyerToken", this.state.buyerToken);
     document.getElementById("registrationModal")?.remove();
     this.renderHeaderUser();
     this.toast(`Olá, ${name.split(" ")[0]}!`, "success");
     this.updateCartBar();
+    this.saveLocal();
     // Opcional: atualizar aba histórico se estiver aberta
     if (typeof this.renderHistorico === "function") this.renderHistorico();
   },
 
   async logoutUser() {
     if (!(await customConfirm("Sair da sua conta? O carrinho continuará salvo neste navegador."))) return;
-    this.state.isRegistered = false;
-    this.state.user = { name: "", phone: "", email: "" };
-    localStorage.removeItem("userRegistered");
-    localStorage.removeItem("registeredName");
-    localStorage.removeItem("registeredPhone");
-    localStorage.removeItem("registeredEmail");
-    this.renderHeaderUser();
-    this.showRegistrationModal(true, "login");
+    this.clearBuyerSession(true);
   },
 
   /* ----------------- Header user ----------------- */
@@ -902,7 +968,7 @@ const app = {
     if (newQty === 0) delete this.state.cart[cod];
     else this.state.cart[cod] = newQty;
     if (delta > 0 && newQty === 1) {
-      const p = PRODUTOS.find((x) => x.codigo === cod);
+      const p = PRODUTO_INDEX[cod];
       if (p) this.toast(`${p.nome} adicionado`, "success");
     }
     this.saveLocal();
@@ -936,7 +1002,7 @@ const app = {
   calcTotals() {
     let bruto = 0;
     for (const [cod, qty] of Object.entries(this.state.cart)) {
-      const p = PRODUTOS.find((x) => x.codigo === cod);
+      const p = PRODUTO_INDEX[cod];
       if (!p) continue;
       bruto += p.preco * qty;
     }
@@ -978,13 +1044,9 @@ const app = {
      this.state.lastOrder para exibir na tab "Meu Pedido".
      Só é chamado quando o carrinho está vazio E não há lastOrder no localStorage. */
   async loadServerOrder() {
-    if (!this.state.isRegistered || !this.state.user.name) return false;
+    if (!this.state.isRegistered || !this.state.user.name || !this.state.buyerToken) return false;
     try {
-      const params = new URLSearchParams({
-        usuario: this.state.user.name,
-        telefone: this.state.user.phone || "",
-      });
-      const res = await this.api(`pedidos/historico?${params.toString()}`);
+      const res = await this.api("pedidos/historico");
       const pedidos = res?.data || [];
       // Pega o pedido pendente mais recente
       const pendente = pedidos.find(p => p.status === "pendente") || pedidos[0];
@@ -1118,7 +1180,7 @@ const app = {
 
     const rows = items
       .map(([cod, qty]) => {
-        const p = PRODUTOS.find((x) => x.codigo === cod);
+        const p = PRODUTO_INDEX[cod];
         if (!p) return "";
         const sub = p.preco * qty;
         const subD = this.applyDiscountTo(p.preco) * qty;
@@ -1223,11 +1285,8 @@ const app = {
   async checkPedidoAberto() {
     this.state._editCheckDone = true;
     try {
-      const u = this.state.user.name;
-      const t = this.state.user.phone;
-      if (!u) return;
-      const params = new URLSearchParams({ usuario: u, telefone: t || "" });
-      const res = await this.api(`pedidos/historico?${params.toString()}`);
+      if (!this.state.user.name || !this.state.buyerToken) return;
+      const res = await this.api("pedidos/historico");
       const pedidos = res?.data || [];
       const aberto = pedidos.find((p) => p.status === "aberto_edicao");
       if (aberto) {
@@ -1371,7 +1430,7 @@ const app = {
     this.state._submitting = true;
 
     const itens = Object.entries(this.state.cart).map(([cod, qty]) => {
-      const p = PRODUTOS.find((x) => x.codigo === cod);
+      const p = PRODUTO_INDEX[cod];
       return {
         codigo: cod,
         nome: p?.nome || cod,
@@ -1405,7 +1464,8 @@ const app = {
       this.renderInvoice();
       return;
     } else {
-      this.toast("Pedido salvo localmente", "info");
+      this.toast(res?.error || "Não foi possível enviar o pedido. Seu carrinho foi mantido para tentar novamente.", "error");
+      return;
     }
 
     // Persiste o pedido enviado para o comprador visualizar depois
@@ -1475,11 +1535,7 @@ const app = {
   async cleanupOrphanPedidos() {
     if (!this.state.isRegistered) return;
     try {
-      const params = new URLSearchParams({
-        usuario: this.state.user.name,
-        telefone: this.state.user.phone || "",
-      });
-      const res = await this.api(`pedidos/historico?${params.toString()}`);
+      const res = await this.api("pedidos/historico");
       const pedidos = res?.data || [];
       // Se não tem lastOrder no localStorage mas tem pedidos pendentes no banco,
       // são pedidos órfãos de sessões anteriores — exibe no renderInvoice para o user decidir.
@@ -1581,6 +1637,8 @@ const app = {
     const res = await this.api("admin/login", "POST", { senha: pwd });
     if (res && res.success) {
       this.state.isAdminLoggedIn = true;
+      this.state.adminToken = res?.data?.token || "";
+      if (this.state.adminToken) localStorage.setItem("adminToken", this.state.adminToken);
       const tabAdmin = document.getElementById("tabAdmin");
       if (tabAdmin) tabAdmin.hidden = false;
       document
@@ -2103,7 +2161,7 @@ const app = {
   },
 
   exitAdmin() {
-    this.state.isAdminLoggedIn = false;
+    this.clearAdminSession();
     this.saveLocal();
     const tabAdmin = document.getElementById("tabAdmin");
     if (tabAdmin) tabAdmin.hidden = true;
@@ -2498,8 +2556,12 @@ const app = {
       return;
     }
     c.innerHTML = `<div class="card"><div class="empty-state">${icon("refresh")}<h3>Carregando histórico...</h3></div></div>`;
-    const params = new URLSearchParams({ usuario, telefone: telefone || "" });
-    const res = await this.api(`pedidos/historico?${params.toString()}`);
+    const params = new URLSearchParams();
+    if (forcedUsuario) {
+      params.set("usuario", usuario);
+      params.set("telefone", telefone || "");
+    }
+    const res = await this.api(params.toString() ? `pedidos/historico?${params.toString()}` : "pedidos/historico");
     const pedidos = res?.data || [];
     const isAdminView = !!forcedUsuario;
     const header = isAdminView
@@ -2556,6 +2618,10 @@ const app = {
     localStorage.setItem("discountPct", String(this.state.discountPct || 0));
     localStorage.setItem("lastOrder", JSON.stringify(this.state.lastOrder || null));
     localStorage.setItem("isAdminLoggedIn", this.state.isAdminLoggedIn ? "true" : "false");
+    if (this.state.adminToken) localStorage.setItem("adminToken", this.state.adminToken);
+    else localStorage.removeItem("adminToken");
+    if (this.state.buyerToken) localStorage.setItem("buyerToken", this.state.buyerToken);
+    else localStorage.removeItem("buyerToken");
   },
   loadLocal() {
     try {
@@ -2564,11 +2630,15 @@ const app = {
       const theme = localStorage.getItem("theme");
       const lo = localStorage.getItem("lastOrder");
       const adm = localStorage.getItem("isAdminLoggedIn");
+      const adminToken = localStorage.getItem("adminToken");
+      const buyerToken = localStorage.getItem("buyerToken");
       if (c) this.state.cart = JSON.parse(c);
       if (d) this.state.discountPct = parseFloat(d) || 0;
       if (theme === "dark" || theme === "light") this.state.theme = theme;
       if (lo && lo !== "null") this.state.lastOrder = JSON.parse(lo);
-      if (adm === "true") this.state.isAdminLoggedIn = true;
+      if (adm === "true" && adminToken) this.state.isAdminLoggedIn = true;
+      if (adminToken) this.state.adminToken = adminToken;
+      if (buyerToken) this.state.buyerToken = buyerToken;
     } catch (e) {
       this.state.cart = {};
       this.state.discountPct = 0;
