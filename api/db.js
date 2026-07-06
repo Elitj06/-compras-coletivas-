@@ -264,6 +264,35 @@ function normalizeNomeTel(nome, telefone) {
   };
 }
 
+function collectPhoneCandidates(candidates, rawDigits) {
+  const digits = String(rawDigits || '').replace(/\D/g, '').replace(/^00+/, '');
+  if (!digits || candidates.has(digits)) return;
+  candidates.add(digits);
+
+  if (digits.startsWith('55') && digits.length >= 12) {
+    collectPhoneCandidates(candidates, digits.slice(2));
+  }
+
+  if (digits.startsWith('0') && digits.length >= 11) {
+    collectPhoneCandidates(candidates, digits.slice(1));
+  }
+
+  if (!digits.startsWith('55') && digits.length >= 10 && digits.length <= 11) {
+    candidates.add(`55${digits}`);
+  }
+}
+
+function getPhoneLookupCandidates(telefone) {
+  const candidates = new Set();
+  collectPhoneCandidates(candidates, telefone);
+  return Array.from(candidates);
+}
+
+function phonesEquivalent(left, right) {
+  const leftCandidates = new Set(getPhoneLookupCandidates(left));
+  return getPhoneLookupCandidates(right).some((candidate) => leftCandidates.has(candidate));
+}
+
 /**
  * Handler principal da API — roteia todas as requisições para `/api/db/*`.
  *
@@ -599,7 +628,7 @@ export default async function handler(req) {
         const normalizedBody = normalizeNomeTel(usuario, telefone);
         if (
           normalizedBody.nome.toLowerCase() !== String(buyerSession.nome || '').toLowerCase() ||
-          normalizedBody.telefone !== String(buyerSession.telefone || '').replace(/\D/g, '')
+          !phonesEquivalent(normalizedBody.telefone, buyerSession.telefone)
         ) {
           await client.end();
           return unauthorized('Sessão não corresponde ao comprador informado');
@@ -720,6 +749,7 @@ export default async function handler(req) {
       if (path === 'comprador/registro') {
         const { nome, telefone, email, pin, pin_atual } = body;
         const { nome: n, telefone: t } = normalizeNomeTel(nome, telefone);
+        const phoneCandidates = getPhoneLookupCandidates(t);
         if (!n || !t) { await client.end(); return json({ success: false, error: 'Nome e telefone são obrigatórios' }, 400); }
         if (!/^\d{4,6}$/.test(String(pin || ''))) {
           await client.end();
@@ -728,9 +758,10 @@ export default async function handler(req) {
         // Verifica se já existe (case-insensitive)
         const existing = await client.query(
           `SELECT id, nome, telefone, email, pin_hash FROM compradores
-           WHERE LOWER(nome) = LOWER($1) AND regexp_replace(COALESCE(telefone,''), '\\D', '', 'g') = $2
+           WHERE LOWER(nome) = LOWER($1)
+             AND regexp_replace(COALESCE(telefone,''), '\\D', '', 'g') = ANY($2::text[])
            LIMIT 1`,
-          [n, t]
+          [n, phoneCandidates]
         );
         const row = existing.rows[0];
         if (row) {
@@ -807,17 +838,17 @@ export default async function handler(req) {
       if (path === 'comprador/login') {
         const { nome, telefone, pin } = body;
         const { nome: n, telefone: t } = normalizeNomeTel(nome, telefone);
+        const phoneCandidates = getPhoneLookupCandidates(t);
         if (!n || !t || !pin) {
           await client.end();
           return json({ success: false, error: 'Dados incompletos' }, 400);
         }
-        const tNormalized = (t || '').replace(/\D/g, '');
         const r = await client.query(
           `SELECT id, nome, telefone, email, pin_hash FROM compradores
            WHERE LOWER(nome) = LOWER($1)
-             AND regexp_replace(COALESCE(telefone, ''), '\\D', '', 'g') = $2
+             AND regexp_replace(COALESCE(telefone, ''), '\\D', '', 'g') = ANY($2::text[])
            LIMIT 1`,
-          [n, tNormalized]
+          [n, phoneCandidates]
         );
         if (!r.rows.length) {
           await client.end();
