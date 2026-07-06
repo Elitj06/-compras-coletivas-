@@ -264,6 +264,48 @@ function normalizeNomeTel(nome, telefone) {
   };
 }
 
+function normalizeNameForComparison(nome) {
+  return String(nome || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getNameComparisonTokens(nome) {
+  return normalizeNameForComparison(nome)
+    .split(' ')
+    .map((token) => token.replace(/[^a-z0-9]/g, ''))
+    .filter((token) => token && !['da', 'de', 'do', 'dos', 'das', 'e'].includes(token));
+}
+
+function namesEquivalent(left, right) {
+  const leftTokens = getNameComparisonTokens(left);
+  const rightTokens = getNameComparisonTokens(right);
+
+  if (!leftTokens.length || !rightTokens.length) return false;
+  if (leftTokens.join(' ') === rightTokens.join(' ')) return true;
+
+  const leftFirst = leftTokens[0];
+  const rightFirst = rightTokens[0];
+  const leftLast = leftTokens[leftTokens.length - 1];
+  const rightLast = rightTokens[rightTokens.length - 1];
+
+  if (leftFirst !== rightFirst || leftLast !== rightLast) return false;
+
+  const leftSet = new Set(leftTokens);
+  const rightSet = new Set(rightTokens);
+  const smaller = leftSet.size <= rightSet.size ? leftSet : rightSet;
+  const larger = smaller === leftSet ? rightSet : leftSet;
+
+  for (const token of smaller) {
+    if (!larger.has(token)) return false;
+  }
+
+  return true;
+}
+
 function collectPhoneCandidates(candidates, rawDigits) {
   const digits = String(rawDigits || '').replace(/\D/g, '').replace(/^00+/, '');
   if (!digits || candidates.has(digits)) return;
@@ -627,7 +669,7 @@ export default async function handler(req) {
         }
         const normalizedBody = normalizeNomeTel(usuario, telefone);
         if (
-          normalizedBody.nome.toLowerCase() !== String(buyerSession.nome || '').toLowerCase() ||
+          !namesEquivalent(normalizedBody.nome, buyerSession.nome) ||
           !phonesEquivalent(normalizedBody.telefone, buyerSession.telefone)
         ) {
           await client.end();
@@ -758,12 +800,11 @@ export default async function handler(req) {
         // Verifica se já existe (case-insensitive)
         const existing = await client.query(
           `SELECT id, nome, telefone, email, pin_hash FROM compradores
-           WHERE LOWER(nome) = LOWER($1)
-             AND regexp_replace(COALESCE(telefone,''), '\\D', '', 'g') = ANY($2::text[])
-           LIMIT 1`,
-          [n, phoneCandidates]
+           WHERE regexp_replace(COALESCE(telefone,''), '\\D', '', 'g') = ANY($1::text[])
+           ORDER BY id ASC`,
+          [phoneCandidates]
         );
-        const row = existing.rows[0];
+        const row = existing.rows.find((candidate) => namesEquivalent(n, candidate.nome));
         if (row) {
           // Já existe — usa o nome exato do banco
           const dbNome = row.nome;
@@ -845,16 +886,15 @@ export default async function handler(req) {
         }
         const r = await client.query(
           `SELECT id, nome, telefone, email, pin_hash FROM compradores
-           WHERE LOWER(nome) = LOWER($1)
-             AND regexp_replace(COALESCE(telefone, ''), '\\D', '', 'g') = ANY($2::text[])
-           LIMIT 1`,
-          [n, phoneCandidates]
+           WHERE regexp_replace(COALESCE(telefone, ''), '\\D', '', 'g') = ANY($1::text[])
+           ORDER BY id ASC`,
+          [phoneCandidates]
         );
-        if (!r.rows.length) {
+        const row = r.rows.find((candidate) => namesEquivalent(n, candidate.nome));
+        if (!row) {
           await client.end();
           return json({ success: false, error: 'Comprador não encontrado. Use "Criar cadastro".', not_found: true }, 404);
         }
-        const row = r.rows[0];
         // Usa o nome/telefone SALVOS no banco como salt (não o digitado)
         const dbNome = row.nome;
         const dbTel = (row.telefone || '').replace(/\D/g, '');

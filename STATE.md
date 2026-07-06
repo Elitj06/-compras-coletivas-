@@ -10,6 +10,25 @@
 
 **Status:** ✅ LOGIN DO COMPRADOR CORRIGIDO EM PRODUÇÃO
 
+## 🔄 Atualização 2026-07-06 02:45 UTC
+
+**Status:** ✅ LOGIN DO COMPRADOR ACEITA VARIAÇÕES DO NOME NO MESMO TELEFONE
+
+### O que foi feito
+
+#### 1. ✅ Backend agora tolera variações razoáveis do nome no login/cadastro
+- Comparação do nome passou a ignorar acentos, maiúsculas/minúsculas, espaços extras e conectores como `de`, `do`, `dos`, `da`
+- Se o telefone já corresponde ao cadastro, o backend também aceita variações com nomes do meio ausentes ou extras, preservando o nome canônico salvo no banco
+- Isso corrige casos como `Eliandro Tjader` no cadastro e `Eliandro Dos Reis Tjader` digitado no login
+
+#### 2. ✅ Mesma equivalência aplicada à sessão de envio do pedido
+- `POST /api/db/pedidos` passou a validar a sessão com a mesma regra de equivalência de nome
+- Isso evita erro de sessão após login bem-sucedido com variação do nome
+
+#### 3. ✅ Próxima validação esperada em produção
+- Para o cadastro `Eliandro Tjader` com telefone `21986053944`, o login com nome `Eliandro Dos Reis Tjader` deve deixar de cair em `Comprador não encontrado`
+- Após o deploy, a resposta esperada com PIN fictício passa a ser `PIN incorreto`, provando que o cadastro foi localizado
+
 ### O que foi feito
 
 #### 1. ✅ Login/cadastro agora aceitam telefone com ou sem código do país
