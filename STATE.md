@@ -6,6 +6,33 @@
 
 ---
 
+## 🔄 Atualização 2026-07-06 02:10 UTC
+
+**Status:** ✅ LOGIN DO COMPRADOR CORRIGIDO EM PRODUÇÃO
+
+### O que foi feito
+
+#### 1. ✅ Login/cadastro agora aceitam telefone com ou sem código do país
+- Backend passou a tratar como equivalentes variações como `219...`, `55219...` e versões com `0` à esquerda
+- A correção foi aplicada em:
+  - `POST /api/db/comprador/login`
+  - `POST /api/db/comprador/registro`
+  - validação de sessão em `POST /api/db/pedidos`
+
+#### 2. ✅ Causa raiz validada com dado real de produção
+- Havia compradores com telefone salvo com `55` no banco e outros sem `55`
+- Antes da correção, o backend exigia match literal do telefone normalizado
+- Isso fazia o comprador existente cair em `404 Comprador não encontrado` antes mesmo da checagem do PIN
+
+#### 3. ✅ Entrega validada
+- Commit: `6ccbe69` — `fix: accept buyer login phones with optional country code`
+- Push GitHub: ✅
+- Deploy Vercel produção: ✅
+- URL ativa: `https://compras-coletivas-phi.vercel.app`
+- Verificações no ar:
+  - `POST /api/db/comprador/login` com comprador salvo como `55219...` e login digitado como `219...` agora retorna `401 PIN incorreto` em vez de `404 Comprador não encontrado`
+  - validação local do mesmo fluxo para `Eliandro Tjader` com `5521986053944` também passou a encontrar o cadastro e seguir para a checagem do PIN
+
 ## 🔄 Atualização 2026-07-02 19:16 UTC
 
 **Status:** ✅ HARDENING + PERFORMANCE EM PRODUÇÃO
