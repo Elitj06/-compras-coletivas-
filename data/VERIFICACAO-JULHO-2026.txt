@@ -1,0 +1,41 @@
+VERIFICACAO COMPLETA
+==================================================
+
+1. PRODUTOS NO SISTEMA - NAO NA NOVA TABELA: 8
+   B1220ME: sistema=R$51.00 emb=32
+   CLB30AH: sistema=R$169.00 emb=6
+   DR150: sistema=R$148.00 emb=12
+   EF20: sistema=R$79.00 emb=6
+   ISP240: sistema=R$89.00 emb=4
+   PA600: sistema=R$120.00 emb=6
+   WFT1800BA: sistema=R$589.00 emb=4
+   WFT1800CH: sistema=R$589.00 emb=4
+
+2. PRODUTOS NA NOVA TABELA - NAO NO SISTEMA: 2
+   VPA280CT: R$16.00 [VITAPOWER. R42] VITAPOWER AIR POTE 280G SABOR SORVETE CH
+   VPA600CT: R$6.00 [VITAPOWER. R33] VITAPOWER AIR POTE 600G SABOR SORVETE CH
+
+3. AMOSTRA (abril vs sistema vs julho)
+   AM240LI      abril=R$  12.00 | sist=R$ 168.00 | nova=R$  12.00 | reaj=+0.0%
+   AGF120       abril=R$   6.00 | sist=R$ 168.00 | nova=R$   6.00 | reaj=+0.0%
+   WPI250       abril=R$  12.00 | sist=R$ 224.00 | nova=R$  12.00 | reaj=+0.0%
+   CLF120       abril=R$  12.00 | sist=R$ 460.00 | nova=R$  12.00 | reaj=+0.0%
+   ISF900BA     abril=R$ 440.00 | sist=R$ 529.00 | nova=R$ 529.00 | reaj=+20.2%
+   WFT900CH     abril=R$ 298.00 | sist=R$ 359.00 | nova=R$ 359.00 | reaj=+20.5%
+   CR30         abril=R$   6.00 | sist=R$ 158.00 | nova=R$   6.00 | reaj=+0.0%
+   BF120        abril=R$   6.00 | sist=R$ 125.00 | nova=R$   6.00 | reaj=+0.0%
+   CE100        abril=R$  12.00 | sist=R$  53.00 | nova=R$  12.00 | reaj=+0.0%
+   OF120        abril=R$  12.00 | sist=R$ 162.00 | nova=R$  12.00 | reaj=+0.0%
+   AM30LI       abril=R$   6.00 | sist=R$ 231.00 | nova=R$   6.00 | reaj=+0.0%
+   BA120        abril=R$   6.00 | sist=R$  93.50 | nova=R$   6.00 | reaj=+0.0%
+   CLK300AB     abril=R$  12.00 | sist=R$ 129.00 | nova=R$  12.00 | reaj=+0.0%
+   EC800BA      abril=R$   6.00 | sist=R$ 180.50 | nova=R$   6.00 | reaj=+0.0%
+   SF60         abril=R$  10.00 | sist=R$ 260.00 | nova=R$  10.00 | reaj=+0.0%
+   TPC90        abril=R$   6.00 | sist=R$ 134.00 | nova=R$   6.00 | reaj=+0.0%
+   OFF60        abril=R$   6.00 | sist=R$ 107.00 | nova=R$   6.00 | reaj=+0.0%
+   ISF15BA      abril=R$ 280.00 | sist=R$ 365.00 | nova=R$ 365.00 | reaj=+30.4%
+
+4. SISTEMA vs TABELA ABRIL: batem=5 diferem=215
+
+5. REAJUSTE REAL: com_reajuste=28 sem_reajuste=185
+   Medio: +20.4%

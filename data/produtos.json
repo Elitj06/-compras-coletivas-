@@ -2,7 +2,7 @@
   {
     "codigo": "AM240LI",
     "nome": "AMINOVITA POTE 240g LIMÃO",
-    "preco": 168,
+    "preco": 168.0,
     "embalagem": 12,
     "categoria": "aminovita_9_aminoacidos_de_ori",
     "categoriaNome": "AMINOVITA - 9 AMINOÁCIDOS DE ORIGEM VEGETAL",
@@ -11,7 +11,7 @@
   {
     "codigo": "AM240MR",
     "nome": "AMINOVITA POTE 240G MARACUJÁ",
-    "preco": 168,
+    "preco": 168.0,
     "embalagem": 12,
     "categoria": "aminovita_9_aminoacidos_de_ori",
     "categoriaNome": "AMINOVITA - 9 AMINOÁCIDOS DE ORIGEM VEGETAL",
@@ -20,16 +20,16 @@
   {
     "codigo": "AM30LI",
     "nome": "AMINOVITA 30 SACHES 10G LIMAO",
-    "preco": 231,
+    "preco": 231.0,
     "embalagem": 6,
     "categoria": "aminovita_9_aminoacidos_de_ori",
     "categoriaNome": "AMINOVITA - 9 AMINOÁCIDOS DE ORIGEM VEGETAL",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611436/AM30LI-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611532/AM30LI-01.jpg"
   },
   {
     "codigo": "AM30MR",
     "nome": "AMINOVITA 30 SACHES 10G MARACUJÁ",
-    "preco": 231,
+    "preco": 231.0,
     "embalagem": 6,
     "categoria": "aminovita_9_aminoacidos_de_ori",
     "categoriaNome": "AMINOVITA - 9 AMINOÁCIDOS DE ORIGEM VEGETAL",
@@ -38,16 +38,16 @@
   {
     "codigo": "AGF30",
     "nome": "ARGINOFOR 30 CAPSULAS 780mg",
-    "preco": 64,
+    "preco": 64.0,
     "embalagem": 6,
     "categoria": "arginofor_l_arginina_aminoacid",
     "categoriaNome": "ARGINOFOR - L-ARGININA , AMINOÁCIDO EM CÁPSULAS",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611424/AGF30-01.jpg"
+    "imagem": ""
   },
   {
     "codigo": "AGF60",
     "nome": "ARGINOFOR 60 CAPSULAS 780mg",
-    "preco": 105,
+    "preco": 105.0,
     "embalagem": 6,
     "categoria": "arginofor_l_arginina_aminoacid",
     "categoriaNome": "ARGINOFOR - L-ARGININA , AMINOÁCIDO EM CÁPSULAS",
@@ -56,7 +56,7 @@
   {
     "codigo": "AGF120",
     "nome": "ARGINOFOR 120 CAPSULAS 780mg",
-    "preco": 168,
+    "preco": 168.0,
     "embalagem": 6,
     "categoria": "arginofor_l_arginina_aminoacid",
     "categoriaNome": "ARGINOFOR - L-ARGININA , AMINOÁCIDO EM CÁPSULAS",
@@ -65,25 +65,25 @@
   {
     "codigo": "BF210LI",
     "nome": "BCAA FORT 210G LIMAO",
-    "preco": 107,
+    "preco": 107.0,
     "embalagem": 12,
     "categoria": "arginofor_l_arginina_aminoacid",
     "categoriaNome": "ARGINOFOR - L-ARGININA , AMINOÁCIDO EM CÁPSULAS",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611454/BF210LI-01.jpg"
+    "imagem": ""
   },
   {
     "codigo": "BF210TA",
     "nome": "BCAA FORT 210G TANGERINA",
-    "preco": 107,
+    "preco": 107.0,
     "embalagem": 12,
     "categoria": "arginofor_l_arginina_aminoacid",
     "categoriaNome": "ARGINOFOR - L-ARGININA , AMINOÁCIDO EM CÁPSULAS",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611449/BF210TA-01.jpg"
+    "imagem": ""
   },
   {
     "codigo": "BF120",
     "nome": "BCAA FORT 120 CÁPSULAS 950mg",
-    "preco": 125,
+    "preco": 125.0,
     "embalagem": 6,
     "categoria": "arginofor_l_arginina_aminoacid",
     "categoriaNome": "ARGINOFOR - L-ARGININA , AMINOÁCIDO EM CÁPSULAS",
@@ -101,7 +101,7 @@
   {
     "codigo": "BA240",
     "nome": "BETA ALANINA 240 CAPSULAS 500mg",
-    "preco": 175,
+    "preco": 175.0,
     "embalagem": 6,
     "categoria": "beta_alanina_100_beta_alanina_",
     "categoriaNome": "BETA ALANINA - 100% BETA ALANINA - 2G DE BETA ALANINA NA DOSE",
@@ -110,7 +110,7 @@
   {
     "codigo": "BAP120",
     "nome": "BETA ALANINA POTE 120g",
-    "preco": 86,
+    "preco": 86.0,
     "embalagem": 12,
     "categoria": "beta_alanina_100_beta_alanina_",
     "categoriaNome": "BETA ALANINA - 100% BETA ALANINA - 2G DE BETA ALANINA NA DOSE",
@@ -119,7 +119,7 @@
   {
     "codigo": "CP90",
     "nome": "CALCIO PLUS CAPSULA 800mg",
-    "preco": 98,
+    "preco": 98.0,
     "embalagem": 6,
     "categoria": "calcio_plus",
     "categoriaNome": "CÁLCIO PLUS",
@@ -128,11 +128,11 @@
   {
     "codigo": "BM30",
     "nome": "BORAPRIM 30 CAPSULAS 1000mg",
-    "preco": 71,
+    "preco": 71.0,
     "embalagem": 6,
     "categoria": "boraprim_mix_de_oleos_essencia",
     "categoriaNome": "BORAPRIM - MIX DE ÓLEOS ESSENCIAIS EM SOFTGEL - ÓLEO DE BORRAGEM, PRÍMULA E GERGELIM EM CÁPSULAS",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611441/BM30-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611636/BM30-01.jpg"
   },
   {
     "codigo": "BM60",
@@ -141,21 +141,21 @@
     "embalagem": 6,
     "categoria": "boraprim_mix_de_oleos_essencia",
     "categoriaNome": "BORAPRIM - MIX DE ÓLEOS ESSENCIAIS EM SOFTGEL - ÓLEO DE BORRAGEM, PRÍMULA E GERGELIM EM CÁPSULAS",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611438/BM60-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611633/BM601-01.jpg"
   },
   {
     "codigo": "CF400",
     "nome": "CARBOFOR 400g",
-    "preco": 60,
+    "preco": 60.0,
     "embalagem": 12,
     "categoria": "carbofor_suplemento_alimentar_",
     "categoriaNome": "CARBOFOR - SUPLEMENTO ALIMENTAR DE CARBOIDRATO EM PÓ",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611459/CF400-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611524/CF400-01.jpg"
   },
   {
     "codigo": "CF20",
     "nome": "CARBOFOR 20 SACHES 25g",
-    "preco": 184,
+    "preco": 184.0,
     "embalagem": 4,
     "categoria": "carbofor_suplemento_alimentar_",
     "categoriaNome": "CARBOFOR - SUPLEMENTO ALIMENTAR DE CARBOIDRATO EM PÓ",
@@ -164,7 +164,7 @@
   {
     "codigo": "CCF240",
     "nome": "CHOCO FAMILY POUCH 240G",
-    "preco": 58,
+    "preco": 58.0,
     "embalagem": 6,
     "categoria": "choco_family_cacau_60_com_vita",
     "categoriaNome": "CHOCO FAMILY - CACAU 60% COM VITAMINAS E MINERAIS",
@@ -173,7 +173,7 @@
   {
     "codigo": "CLK300AB",
     "nome": "COLAGENTEK POTE 300g ABACAXI",
-    "preco": 129,
+    "preco": 129.0,
     "embalagem": 12,
     "categoria": "colagentek_colageno_hidrolisad",
     "categoriaNome": "COLAGENTEK - COLÁGENO HIDROLISADO COM MULTIVITAMINAS E MINERAIS (PRECURSORES DE COLÁGENO).",
@@ -182,7 +182,7 @@
   {
     "codigo": "CLK300LA",
     "nome": "COLAGENTEK POTE 300g LARANJA COM ACEROLA",
-    "preco": 129,
+    "preco": 129.0,
     "embalagem": 12,
     "categoria": "colagentek_colageno_hidrolisad",
     "categoriaNome": "COLAGENTEK - COLÁGENO HIDROLISADO COM MULTIVITAMINAS E MINERAIS (PRECURSORES DE COLÁGENO).",
@@ -191,7 +191,7 @@
   {
     "codigo": "CLK300LI",
     "nome": "COLAGENTEK POTE 300g LIMAO",
-    "preco": 129,
+    "preco": 129.0,
     "embalagem": 12,
     "categoria": "colagentek_colageno_hidrolisad",
     "categoriaNome": "COLAGENTEK - COLÁGENO HIDROLISADO COM MULTIVITAMINAS E MINERAIS (PRECURSORES DE COLÁGENO).",
@@ -200,7 +200,7 @@
   {
     "codigo": "CLK300N",
     "nome": "COLAGENTEK POTE 300g NEUTRO",
-    "preco": 129,
+    "preco": 129.0,
     "embalagem": 12,
     "categoria": "colagentek_colageno_hidrolisad",
     "categoriaNome": "COLAGENTEK - COLÁGENO HIDROLISADO COM MULTIVITAMINAS E MINERAIS (PRECURSORES DE COLÁGENO).",
@@ -209,7 +209,7 @@
   {
     "codigo": "CLK300MV",
     "nome": "COLAGENTEK POTE 300g MACA VERDE",
-    "preco": 129,
+    "preco": 129.0,
     "embalagem": 12,
     "categoria": "colagentek_colageno_hidrolisad",
     "categoriaNome": "COLAGENTEK - COLÁGENO HIDROLISADO COM MULTIVITAMINAS E MINERAIS (PRECURSORES DE COLÁGENO).",
@@ -218,7 +218,7 @@
   {
     "codigo": "CLK300TA",
     "nome": "COLAGENTEK POTE 300g TANGERINA",
-    "preco": 129,
+    "preco": 129.0,
     "embalagem": 12,
     "categoria": "colagentek_colageno_hidrolisad",
     "categoriaNome": "COLAGENTEK - COLÁGENO HIDROLISADO COM MULTIVITAMINAS E MINERAIS (PRECURSORES DE COLÁGENO).",
@@ -227,7 +227,7 @@
   {
     "codigo": "CLK300CR",
     "nome": "COLAGENTEK POTE 300g CRANBERRY",
-    "preco": 129,
+    "preco": 129.0,
     "embalagem": 12,
     "categoria": "colagentek_colageno_hidrolisad",
     "categoriaNome": "COLAGENTEK - COLÁGENO HIDROLISADO COM MULTIVITAMINAS E MINERAIS (PRECURSORES DE COLÁGENO).",
@@ -240,12 +240,12 @@
     "embalagem": 6,
     "categoria": "colagentek_colageno_hidrolisad",
     "categoriaNome": "COLAGENTEK - COLÁGENO HIDROLISADO COM MULTIVITAMINAS E MINERAIS (PRECURSORES DE COLÁGENO).",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611165/CLK30S-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611615/CLK30S-01.jpg"
   },
   {
     "codigo": "CLB30MC",
     "nome": "COLAGENTEK BEAUTY 30 SACHES DE 3,5g MACA COM CANELA",
-    "preco": 169,
+    "preco": 169.0,
     "embalagem": 6,
     "categoria": "colagentek_colageno_hidrolisad",
     "categoriaNome": "COLAGENTEK - COLÁGENO HIDROLISADO COM MULTIVITAMINAS E MINERAIS (PRECURSORES DE COLÁGENO).",
@@ -258,30 +258,30 @@
     "embalagem": 6,
     "categoria": "colagentek_ii_colageno_tipo_ii",
     "categoriaNome": "COLAGENTEK  II - COLÁGENO TIPO II, METILSULFONILMETANO (MSM), ÁCIDO HIALURÔNICO,EXTRATO DE ALHO EM PÓ (ALLIUM SATIVUM L.) E MINERAIS,COM ZERO ADIÇÃO DE AÇÚCARES.",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/157458/CG30-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611534/CG30-01.jpg"
   },
   {
     "codigo": "CG60",
     "nome": "COLAGENTEK TIPO II 60 CAPSULAS 790MG",
-    "preco": 144,
+    "preco": 144.0,
     "embalagem": 6,
     "categoria": "colagentek_ii_colageno_tipo_ii",
     "categoriaNome": "COLAGENTEK  II - COLÁGENO TIPO II, METILSULFONILMETANO (MSM), ÁCIDO HIALURÔNICO,EXTRATO DE ALHO EM PÓ (ALLIUM SATIVUM L.) E MINERAIS,COM ZERO ADIÇÃO DE AÇÚCARES.",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/157455/CG60-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611518/CG60-01.jpg"
   },
   {
     "codigo": "CG120",
     "nome": "COLAGENTEK TIPO II 120 CAPSULAS 790MG",
-    "preco": 254,
+    "preco": 254.0,
     "embalagem": 6,
     "categoria": "colagentek_ii_colageno_tipo_ii",
     "categoriaNome": "COLAGENTEK  II - COLÁGENO TIPO II, METILSULFONILMETANO (MSM), ÁCIDO HIALURÔNICO,EXTRATO DE ALHO EM PÓ (ALLIUM SATIVUM L.) E MINERAIS,COM ZERO ADIÇÃO DE AÇÚCARES.",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/610694/CG120-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611515/CG120-01.jpg"
   },
   {
     "codigo": "CKP460MO",
     "nome": "COLAGENTEK PROTEIN LATA 460g SABOR MORANGO",
-    "preco": 274,
+    "preco": 274.0,
     "embalagem": 6,
     "categoria": "colagentek_protein",
     "categoriaNome": "COLAGENTEK PROTEIN",
@@ -290,7 +290,7 @@
   {
     "codigo": "CKP460N",
     "nome": "COLAGENTEK PROTEIN LATA 460g SABOR NEUTRO",
-    "preco": 274,
+    "preco": 274.0,
     "embalagem": 6,
     "categoria": "colagentek_protein",
     "categoriaNome": "COLAGENTEK PROTEIN",
@@ -299,7 +299,7 @@
   {
     "codigo": "CKP460CA",
     "nome": "COLAGENTEK PROTEIN LATA 460g SABOR CACAU",
-    "preco": 274,
+    "preco": 274.0,
     "embalagem": 6,
     "categoria": "colagentek_protein",
     "categoriaNome": "COLAGENTEK PROTEIN",
@@ -308,7 +308,7 @@
   {
     "codigo": "CKP460TA",
     "nome": "COLAGENTEK PROTEIN LATA 460g SABOR TANGERINA",
-    "preco": 274,
+    "preco": 274.0,
     "embalagem": 6,
     "categoria": "colagentek_protein",
     "categoriaNome": "COLAGENTEK PROTEIN",
@@ -317,7 +317,7 @@
   {
     "codigo": "CQ30",
     "nome": "COENZIMA Q10 30 CAPSULAS 500mg = 200mg POR PORÇÃO",
-    "preco": 116,
+    "preco": 116.0,
     "embalagem": 6,
     "categoria": "colagentek_protein",
     "categoriaNome": "COLAGENTEK PROTEIN",
@@ -326,7 +326,7 @@
   {
     "codigo": "CQ60",
     "nome": "COENZIMA Q10 60 CAPSULAS 500mg = 200mg POR PORÇÃO",
-    "preco": 183,
+    "preco": 183.0,
     "embalagem": 6,
     "categoria": "colagentek_protein",
     "categoriaNome": "COLAGENTEK PROTEIN",
@@ -335,7 +335,7 @@
   {
     "codigo": "CQ120",
     "nome": "COENZIMA Q10 120 CAPSULAS 500mg = 200mg POR PORÇÃO",
-    "preco": 317,
+    "preco": 317.0,
     "embalagem": 6,
     "categoria": "colagentek_protein",
     "categoriaNome": "COLAGENTEK PROTEIN",
@@ -344,7 +344,7 @@
   {
     "codigo": "COQ60",
     "nome": "COENZIMA Q10 60 CAPSULAS 500mg = 100mg POR PORÇÃO",
-    "preco": 116,
+    "preco": 116.0,
     "embalagem": 6,
     "categoria": "colagentek_protein",
     "categoriaNome": "COLAGENTEK PROTEIN",
@@ -353,7 +353,7 @@
   {
     "codigo": "CLF120",
     "nome": "COLOSFORT POTE 120G",
-    "preco": 460,
+    "preco": 460.0,
     "embalagem": 12,
     "categoria": "colosfort_contem_premium_colos",
     "categoriaNome": "COLOSFORT® CONTÉM PREMIUM COLOSTRUM PROTEIN UMA COMBINAÇÃO PERFEITA DE NUTRIENTES, DE FATORES IMUNOLÓGICOS E DE FATORES DE CRESCIMENTO.",
@@ -362,16 +362,16 @@
   {
     "codigo": "CLF30",
     "nome": "COLOSFORT LACTOFERRIN PLUS 30 CÁPSULAS DE 400mg",
-    "preco": 267,
+    "preco": 267.0,
     "embalagem": 6,
     "categoria": "colosfort_lactoferrin_plus_e_p",
     "categoriaNome": "COLOSFORT LACTOFERRIN PLUS®  É PRODUZIDO COM LACTOFERRINA E PREMIUM COLOSTRUM PROTEIN ASSOCIADOS A NUTRIENTES, RESPONSÁVEIS POR POTENCIALIZAR O SISTEMA IMUNOLÓGICO.",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/610999/CLF30-01.png"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611598/CLF30-01.jpg"
   },
   {
     "codigo": "CE100",
     "nome": "CREATINE POTE 100g",
-    "preco": 53,
+    "preco": 53.0,
     "embalagem": 12,
     "categoria": "creatine_aminoacido_100_creati",
     "categoriaNome": "CREATINE - AMINOÁCIDO 100% CREATINA MONOHIDRATADA",
@@ -380,7 +380,7 @@
   {
     "codigo": "CE300",
     "nome": "CREATINE POTE 300g",
-    "preco": 116,
+    "preco": 116.0,
     "embalagem": 12,
     "categoria": "creatine_aminoacido_100_creati",
     "categoriaNome": "CREATINE - AMINOÁCIDO 100% CREATINA MONOHIDRATADA",
@@ -389,7 +389,7 @@
   {
     "codigo": "CE600",
     "nome": "CREATINE POTE 600g",
-    "preco": 198,
+    "preco": 198.0,
     "embalagem": 4,
     "categoria": "creatine_aminoacido_100_creati",
     "categoriaNome": "CREATINE - AMINOÁCIDO 100% CREATINA MONOHIDRATADA",
@@ -398,7 +398,7 @@
   {
     "codigo": "CR300",
     "nome": "CREAFORT POTE 300g",
-    "preco": 278,
+    "preco": 278.0,
     "embalagem": 12,
     "categoria": "creafort_creatina_monohidratad",
     "categoriaNome": "CREAFORT - CREATINA MONOHIDRATADA DE ALTA PUREZA- 100% CREAPURE®",
@@ -407,7 +407,7 @@
   {
     "codigo": "CR30",
     "nome": "CREAFORT CAIXA 30 SACHES 3g",
-    "preco": 158,
+    "preco": 158.0,
     "embalagem": 6,
     "categoria": "creafort_creatina_monohidratad",
     "categoriaNome": "CREAFORT - CREATINA MONOHIDRATADA DE ALTA PUREZA- 100% CREAPURE®",
@@ -434,7 +434,7 @@
   {
     "codigo": "EG12LI",
     "nome": "END CAFFEINE GEL 12 SACHES DE 30g LIMAO",
-    "preco": 98,
+    "preco": 98.0,
     "embalagem": 6,
     "categoria": "endurance_suplemento_alimentar",
     "categoriaNome": "ENDURANCE - SUPLEMENTO ALIMENTAR DE CARBOIDRATOS SIMPLES E COMPLEXOS, CAFEÍNA, VITAMINAS E MINERAL EM GEL",
@@ -443,7 +443,7 @@
   {
     "codigo": "EG12MC",
     "nome": "END CAFFEINE GEL 12 SACHES DE 30g MOCHA",
-    "preco": 98,
+    "preco": 98.0,
     "embalagem": 6,
     "categoria": "endurance_suplemento_alimentar",
     "categoriaNome": "ENDURANCE - SUPLEMENTO ALIMENTAR DE CARBOIDRATOS SIMPLES E COMPLEXOS, CAFEÍNA, VITAMINAS E MINERAL EM GEL",
@@ -452,7 +452,7 @@
   {
     "codigo": "EG12CB",
     "nome": "END CAFFEINE GEL 12 SACHES DE 30g CHOCOLATE BELGA",
-    "preco": 98,
+    "preco": 98.0,
     "embalagem": 6,
     "categoria": "endurance_suplemento_alimentar",
     "categoriaNome": "ENDURANCE - SUPLEMENTO ALIMENTAR DE CARBOIDRATOS SIMPLES E COMPLEXOS, CAFEÍNA, VITAMINAS E MINERAL EM GEL",
@@ -461,7 +461,7 @@
   {
     "codigo": "EG12BN",
     "nome": "END ENERGY GEL 12 SACHES DE 30g BANANA",
-    "preco": 98,
+    "preco": 98.0,
     "embalagem": 6,
     "categoria": "endurance_suplemento_alimentar",
     "categoriaNome": "ENDURANCE - SUPLEMENTO ALIMENTAR DE CARBOIDRATOS SIMPLES E COMPLEXOS, VITAMINAS E MINERAL EM GEL",
@@ -470,7 +470,7 @@
   {
     "codigo": "EG12BA",
     "nome": "END ENERGY GEL 12 SACHES DE 30g BAUNILHA",
-    "preco": 98,
+    "preco": 98.0,
     "embalagem": 6,
     "categoria": "endurance_suplemento_alimentar",
     "categoriaNome": "ENDURANCE - SUPLEMENTO ALIMENTAR DE CARBOIDRATOS SIMPLES E COMPLEXOS, VITAMINAS E MINERAL EM GEL",
@@ -479,7 +479,7 @@
   {
     "codigo": "EG12TA",
     "nome": "END ENERGY GEL 12 SACHES DE 30g TANGERINA",
-    "preco": 98,
+    "preco": 98.0,
     "embalagem": 6,
     "categoria": "endurance_suplemento_alimentar",
     "categoriaNome": "ENDURANCE - SUPLEMENTO ALIMENTAR DE CARBOIDRATOS SIMPLES E COMPLEXOS, VITAMINAS E MINERAL EM GEL",
@@ -488,7 +488,7 @@
   {
     "codigo": "EG12PA",
     "nome": "END ENERGY GEL 12 SACHÊS 30G PAÇOCA",
-    "preco": 98,
+    "preco": 98.0,
     "embalagem": 6,
     "categoria": "endurance_suplemento_alimentar",
     "categoriaNome": "ENDURANCE - SUPLEMENTO ALIMENTAR DE CARBOIDRATOS SIMPLES E COMPLEXOS, VITAMINAS E MINERAL EM GEL",
@@ -497,7 +497,7 @@
   {
     "codigo": "EXE1000AB",
     "nome": "ENDURANCE EXTREME ENERGY POTE 1000G ABACAXI",
-    "preco": 158,
+    "preco": 158.0,
     "embalagem": 6,
     "categoria": "endurance_extreme_energy",
     "categoriaNome": "ENDURANCE EXTREME ENERGY",
@@ -506,7 +506,7 @@
   {
     "codigo": "EXE1000LA",
     "nome": "ENDURANCE EXTREME ENERGY POTE 1000G LARANJA",
-    "preco": 158,
+    "preco": 158.0,
     "embalagem": 6,
     "categoria": "endurance_extreme_energy",
     "categoriaNome": "ENDURANCE EXTREME ENERGY",
@@ -533,7 +533,7 @@
   {
     "codigo": "EZ10",
     "nome": "ENZYFOR 10 SACHES 3g",
-    "preco": 93,
+    "preco": 93.0,
     "embalagem": 12,
     "categoria": "enzyfor_mix_de_enzimas_digesti",
     "categoriaNome": "ENZYFOR - MIX DE ENZIMAS DIGESTIVAS COM 5 ENZIMAS : AMILASE, PROTEASE , LIPASE, LACTASE E BROMELINA",
@@ -542,7 +542,7 @@
   {
     "codigo": "EZ30",
     "nome": "ENZYFOR 30 SACHES 3g",
-    "preco": 206,
+    "preco": 206.0,
     "embalagem": 6,
     "categoria": "enzyfor_mix_de_enzimas_digesti",
     "categoriaNome": "ENZYFOR - MIX DE ENZIMAS DIGESTIVAS COM 5 ENZIMAS : AMILASE, PROTEASE , LIPASE, LACTASE E BROMELINA",
@@ -551,7 +551,7 @@
   {
     "codigo": "FEP30",
     "nome": "FERRO PLUS 30 CÁPSULAS 500mg",
-    "preco": 44,
+    "preco": 44.0,
     "embalagem": 6,
     "categoria": "ferro_plus",
     "categoriaNome": "FERRO PLUS",
@@ -560,7 +560,7 @@
   {
     "codigo": "EF250",
     "nome": "ESPEFOR 250g",
-    "preco": 98,
+    "preco": 98.0,
     "embalagem": 12,
     "categoria": "espefor_po_para_espessar_alime",
     "categoriaNome": "ESPEFOR - PÓ PARA ESPESSAR ALIMENTOS À BASE DE AMIDO DE MILHO MODIFICADO",
@@ -569,7 +569,7 @@
   {
     "codigo": "FBF10",
     "nome": "FIBERFOR 10 SACHES DE 5g",
-    "preco": 40,
+    "preco": 40.0,
     "embalagem": 12,
     "categoria": "prebiotico_fiberfor_fonte_de_f",
     "categoriaNome": "PREBIÓTICO - FIBERFOR - FONTE DE FIBRAS ALIMENTARES SOLÚVEIS E INSOLÚVEIS",
@@ -578,7 +578,7 @@
   {
     "codigo": "FBF400",
     "nome": "FIBERFOR POTE COM 400g",
-    "preco": 126,
+    "preco": 126.0,
     "embalagem": 6,
     "categoria": "prebiotico_fiberfor_fonte_de_f",
     "categoriaNome": "PREBIÓTICO - FIBERFOR - FONTE DE FIBRAS ALIMENTARES SOLÚVEIS E INSOLÚVEIS",
@@ -587,7 +587,7 @@
   {
     "codigo": "FV250",
     "nome": "FOSVITA 250g",
-    "preco": 99,
+    "preco": 99.0,
     "embalagem": 12,
     "categoria": "fosvita_100_frutooligossacarid",
     "categoriaNome": "FOSVITA - 100% FRUTOOLIGOSSACARÍDEOS ( FOS )",
@@ -596,7 +596,7 @@
   {
     "codigo": "FV30",
     "nome": "FOSVITA 30 SACHES 7g",
-    "preco": 138,
+    "preco": 138.0,
     "embalagem": 6,
     "categoria": "fosvita_100_frutooligossacarid",
     "categoriaNome": "FOSVITA - 100% FRUTOOLIGOSSACARÍDEOS ( FOS )",
@@ -605,7 +605,7 @@
   {
     "codigo": "FZ12BF",
     "nome": "FITZEI DISPLAY C/ 12 BARRAS 40G BANOFFE",
-    "preco": 134,
+    "preco": 134.0,
     "embalagem": 12,
     "categoria": "fitzei_barrinhas_proteicas",
     "categoriaNome": "FITZEI BARRINHAS PROTEICAS",
@@ -614,7 +614,7 @@
   {
     "codigo": "FZ12FV",
     "nome": "FITZEI DISPLAY C/ 12 BARRAS 40G FRUTAS VERMELHAS",
-    "preco": 134,
+    "preco": 134.0,
     "embalagem": 12,
     "categoria": "fitzei_barrinhas_proteicas",
     "categoriaNome": "FITZEI BARRINHAS PROTEICAS",
@@ -623,7 +623,7 @@
   {
     "codigo": "FZ12PA",
     "nome": "FITZEI DISPLAY C/ 12 BARRAS 40G PACOCA",
-    "preco": 134,
+    "preco": 134.0,
     "embalagem": 12,
     "categoria": "fitzei_barrinhas_proteicas",
     "categoriaNome": "FITZEI BARRINHAS PROTEICAS",
@@ -632,7 +632,7 @@
   {
     "codigo": "FZ12CO",
     "nome": "FITZEI DISPLAY C/ 12 BARRAS 40G COCO",
-    "preco": 134,
+    "preco": 134.0,
     "embalagem": 12,
     "categoria": "fitzei_barrinhas_proteicas",
     "categoriaNome": "FITZEI BARRINHAS PROTEICAS",
@@ -641,7 +641,7 @@
   {
     "codigo": "FZ12CA",
     "nome": "FITZEI DISPLAY C/ 12 BARRAS 40G CARAMELO E AMENDOIM",
-    "preco": 134,
+    "preco": 134.0,
     "embalagem": 12,
     "categoria": "fitzei_barrinhas_proteicas",
     "categoriaNome": "FITZEI BARRINHAS PROTEICAS",
@@ -650,7 +650,7 @@
   {
     "codigo": "FZS45CG",
     "nome": "FITZEI SNACK PACOTE 45g CRISPY GARLIC",
-    "preco": 12,
+    "preco": 12.0,
     "embalagem": 10,
     "categoria": "fitzei_snacks",
     "categoriaNome": "FITZEI SNACKS",
@@ -659,7 +659,7 @@
   {
     "codigo": "FZS45CH",
     "nome": "FITZEI SNACK PACOTE 45g CHURRASCO",
-    "preco": 12,
+    "preco": 12.0,
     "embalagem": 10,
     "categoria": "fitzei_snacks",
     "categoriaNome": "FITZEI SNACKS",
@@ -668,7 +668,7 @@
   {
     "codigo": "FZS45EFQ",
     "nome": "FITZEI SNACK PACOTE 45g ERVAS FINAS COM QUEIJO",
-    "preco": 12,
+    "preco": 12.0,
     "embalagem": 10,
     "categoria": "fitzei_snacks",
     "categoriaNome": "FITZEI SNACKS",
@@ -677,16 +677,16 @@
   {
     "codigo": "MTS90",
     "nome": "GLP-1 MULTIVITAMÍNICO 90 CÁPSULAS 620mg",
-    "preco": 198,
+    "preco": 198.0,
     "embalagem": 6,
     "categoria": "glp_1_multivitaminico",
     "categoriaNome": "GLP-1 MULTIVITAMÍNICO",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611078/MTS90-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611625/MTS90-01.jpg"
   },
   {
     "codigo": "GM150",
     "nome": "GLUTAMAX POTE 150g",
-    "preco": 74,
+    "preco": 74.0,
     "embalagem": 12,
     "categoria": "glutamax_modulo_de_l_glutamina",
     "categoriaNome": "GLUTAMAX - MÓDULO DE L-GLUTAMINA",
@@ -695,7 +695,7 @@
   {
     "codigo": "GM300",
     "nome": "GLUTAMAX POTE 300g",
-    "preco": 123,
+    "preco": 123.0,
     "embalagem": 12,
     "categoria": "glutamax_modulo_de_l_glutamina",
     "categoriaNome": "GLUTAMAX - MÓDULO DE L-GLUTAMINA",
@@ -704,7 +704,7 @@
   {
     "codigo": "GMS30",
     "nome": "GLUTAMAX 30 SACHES 5g",
-    "preco": 134,
+    "preco": 134.0,
     "embalagem": 6,
     "categoria": "glutamax_modulo_de_l_glutamina",
     "categoriaNome": "GLUTAMAX - MÓDULO DE L-GLUTAMINA",
@@ -713,7 +713,7 @@
   {
     "codigo": "GM30",
     "nome": "GLUTAMAX 30 SACHES 10g",
-    "preco": 191,
+    "preco": 191.0,
     "embalagem": 6,
     "categoria": "glutamax_modulo_de_l_glutamina",
     "categoriaNome": "GLUTAMAX - MÓDULO DE L-GLUTAMINA",
@@ -722,7 +722,7 @@
   {
     "codigo": "GM600",
     "nome": "GLUTAMAX POUCH 600G",
-    "preco": 196,
+    "preco": 196.0,
     "embalagem": 6,
     "categoria": "glutamax_pouch",
     "categoriaNome": "GLUTAMAX POUCH",
@@ -731,16 +731,16 @@
   {
     "codigo": "HF60",
     "nome": "HEPATOFOR 60 CAPSULAS 1000mg",
-    "preco": 123,
+    "preco": 123.0,
     "embalagem": 6,
     "categoria": "hepatofor",
     "categoriaNome": "HEPATOFOR",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611397/HF60-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611630/HF60-01.jpg"
   },
   {
     "codigo": "HH60",
     "nome": "HYALURONIC HAIR 60 CÁPSULAS 500MG",
-    "preco": 107,
+    "preco": 107.0,
     "embalagem": 6,
     "categoria": "hyaluronic_hair",
     "categoriaNome": "HYALURONIC HAIR",
@@ -749,25 +749,25 @@
   {
     "codigo": "IMT60",
     "nome": "IMUNOMULT MULTIVITAMINICO 60 CAPSULAS 1000mg",
-    "preco": 127,
+    "preco": 127.0,
     "embalagem": 6,
     "categoria": "imunomult_multivitaminico_supl",
     "categoriaNome": "IMUNOMULT MULTIVITAMÍNICO - SUPLEMENTO ALIMENTAR DE VITAMINAS E MINERAIS EM CÁPSULAS COM N-ACETIL",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611002/IMT60-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611537/IMT60-01.jpg"
   },
   {
     "codigo": "IMT120",
     "nome": "IMUNOMULT MULTIVITAMINICO 120 CAPSULAS 1000mg",
-    "preco": 195,
+    "preco": 195.0,
     "embalagem": 6,
     "categoria": "imunomult_multivitaminico_supl",
     "categoriaNome": "IMUNOMULT MULTIVITAMÍNICO - SUPLEMENTO ALIMENTAR DE VITAMINAS E MINERAIS EM CÁPSULAS COM N-ACETIL",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611005/IMT120-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611543/IMT120-01.jpg"
   },
   {
     "codigo": "ISC60N",
     "nome": "ISOCRISP NEUTRO POTE 60g",
-    "preco": 66,
+    "preco": 66.0,
     "embalagem": 12,
     "categoria": "isocrisp_whey_neutro",
     "categoriaNome": "ISOCRISP  WHEY NEUTRO",
@@ -776,7 +776,7 @@
   {
     "codigo": "ISC240N",
     "nome": "ISOCRISP WHEY NEUTRO POUCH 240G",
-    "preco": 125,
+    "preco": 125.0,
     "embalagem": 4,
     "categoria": "isocrisp_whey_neutro",
     "categoriaNome": "ISOCRISP  WHEY NEUTRO",
@@ -785,7 +785,7 @@
   {
     "codigo": "ISP60",
     "nome": "ISOCRISP PLANT POTE 60g",
-    "preco": 33,
+    "preco": 33.0,
     "embalagem": 12,
     "categoria": "isocrispplant_vegano_proteinai",
     "categoriaNome": "ISOCRISPPLANT-VEGANO-PROTEÍNAISOLADADEERVILHACOMFIBRADEBETERRABAEMFLOCOSCROCANTES",
@@ -794,7 +794,7 @@
   {
     "codigo": "ICP240",
     "nome": "ISOCRISP PLANT POTE 240g",
-    "preco": 91,
+    "preco": 91.0,
     "embalagem": 12,
     "categoria": "isocrispplant_vegano_proteinai",
     "categoriaNome": "ISOCRISPPLANT-VEGANO-PROTEÍNAISOLADADEERVILHACOMFIBRADEBETERRABAEMFLOCOSCROCANTES",
@@ -803,7 +803,7 @@
   {
     "codigo": "ISF15BA",
     "nome": "ISOFORT 15 SACHES 30g BAUNILHA",
-    "preco": 365,
+    "preco": 365.0,
     "embalagem": 4,
     "categoria": "isofort_whey_protein_isolado_e",
     "categoriaNome": "ISOFORT -  WHEY PROTEIN ISOLADO E PARCIALMENTE HIDROLISADO 92% PROTEÍNA",
@@ -812,7 +812,7 @@
   {
     "codigo": "ISF15CH",
     "nome": "ISOFORT 15 SACHES 30g CHOCOLATE",
-    "preco": 365,
+    "preco": 365.0,
     "embalagem": 4,
     "categoria": "isofort_whey_protein_isolado_e",
     "categoriaNome": "ISOFORT -  WHEY PROTEIN ISOLADO E PARCIALMENTE HIDROLISADO 92% PROTEÍNA",
@@ -821,7 +821,7 @@
   {
     "codigo": "ISF15FV",
     "nome": "ISOFORT 15 SACHES 30g FRUTAS VERMELHAS",
-    "preco": 365,
+    "preco": 365.0,
     "embalagem": 4,
     "categoria": "isofort_whey_protein_isolado_e",
     "categoriaNome": "ISOFORT -  WHEY PROTEIN ISOLADO E PARCIALMENTE HIDROLISADO 92% PROTEÍNA",
@@ -830,7 +830,7 @@
   {
     "codigo": "ISF15N",
     "nome": "ISOFORT 15 SACHES 30g NEUTRO",
-    "preco": 365,
+    "preco": 365.0,
     "embalagem": 4,
     "categoria": "isofort_whey_protein_isolado_e",
     "categoriaNome": "ISOFORT -  WHEY PROTEIN ISOLADO E PARCIALMENTE HIDROLISADO 92% PROTEÍNA",
@@ -839,7 +839,7 @@
   {
     "codigo": "ISF900BA",
     "nome": "ISOFORT POTE 900g BAUNILHA",
-    "preco": 529,
+    "preco": 529.0,
     "embalagem": 4,
     "categoria": "isofort_whey_protein_isolado_e",
     "categoriaNome": "ISOFORT -  WHEY PROTEIN ISOLADO E PARCIALMENTE HIDROLISADO 92% PROTEÍNA",
@@ -848,7 +848,7 @@
   {
     "codigo": "ISF900CH",
     "nome": "ISOFORT POTE 900g CHOCOLATE",
-    "preco": 529,
+    "preco": 529.0,
     "embalagem": 4,
     "categoria": "isofort_whey_protein_isolado_e",
     "categoriaNome": "ISOFORT -  WHEY PROTEIN ISOLADO E PARCIALMENTE HIDROLISADO 92% PROTEÍNA",
@@ -857,7 +857,7 @@
   {
     "codigo": "ISF900FV",
     "nome": "ISOFORT POTE 900g FRUTAS VERMELHAS",
-    "preco": 529,
+    "preco": 529.0,
     "embalagem": 4,
     "categoria": "isofort_whey_protein_isolado_e",
     "categoriaNome": "ISOFORT -  WHEY PROTEIN ISOLADO E PARCIALMENTE HIDROLISADO 92% PROTEÍNA",
@@ -866,7 +866,7 @@
   {
     "codigo": "ISF900N",
     "nome": "ISOFORT POTE 900g NEUTRO",
-    "preco": 529,
+    "preco": 529.0,
     "embalagem": 4,
     "categoria": "isofort_whey_protein_isolado_e",
     "categoriaNome": "ISOFORT -  WHEY PROTEIN ISOLADO E PARCIALMENTE HIDROLISADO 92% PROTEÍNA",
@@ -875,7 +875,7 @@
   {
     "codigo": "IU900BA",
     "nome": "ISOFORT ULTRA IMUNO POTE 900G BAUNILHA",
-    "preco": 529,
+    "preco": 529.0,
     "embalagem": 4,
     "categoria": "isofort_ultra_imuno_whey_prote",
     "categoriaNome": "ISOFORT ULTRA IMUNO - WHEY PROTEIN ISOLADO, WHEY PROTEIN HIDROLISADO, CREATINA (CREAPURE®), GLUTAMINA, ZINCO E CROMO.",
@@ -884,7 +884,7 @@
   {
     "codigo": "IU900CA",
     "nome": "ISOFORT ULTRA IMUNO POTE 900G CACAU",
-    "preco": 529,
+    "preco": 529.0,
     "embalagem": 4,
     "categoria": "isofort_ultra_imuno_whey_prote",
     "categoriaNome": "ISOFORT ULTRA IMUNO - WHEY PROTEIN ISOLADO, WHEY PROTEIN HIDROLISADO, CREATINA (CREAPURE®), GLUTAMINA, ZINCO E CROMO.",
@@ -893,7 +893,7 @@
   {
     "codigo": "IFP450BC",
     "nome": "ISOFORT PLANT 450g BANANA COM CANELA",
-    "preco": 179,
+    "preco": 179.0,
     "embalagem": 6,
     "categoria": "isofort_plant_vegano_proteina_",
     "categoriaNome": "ISOFORT PLANT - VEGANO - PROTEÍNA ISOLADA DE ERVILHA E ARROZ  COM VITAMINA B12",
@@ -902,7 +902,7 @@
   {
     "codigo": "IFP450CA",
     "nome": "ISOFORT PLANT 450g CACAU",
-    "preco": 179,
+    "preco": 179.0,
     "embalagem": 6,
     "categoria": "isofort_plant_vegano_proteina_",
     "categoriaNome": "ISOFORT PLANT - VEGANO - PROTEÍNA ISOLADA DE ERVILHA E ARROZ  COM VITAMINA B12",
@@ -911,7 +911,7 @@
   {
     "codigo": "IFP450BA",
     "nome": "ISOFORT PLANT 450g BAUNILHA",
-    "preco": 179,
+    "preco": 179.0,
     "embalagem": 6,
     "categoria": "isofort_plant_vegano_proteina_",
     "categoriaNome": "ISOFORT PLANT - VEGANO - PROTEÍNA ISOLADA DE ERVILHA E ARROZ  COM VITAMINA B12",
@@ -920,7 +920,7 @@
   {
     "codigo": "IFP450PA",
     "nome": "ISOFORT PLANT 450g PACOCA",
-    "preco": 179,
+    "preco": 179.0,
     "embalagem": 6,
     "categoria": "isofort_plant_vegano_proteina_",
     "categoriaNome": "ISOFORT PLANT - VEGANO - PROTEÍNA ISOLADA DE ERVILHA E ARROZ  COM VITAMINA B12",
@@ -929,7 +929,7 @@
   {
     "codigo": "IFB450BA",
     "nome": "ISOFORT BEAUTY 450g BAUNILHA",
-    "preco": 233,
+    "preco": 233.0,
     "embalagem": 6,
     "categoria": "isofort_plant_vegano_proteina_",
     "categoriaNome": "ISOFORT PLANT - VEGANO - PROTEÍNA ISOLADA DE ERVILHA E ARROZ  COM VITAMINA B12",
@@ -938,7 +938,7 @@
   {
     "codigo": "IFB450CA",
     "nome": "ISOFORT BEAUTY 450g CACAU",
-    "preco": 233,
+    "preco": 233.0,
     "embalagem": 6,
     "categoria": "isofort_plant_vegano_proteina_",
     "categoriaNome": "ISOFORT PLANT - VEGANO - PROTEÍNA ISOLADA DE ERVILHA E ARROZ  COM VITAMINA B12",
@@ -947,7 +947,7 @@
   {
     "codigo": "IFB450AG",
     "nome": "ISOFORT BEAUTY 450g ABACAXI COM GENGIBRE",
-    "preco": 233,
+    "preco": 233.0,
     "embalagem": 6,
     "categoria": "isofort_plant_vegano_proteina_",
     "categoriaNome": "ISOFORT PLANT - VEGANO - PROTEÍNA ISOLADA DE ERVILHA E ARROZ  COM VITAMINA B12",
@@ -956,7 +956,7 @@
   {
     "codigo": "IFB450CB",
     "nome": "ISOFORT BEAUTY 450g CRANBERRY",
-    "preco": 233,
+    "preco": 233.0,
     "embalagem": 6,
     "categoria": "isofort_plant_vegano_proteina_",
     "categoriaNome": "ISOFORT PLANT - VEGANO - PROTEÍNA ISOLADA DE ERVILHA E ARROZ  COM VITAMINA B12",
@@ -965,16 +965,16 @@
   {
     "codigo": "IFB450N",
     "nome": "ISOFORT BEAUTY 450g NEUTRO",
-    "preco": 233,
+    "preco": 233.0,
     "embalagem": 6,
     "categoria": "isofort_plant_vegano_proteina_",
     "categoriaNome": "ISOFORT PLANT - VEGANO - PROTEÍNA ISOLADA DE ERVILHA E ARROZ  COM VITAMINA B12",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611277/IFB450N-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611592/IFB450N-01.jpg"
   },
   {
     "codigo": "IFB15AG",
     "nome": "ISOFORT BEAUTY 15 SACHES 25g ABACAXI COM GENGIBRE",
-    "preco": 260,
+    "preco": 260.0,
     "embalagem": 4,
     "categoria": "isofort_plant_vegano_proteina_",
     "categoriaNome": "ISOFORT PLANT - VEGANO - PROTEÍNA ISOLADA DE ERVILHA E ARROZ  COM VITAMINA B12",
@@ -983,7 +983,7 @@
   {
     "codigo": "IFB15BA",
     "nome": "ISOFORT BEAUTY 15 SACHES 25g BAUNILHA",
-    "preco": 260,
+    "preco": 260.0,
     "embalagem": 4,
     "categoria": "isofort_plant_vegano_proteina_",
     "categoriaNome": "ISOFORT PLANT - VEGANO - PROTEÍNA ISOLADA DE ERVILHA E ARROZ  COM VITAMINA B12",
@@ -992,7 +992,7 @@
   {
     "codigo": "IFB15CA",
     "nome": "ISOFORT BEAUTY 15 SACHES 25g CACAU",
-    "preco": 260,
+    "preco": 260.0,
     "embalagem": 4,
     "categoria": "isofort_plant_vegano_proteina_",
     "categoriaNome": "ISOFORT PLANT - VEGANO - PROTEÍNA ISOLADA DE ERVILHA E ARROZ  COM VITAMINA B12",
@@ -1001,7 +1001,7 @@
   {
     "codigo": "IFB15CB",
     "nome": "ISOFORT BEAUTY 15 SACHES 25g CRANBERRY",
-    "preco": 260,
+    "preco": 260.0,
     "embalagem": 4,
     "categoria": "isofort_plant_vegano_proteina_",
     "categoriaNome": "ISOFORT PLANT - VEGANO - PROTEÍNA ISOLADA DE ERVILHA E ARROZ  COM VITAMINA B12",
@@ -1010,7 +1010,7 @@
   {
     "codigo": "IFB15N",
     "nome": "ISOFORT BEAUTY 15 SACHES 25G NEUTRO",
-    "preco": 260,
+    "preco": 260.0,
     "embalagem": 4,
     "categoria": "isofort_plant_vegano_proteina_",
     "categoriaNome": "ISOFORT PLANT - VEGANO - PROTEÍNA ISOLADA DE ERVILHA E ARROZ  COM VITAMINA B12",
@@ -1019,7 +1019,7 @@
   {
     "codigo": "KV30",
     "nome": "KRILLVIT30CAPSULAS500mg",
-    "preco": 89,
+    "preco": 89.0,
     "embalagem": 6,
     "categoria": "krill_vit_oleo_de_krill_omega_",
     "categoriaNome": "KRILL VIT  - ÓLEO DE KRILL - ÔMEGA 3 COM COLINA ASTAXANTINA E FOSFOLIPÍDEOS - CERTIFICADO INTERNACIONAL IKOS",
@@ -1028,7 +1028,7 @@
   {
     "codigo": "KV60",
     "nome": "KRILLVIT60CAPSULAS500mg",
-    "preco": 158,
+    "preco": 158.0,
     "embalagem": 6,
     "categoria": "krill_vit_oleo_de_krill_omega_",
     "categoriaNome": "KRILL VIT  - ÓLEO DE KRILL - ÔMEGA 3 COM COLINA ASTAXANTINA E FOSFOLIPÍDEOS - CERTIFICADO INTERNACIONAL IKOS",
@@ -1037,7 +1037,7 @@
   {
     "codigo": "LCZ60",
     "nome": "LACZYME 60 CAPSULAS 470mg",
-    "preco": 116,
+    "preco": 116.0,
     "embalagem": 6,
     "categoria": "laczyme_nova_formula_alta_conc",
     "categoriaNome": "LACZYME - NOVA FORMULA,  ALTA CONCENTRAÇÃO DE ENZIMA LACTASE POR CÁPSULAS 10.000 U.FCC",
@@ -1046,7 +1046,7 @@
   {
     "codigo": "LCT60",
     "nome": "L CARNITINA 60 CAPSULAS 530mg",
-    "preco": 89,
+    "preco": 89.0,
     "embalagem": 6,
     "categoria": "l_carnitina_aminoacido_em_caps",
     "categoriaNome": "L-CARNITINA - AMINOÁCIDO EM CÁPSULAS",
@@ -1055,7 +1055,7 @@
   {
     "codigo": "LCT120",
     "nome": "L CARNITINA 120 CAPSULAS DE 530mg",
-    "preco": 152,
+    "preco": 152.0,
     "embalagem": 6,
     "categoria": "l_carnitina_aminoacido_em_caps",
     "categoriaNome": "L-CARNITINA - AMINOÁCIDO EM CÁPSULAS",
@@ -1064,7 +1064,7 @@
   {
     "codigo": "LP120",
     "nome": "LIPIX 120 CAPSULAS1 000mg",
-    "preco": 98,
+    "preco": 98.0,
     "embalagem": 6,
     "categoria": "lipix_oleo_de_cartamo_com_vita",
     "categoriaNome": "LIPIX - ÓLEO DE CÁRTAMO COM VITAMINA E",
@@ -1073,7 +1073,7 @@
   {
     "codigo": "LPS60",
     "nome": "LIPIX 6   60  CAPSULAS 1000mg",
-    "preco": 98,
+    "preco": 98.0,
     "embalagem": 6,
     "categoria": "lipix6_oleo_de_cartamo_oleo_se",
     "categoriaNome": "LIPIX6- ÓLEO DE CARTAMO,ÓLEO SEMENTE DE UVA, DE CAFEÍNA,VITAMINA B3 E MINERAIS.",
@@ -1082,7 +1082,7 @@
   {
     "codigo": "LPS120",
     "nome": "LIPIX 6 120 CAPSULAS 1000mg",
-    "preco": 162,
+    "preco": 162.0,
     "embalagem": 6,
     "categoria": "lipix6_oleo_de_cartamo_oleo_se",
     "categoriaNome": "LIPIX6- ÓLEO DE CARTAMO,ÓLEO SEMENTE DE UVA, DE CAFEÍNA,VITAMINA B3 E MINERAIS.",
@@ -1091,34 +1091,34 @@
   {
     "codigo": "MGP90",
     "nome": "MAGNESIO PLUS 90 CÁPSULAS 690mg",
-    "preco": 116,
+    "preco": 116.0,
     "embalagem": 6,
     "categoria": "magnesio_plus",
     "categoriaNome": "MAGNÉSIO PLUS",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611039/MGP90-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611512/MGP90-01.jpg"
   },
   {
     "codigo": "MCA250",
     "nome": "MCT COM AGE FRASCO 250ML",
-    "preco": 98,
+    "preco": 98.0,
     "embalagem": 6,
     "categoria": "mct_triglicerideos_de_cadeia_m",
     "categoriaNome": "MCT - TRIGLICERÍDEOS DE CADEIA MÉDIA COM AGE (ÁCIDOS GRAXOS ESSENCIAIS)",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611466/MCA250-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611654/MCA250-01.jpg"
   },
   {
     "codigo": "MCT500",
     "nome": "MCT FRASCO 500ML",
-    "preco": 196,
+    "preco": 196.0,
     "embalagem": 6,
     "categoria": "mct_triglicerideos_de_cadeia_m",
     "categoriaNome": "MCT - TRIGLICERÍDEOS DE CADEIA MÉDIA",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/155716/MCT500-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611529/MCT500-1.png"
   },
   {
     "codigo": "MD60",
     "nome": "MEGA DHA 60 CAPSULAS 1000mg",
-    "preco": 126,
+    "preco": 126.0,
     "embalagem": 6,
     "categoria": "mega_dha_omega_3_50_dha_10_epa",
     "categoriaNome": "MEGA DHA - ÔMEGA 3 50% DHA 10% EPA - CERTIFICADO INTERNACIONAL IFOS",
@@ -1140,12 +1140,12 @@
     "embalagem": 32,
     "categoria": "melatonina_suplemento_alimenta",
     "categoriaNome": "MELATONINA - SUPLEMENTO ALIMENTAR ÀBASE DE MELATONINA",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611485/ML20-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611662/ML20-01.jpg"
   },
   {
     "codigo": "NAC30",
     "nome": "N ACETIL CISTEINA 30 CAPSULAS 750mg",
-    "preco": 69,
+    "preco": 69.0,
     "embalagem": 6,
     "categoria": "melatonina_suplemento_alimenta",
     "categoriaNome": "MELATONINA - SUPLEMENTO ALIMENTAR ÀBASE DE MELATONINA",
@@ -1154,7 +1154,7 @@
   {
     "codigo": "NAC60",
     "nome": "N ACETIL CISTEINA 60 CAPSULAS 750mg",
-    "preco": 111,
+    "preco": 111.0,
     "embalagem": 6,
     "categoria": "melatonina_suplemento_alimenta",
     "categoriaNome": "MELATONINA - SUPLEMENTO ALIMENTAR ÀBASE DE MELATONINA",
@@ -1163,7 +1163,7 @@
   {
     "codigo": "OF60",
     "nome": "OMEGA 3 EPA E DHA 60 CAPSULAS 1000mg",
-    "preco": 89,
+    "preco": 89.0,
     "embalagem": 6,
     "categoria": "omega_3_epa_dha_certificado_in",
     "categoriaNome": "ÔMEGA 3 EPA DHA -  CERTIFICADO INTERNACIONAL IFOS",
@@ -1172,7 +1172,7 @@
   {
     "codigo": "OF120",
     "nome": "OMEGA 3 EPA E DHA 120 CAPSULAS 1000mg",
-    "preco": 162,
+    "preco": 162.0,
     "embalagem": 12,
     "categoria": "omega_3_epa_dha_certificado_in",
     "categoriaNome": "ÔMEGA 3 EPA DHA -  CERTIFICADO INTERNACIONAL IFOS",
@@ -1181,7 +1181,7 @@
   {
     "codigo": "OF240",
     "nome": "OMEGA 3 EPA E DHA 240 CAPSULAS 1000mg",
-    "preco": 289,
+    "preco": 289.0,
     "embalagem": 6,
     "categoria": "omega_3_epa_dha_certificado_in",
     "categoriaNome": "ÔMEGA 3 EPA DHA -  CERTIFICADO INTERNACIONAL IFOS",
@@ -1190,7 +1190,7 @@
   {
     "codigo": "OFP60",
     "nome": "OMEGAFOR PLUS 60 CAPSULAS 1000mg",
-    "preco": 140,
+    "preco": 140.0,
     "embalagem": 6,
     "categoria": "omegafor_plus_33_epa_22_dha_ce",
     "categoriaNome": "OMEGAFOR PLUS - 33% EPA 22% DHA - CERTIFICADO INTERNACIONAL IFOS",
@@ -1199,7 +1199,7 @@
   {
     "codigo": "OFP120",
     "nome": "OMEGAFOR PLUS 120 CAPSULAS 1000mg",
-    "preco": 231,
+    "preco": 231.0,
     "embalagem": 12,
     "categoria": "omegafor_plus_33_epa_22_dha_ce",
     "categoriaNome": "OMEGAFOR PLUS - 33% EPA 22% DHA - CERTIFICADO INTERNACIONAL IFOS",
@@ -1208,7 +1208,7 @@
   {
     "codigo": "OFP240",
     "nome": "OMEGAFOR PLUS 240 CAPSULAS 1000mg",
-    "preco": 400,
+    "preco": 400.0,
     "embalagem": 6,
     "categoria": "omegafor_plus_33_epa_22_dha_ce",
     "categoriaNome": "OMEGAFOR PLUS - 33% EPA 22% DHA - CERTIFICADO INTERNACIONAL IFOS",
@@ -1217,7 +1217,7 @@
   {
     "codigo": "OFF60",
     "nome": "OMEGAFOR FAMILY 60 CAPSULAS 500mg",
-    "preco": 107,
+    "preco": 107.0,
     "embalagem": 6,
     "categoria": "omegafor_family_33_epa_22_dha_",
     "categoriaNome": "OMEGAFOR FAMILY- 33% EPA 22% DHA COM VITAMINAS E MINERAIS - CERTIFICADO INTERNACIONAL IFOS COM AROMA DE LARANJA E FORMATO DE PEIXINHO.",
@@ -1226,7 +1226,7 @@
   {
     "codigo": "OFF120",
     "nome": "OMEGAFOR FAMILY 120 CAPSULAS 500mg",
-    "preco": 179,
+    "preco": 179.0,
     "embalagem": 6,
     "categoria": "omegafor_family_33_epa_22_dha_",
     "categoriaNome": "OMEGAFOR FAMILY- 33% EPA 22% DHA COM VITAMINAS E MINERAIS - CERTIFICADO INTERNACIONAL IFOS COM AROMA DE LARANJA E FORMATO DE PEIXINHO.",
@@ -1235,7 +1235,7 @@
   {
     "codigo": "OFF360",
     "nome": "OMEGAFOR FAMILY 360 CAPSULAS 500mg",
-    "preco": 420,
+    "preco": 420.0,
     "embalagem": 6,
     "categoria": "omegafor_family_33_epa_22_dha_",
     "categoriaNome": "OMEGAFOR FAMILY- 33% EPA 22% DHA COM VITAMINAS E MINERAIS - CERTIFICADO INTERNACIONAL IFOS COM AROMA DE LARANJA E FORMATO DE PEIXINHO.",
@@ -1244,7 +1244,7 @@
   {
     "codigo": "OMV60",
     "nome": "OMEGAFOR VISION 60 CAPSULAS 1000mg",
-    "preco": 152,
+    "preco": 152.0,
     "embalagem": 6,
     "categoria": "omegafor_vision_omega_3_lutein",
     "categoriaNome": "OMEGAFOR VISION - OMEGA 3 + LUTEÍNA + ZEAXANTINA + NAC",
@@ -1253,16 +1253,16 @@
   {
     "codigo": "OV60",
     "nome": "OMEGAFOR VEGAN 60 CAPSULAS 700mg",
-    "preco": 152,
+    "preco": 152.0,
     "embalagem": 6,
     "categoria": "omegafor_vegan",
     "categoriaNome": "OMEGAFOR VEGAN",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611497/OV60-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611583/OV60-01.jpg"
   },
   {
     "codigo": "OME60",
     "nome": "OMEGAFOR MEMORY 60 CAPSULAS 1000mg",
-    "preco": 161,
+    "preco": 161.0,
     "embalagem": 6,
     "categoria": "omegafor_memory",
     "categoriaNome": "OMEGAFOR MEMORY",
@@ -1271,7 +1271,7 @@
   {
     "codigo": "OFV60",
     "nome": "OMEGAFOR VITAMINS 60 CAPSULAS 1000mg",
-    "preco": 88,
+    "preco": 88.0,
     "embalagem": 6,
     "categoria": "omegafor_vitamins",
     "categoriaNome": "OMEGAFOR VITAMINS",
@@ -1280,7 +1280,7 @@
   {
     "codigo": "OFV120",
     "nome": "OMEGAFOR VITAMINS 120 CAPSULAS 1000mg",
-    "preco": 154,
+    "preco": 154.0,
     "embalagem": 12,
     "categoria": "omegafor_vitamins",
     "categoriaNome": "OMEGAFOR VITAMINS",
@@ -1289,7 +1289,7 @@
   {
     "codigo": "PA300",
     "nome": "PALATINOSE POTE 300G",
-    "preco": 79,
+    "preco": 79.0,
     "embalagem": 12,
     "categoria": "palatinose_carboidrato_de_baix",
     "categoriaNome": "PALATINOSE (CARBOIDRATO DE BAIXO ÍNDICE GLICÊMICO - 100% VEGETAL)",
@@ -1298,7 +1298,7 @@
   {
     "codigo": "PR60",
     "nome": "PROFEM 60 CÁPSULAS 1000mg",
-    "preco": 93,
+    "preco": 93.0,
     "embalagem": 6,
     "categoria": "profem_oleos_de_primula_fonte_",
     "categoriaNome": "PROFEM - ÓLEOS DE PRÍMULA FONTE DE ÁCIDO GAMA- LINOLÊNICO (GLA)",
@@ -1307,7 +1307,7 @@
   {
     "codigo": "PL20",
     "nome": "PRÓPOLIS LIQUIDA GOTAS FRASCO 20ml",
-    "preco": 71,
+    "preco": 71.0,
     "embalagem": 32,
     "categoria": "propolis_e_composto_por_um_ble",
     "categoriaNome": "PRÓPOLIS - É COMPOSTO POR UM BLEND EXCLUSIVO DE PRÓPOLIS VERDE E VERMELHO, PROPORCIONANDO ALTA CONCENTRAÇÃO DE COMPOSTOS FENÓLICOS EM GOTAS",
@@ -1316,7 +1316,7 @@
   {
     "codigo": "REP60",
     "nome": "RESVERATROL PLUS 60 CAPSULAS 1000mg",
-    "preco": 178,
+    "preco": 178.0,
     "embalagem": 6,
     "categoria": "resveratrol_plus",
     "categoriaNome": "RESVERATROL PLUS",
@@ -1325,7 +1325,7 @@
   {
     "codigo": "SFM15",
     "nome": "SIMFORT FEMME 15 CÁPSULAS 650mg",
-    "preco": 84,
+    "preco": 84.0,
     "embalagem": 6,
     "categoria": "simfort_femme",
     "categoriaNome": "SIMFORT FEMME",
@@ -1334,7 +1334,7 @@
   {
     "codigo": "SFM30",
     "nome": "SIMFORT FEMME 30 CÁPSULAS 650MG",
-    "preco": 141,
+    "preco": 141.0,
     "embalagem": 6,
     "categoria": "simfort_femme",
     "categoriaNome": "SIMFORT FEMME",
@@ -1343,7 +1343,7 @@
   {
     "codigo": "SCP30",
     "nome": "SIMCAPS POTE COM 30 CÁPSULAS",
-    "preco": 71,
+    "preco": 71.0,
     "embalagem": 6,
     "categoria": "simcaps_probiotico_com_2_espec",
     "categoriaNome": "SIMCAPS - PROBIÓTICO COM 2 ESPÉCIES DE MICRORGANISMOS BENÉFICOS",
@@ -1352,7 +1352,7 @@
   {
     "codigo": "SCP60",
     "nome": "SIMCAPS POTE COM 60 CÁPSULAS",
-    "preco": 107,
+    "preco": 107.0,
     "embalagem": 6,
     "categoria": "simcaps_probiotico_com_2_espec",
     "categoriaNome": "SIMCAPS - PROBIÓTICO COM 2 ESPÉCIES DE MICRORGANISMOS BENÉFICOS",
@@ -1361,34 +1361,34 @@
   {
     "codigo": "SF10",
     "nome": "SIMFORT 10 SACHÊS DE 2g",
-    "preco": 58,
+    "preco": 58.0,
     "embalagem": 6,
     "categoria": "simfort_probiotico_em_po_com_5",
     "categoriaNome": "SIMFORT - PROBIÓTICO EM PÓ COM 5 CEPAS DE MICRORGANISMOS PROBIÓTICOS",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/610971/SF10-01.png"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611548/SF10-01.jpg"
   },
   {
     "codigo": "SF30",
     "nome": "SIMFORT 30 SACHÊS DE 2g",
-    "preco": 138,
+    "preco": 138.0,
     "embalagem": 12,
     "categoria": "simfort_probiotico_em_po_com_5",
     "categoriaNome": "SIMFORT - PROBIÓTICO EM PÓ COM 5 CEPAS DE MICRORGANISMOS PROBIÓTICOS",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/610973/SF30-01.png"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611550/SF30-01.jpg"
   },
   {
     "codigo": "SF60",
     "nome": "SIMFORT 60 SACHÊS DE 2g",
-    "preco": 260,
+    "preco": 260.0,
     "embalagem": 10,
     "categoria": "simfort_probiotico_em_po_com_5",
     "categoriaNome": "SIMFORT - PROBIÓTICO EM PÓ COM 5 CEPAS DE MICRORGANISMOS PROBIÓTICOS",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/610975/SF60-01--1-.png"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611552/SF60-01.jpg"
   },
   {
     "codigo": "SFF210",
     "nome": "SIMFORT FIBRAS 210g",
-    "preco": 93,
+    "preco": 93.0,
     "embalagem": 12,
     "categoria": "simfort_fibras_alimentares_sol",
     "categoriaNome": "SIMFORT -FIBRAS ALIMENTARES SOLÚVEIS E INSOLÚVEIS QUE CONTRIBUEM PARA O FUNCIONAMENTO DO INTESTINO",
@@ -1397,7 +1397,7 @@
   {
     "codigo": "SFS10",
     "nome": "SIMFORT PLUS 10 SACHES 2g",
-    "preco": 60,
+    "preco": 60.0,
     "embalagem": 12,
     "categoria": "simfort_plus_combinacao_de_pro",
     "categoriaNome": "SIMFORT PLUS - COMBINAÇÃO DE PROBIÓTICOS, EM MAIS UMA VERSÃO DE ALTA CONCENTRAÇÃO 17 BI (POR PORÇÃO) E CUSTO-BENEFÍCIO.",
@@ -1406,7 +1406,7 @@
   {
     "codigo": "SFS30",
     "nome": "SIMFORT PLUS 30 SACHES 2g",
-    "preco": 140,
+    "preco": 140.0,
     "embalagem": 12,
     "categoria": "simfort_plus_combinacao_de_pro",
     "categoriaNome": "SIMFORT PLUS - COMBINAÇÃO DE PROBIÓTICOS, EM MAIS UMA VERSÃO DE ALTA CONCENTRAÇÃO 17 BI (POR PORÇÃO) E CUSTO-BENEFÍCIO.",
@@ -1415,7 +1415,7 @@
   {
     "codigo": "SFP30",
     "nome": "SIMFORT PLUS 30 CÁPSULAS 390mg",
-    "preco": 98,
+    "preco": 98.0,
     "embalagem": 6,
     "categoria": "simfort_plus_combinacao_de_pro",
     "categoriaNome": "SIMFORT PLUS - COMBINAÇÃO DE PROBIÓTICOS, EM MAIS UMA VERSÃO DE ALTA CONCENTRAÇÃO 17 BI (POR PORÇÃO) E CUSTO-BENEFÍCIO.",
@@ -1433,7 +1433,7 @@
   {
     "codigo": "SFU30",
     "nome": "SIMFORT ULTRA 30 CAPSULAS 390mg",
-    "preco": 112,
+    "preco": 112.0,
     "embalagem": 6,
     "categoria": "simfort_ultra",
     "categoriaNome": "SIMFORT ULTRA",
@@ -1442,7 +1442,7 @@
   {
     "codigo": "SFU60",
     "nome": "SIMFORT ULTRA 60 CAPSULAS 390mg",
-    "preco": 215,
+    "preco": 215.0,
     "embalagem": 6,
     "categoria": "simfort_ultra",
     "categoriaNome": "SIMFORT ULTRA",
@@ -1451,7 +1451,7 @@
   {
     "codigo": "SL30",
     "nome": "SLEEPFOR 30 CAPSULAS 470mg",
-    "preco": 69,
+    "preco": 69.0,
     "embalagem": 6,
     "categoria": "sleepfor_l_triptofano_glicina_",
     "categoriaNome": "SLEEPFOR -   L-TRIPTOFANO, GLICINA, VITAMINA B3 E B6, COM ZERO ADIÇÃO DE AÇÚCARES.",
@@ -1460,7 +1460,7 @@
   {
     "codigo": "SL60",
     "nome": "SLEEPFOR 60 CAPSULAS 470mg",
-    "preco": 101,
+    "preco": 101.0,
     "embalagem": 6,
     "categoria": "sleepfor_l_triptofano_glicina_",
     "categoriaNome": "SLEEPFOR -   L-TRIPTOFANO, GLICINA, VITAMINA B3 E B6, COM ZERO ADIÇÃO DE AÇÚCARES.",
@@ -1469,34 +1469,34 @@
   {
     "codigo": "SV400BA",
     "nome": "SUSTEVIT LATA 400g BAUNILHA",
-    "preco": 72,
+    "preco": 72.0,
     "embalagem": 12,
     "categoria": "sustevit_complemento_alimentar",
     "categoriaNome": "SUSTEVIT - COMPLEMENTO ALIMENTAR COM FIBRAS E 27 VITAMINAS E MINERAIS",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/156824/SV400BA-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611681/SV400BA-01.jpg"
   },
   {
     "codigo": "SV400MO",
     "nome": "SUSTEVIT LATA 400g MORANGO",
-    "preco": 72,
+    "preco": 72.0,
     "embalagem": 12,
     "categoria": "sustevit_complemento_alimentar",
     "categoriaNome": "SUSTEVIT - COMPLEMENTO ALIMENTAR COM FIBRAS E 27 VITAMINAS E MINERAIS",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/156648/SV400MO-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611678/SV400MO-01.jpg"
   },
   {
     "codigo": "SV400N",
     "nome": "SUSTEVIT LATA 400G NEUTRO",
-    "preco": 72,
+    "preco": 72.0,
     "embalagem": 12,
     "categoria": "sustevit_complemento_alimentar",
     "categoriaNome": "SUSTEVIT - COMPLEMENTO ALIMENTAR COM FIBRAS E 27 VITAMINAS E MINERAIS",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/610285/SV400N-01.png"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611684/SV400N-01.jpg"
   },
   {
     "codigo": "TA30",
     "nome": "TAURINE 30 CAPSULAS 550mg",
-    "preco": 54,
+    "preco": 54.0,
     "embalagem": 6,
     "categoria": "taurine_100_l_taurina_em_capsu",
     "categoriaNome": "TAURINE - 100% L-TAURINA  EM CÁPSULAS",
@@ -1505,7 +1505,7 @@
   {
     "codigo": "TA60",
     "nome": "TAURINE 60 CAPSULAS 550mg",
-    "preco": 95,
+    "preco": 95.0,
     "embalagem": 6,
     "categoria": "taurine_100_l_taurina_em_capsu",
     "categoriaNome": "TAURINE - 100% L-TAURINA  EM CÁPSULAS",
@@ -1514,25 +1514,25 @@
   {
     "codigo": "TP240TC",
     "nome": "TERMO PLUS 240G TANGERINA COM CHA VERDE",
-    "preco": 224,
+    "preco": 224.0,
     "embalagem": 12,
     "categoria": "termoplus_cafeina_natural_l_ti",
     "categoriaNome": "TERMOPLUS  - CAFEÍNA NATURAL, L-TIROSINA, L-FENILALANINA COM VITAMINAS E MINERAIS",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611476/TP240TC-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611557/TP240TC-01.jpg"
   },
   {
     "codigo": "TP240FGC",
     "nome": "TERMOPLUS 240G FRUTAS VERMELHAS COM GENGIBRE E CHÁ VERDE",
-    "preco": 224,
+    "preco": 224.0,
     "embalagem": 12,
     "categoria": "termoplus_cafeina_natural_l_ti",
     "categoriaNome": "TERMOPLUS  - CAFEÍNA NATURAL, L-TIROSINA, L-FENILALANINA COM VITAMINAS E MINERAIS",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/157768/TP240FGC-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611554/TP240FGC-01.jpg"
   },
   {
     "codigo": "TP30TC",
     "nome": "TERMO PLUS 30 SACHÊS 4G TANGERINA COM CHÁ VERDE",
-    "preco": 174,
+    "preco": 174.0,
     "embalagem": 6,
     "categoria": "termoplus_cafeina_natural_l_ti",
     "categoriaNome": "TERMOPLUS  - CAFEÍNA NATURAL, L-TIROSINA, L-FENILALANINA COM VITAMINAS E MINERAIS",
@@ -1541,7 +1541,7 @@
   {
     "codigo": "TP30FGC",
     "nome": "TERMO PLUS 30 SACHES 4G FRUTAS VERMELHAS E GENGIBRE COM CHÁ VERDE",
-    "preco": 174,
+    "preco": 174.0,
     "embalagem": 6,
     "categoria": "termoplus_cafeina_natural_l_ti",
     "categoriaNome": "TERMOPLUS  - CAFEÍNA NATURAL, L-TIROSINA, L-FENILALANINA COM VITAMINAS E MINERAIS",
@@ -1550,7 +1550,7 @@
   {
     "codigo": "TPC90",
     "nome": "TERMO PLUS 90 CAPSULAS 650mg",
-    "preco": 134,
+    "preco": 134.0,
     "embalagem": 6,
     "categoria": "termo_plus_capsulas_cafe_verde",
     "categoriaNome": "TERMO PLUS CAPSULAS - CAFÉ VERDE, LARANJA MORO (CITRUS SINENSIS L OSBECK), AMINOÁCIDOS, EXTRATO SECO DE SEMENTE DE UVA, VITAMINAS E MINERAIS.",
@@ -1559,7 +1559,7 @@
   {
     "codigo": "CFE220OR",
     "nome": "V-COFFEE LATA 220G ORIGINAL",
-    "preco": 138,
+    "preco": 138.0,
     "embalagem": 12,
     "categoria": "v_coffee_energy_boost",
     "categoriaNome": "V-COFFEE ENERGY BOOST",
@@ -1568,7 +1568,7 @@
   {
     "codigo": "VF240FV",
     "nome": "V FORT 240g FRUTAS VERMELHAS",
-    "preco": 164,
+    "preco": 164.0,
     "embalagem": 12,
     "categoria": "v_fort_intenso_pre_treino_com_",
     "categoriaNome": "V-FORT INTENSO PRÉ TREINO COM CREATINA MONOHIDRATADA, L-ARGININA, L-CARNITINA, TIROSINA, FENILALANINA,BETA ALANINA, CAFEÍNA COM VITAMINAS E MINERAIS",
@@ -1577,16 +1577,16 @@
   {
     "codigo": "VF240LI",
     "nome": "V FORT 240g LIMAO",
-    "preco": 164,
+    "preco": 164.0,
     "embalagem": 12,
     "categoria": "v_fort_intenso_pre_treino_com_",
     "categoriaNome": "V-FORT INTENSO PRÉ TREINO COM CREATINA MONOHIDRATADA, L-ARGININA, L-CARNITINA, TIROSINA, FENILALANINA,BETA ALANINA, CAFEÍNA COM VITAMINAS E MINERAIS",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/610986/VF240LI-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611560/VF240LI-01.jpg"
   },
   {
     "codigo": "VFU240LI",
     "nome": "V FORT ULTRA POTE 240G LIMAO",
-    "preco": 164,
+    "preco": 164.0,
     "embalagem": 12,
     "categoria": "v_fort_intenso_pre_treino_com_",
     "categoriaNome": "V-FORT INTENSO PRÉ TREINO COM CREATINA MONOHIDRATADA, L-ARGININA, L-CARNITINA, TIROSINA, FENILALANINA,BETA ALANINA, CAFEÍNA COM VITAMINAS E MINERAIS",
@@ -1595,7 +1595,7 @@
   {
     "codigo": "VFU240UV",
     "nome": "V FORT ULTRA POTE 240G UVA",
-    "preco": 164,
+    "preco": 164.0,
     "embalagem": 12,
     "categoria": "v_fort_intenso_pre_treino_com_",
     "categoriaNome": "V-FORT INTENSO PRÉ TREINO COM CREATINA MONOHIDRATADA, L-ARGININA, L-CARNITINA, TIROSINA, FENILALANINA,BETA ALANINA, CAFEÍNA COM VITAMINAS E MINERAIS",
@@ -1604,7 +1604,7 @@
   {
     "codigo": "VTT30",
     "nome": "VITATEA 30 SACHES 2g",
-    "preco": 98,
+    "preco": 98.0,
     "embalagem": 12,
     "categoria": "vitatea_cha_misto",
     "categoriaNome": "VITATEA - CHÁ MISTO",
@@ -1613,7 +1613,7 @@
   {
     "codigo": "VTE30",
     "nome": "VITATEA EQUILIBRIUM 30 SACHES DE 2g",
-    "preco": 98,
+    "preco": 98.0,
     "embalagem": 12,
     "categoria": "vitatea_equilibrium",
     "categoriaNome": "VITATEA EQUILIBRIUM",
@@ -1622,11 +1622,11 @@
   {
     "codigo": "VB60F",
     "nome": "VITA BEAR 4g 60 GOMAS DE FRUTAS",
-    "preco": 130,
+    "preco": 130.0,
     "embalagem": 6,
     "categoria": "nutricao_infantil_e_adultos_go",
     "categoriaNome": "NUTRIÇÃO INFANTIL E ADULTOS - GOMAS MASTIGÁVEIS COM MULTIVITAMINAS, MINERAIS, SABOR NATURAL DE FRUTAS.",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/155906/VB60F-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611601/VB60F-01.jpg"
   },
   {
     "codigo": "VC60",
@@ -1640,7 +1640,7 @@
   {
     "codigo": "VC120",
     "nome": "VITA C3 120 CAPSULAS 1000mg",
-    "preco": 127,
+    "preco": 127.0,
     "embalagem": 6,
     "categoria": "nutricao_infantil_e_adultos_go",
     "categoriaNome": "NUTRIÇÃO INFANTIL E ADULTOS - GOMAS MASTIGÁVEIS COM MULTIVITAMINAS, MINERAIS, SABOR NATURAL DE FRUTAS.",
@@ -1658,7 +1658,7 @@
   {
     "codigo": "VDZ30",
     "nome": "VITA D3 + C + ZINCO 30 CAPSULAS 1000mg",
-    "preco": 59,
+    "preco": 59.0,
     "embalagem": 6,
     "categoria": "vita_d3_vit_c_zinco",
     "categoriaNome": "VITA D3® VIT.C + ZINCO",
@@ -1667,7 +1667,7 @@
   {
     "codigo": "VDZ60",
     "nome": "VITA D3 + C + ZINCO 60 CAPSULAS 1000mg",
-    "preco": 96,
+    "preco": 96.0,
     "embalagem": 6,
     "categoria": "vita_d3_vit_c_zinco",
     "categoriaNome": "VITA D3® VIT.C + ZINCO",
@@ -1685,7 +1685,7 @@
   {
     "codigo": "VDK20ME",
     "nome": "VITA D3 + K2 GOTAS FRASCO 20ML SABOR MENTA",
-    "preco": 99,
+    "preco": 99.0,
     "embalagem": 32,
     "categoria": "vita_d3_k2_gotas_frasco_20_ml_",
     "categoriaNome": "VITA D3 + K2 GOTAS FRASCO 20 ML SABOR MENTA",
@@ -1694,16 +1694,16 @@
   {
     "codigo": "WFT900BN",
     "nome": "WHEY FORT 3W POTE 900G BANANA",
-    "preco": 359,
+    "preco": 359.0,
     "embalagem": 4,
     "categoria": "whey_fort_100_whey_protein_pre",
     "categoriaNome": "WHEY FORT - 100% WHEY PROTEIN PREMIUM - ISOLADO E CONCENTRADO",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/610499/WFT900BN-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611580/WFT900BN-01.jpg"
   },
   {
     "codigo": "WFT900BA",
     "nome": "WHEY FORT 3W POTE 900G BAUNILHA",
-    "preco": 359,
+    "preco": 359.0,
     "embalagem": 4,
     "categoria": "whey_fort_100_whey_protein_pre",
     "categoriaNome": "WHEY FORT - 100% WHEY PROTEIN PREMIUM - ISOLADO E CONCENTRADO",
@@ -1712,7 +1712,7 @@
   {
     "codigo": "WFT900CH",
     "nome": "WHEY FORT 3W POTE 900G CHOCOLATE",
-    "preco": 359,
+    "preco": 359.0,
     "embalagem": 4,
     "categoria": "whey_fort_100_whey_protein_pre",
     "categoriaNome": "WHEY FORT - 100% WHEY PROTEIN PREMIUM - ISOLADO E CONCENTRADO",
@@ -1721,7 +1721,7 @@
   {
     "codigo": "WFT900CC",
     "nome": "WHEY FORT 3W POTE 900G COOKIES N CREAM",
-    "preco": 359,
+    "preco": 359.0,
     "embalagem": 4,
     "categoria": "whey_fort_100_whey_protein_pre",
     "categoriaNome": "WHEY FORT - 100% WHEY PROTEIN PREMIUM - ISOLADO E CONCENTRADO",
@@ -1730,16 +1730,16 @@
   {
     "codigo": "WFT900FV",
     "nome": "WHEY FORT 3W POTE 900G FRUTAS VERMELHAS",
-    "preco": 359,
+    "preco": 359.0,
     "embalagem": 4,
     "categoria": "whey_fort_100_whey_protein_pre",
     "categoriaNome": "WHEY FORT - 100% WHEY PROTEIN PREMIUM - ISOLADO E CONCENTRADO",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/610510/WFT900FV-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611577/WFT900FV-01.jpg"
   },
   {
     "codigo": "WFT900MC",
     "nome": "WHEY FORT 3W POTE 900G MOCHACCINO",
-    "preco": 359,
+    "preco": 359.0,
     "embalagem": 4,
     "categoria": "whey_fort_100_whey_protein_pre",
     "categoriaNome": "WHEY FORT - 100% WHEY PROTEIN PREMIUM - ISOLADO E CONCENTRADO",
@@ -1748,7 +1748,7 @@
   {
     "codigo": "WFT900N",
     "nome": "WHEY FORT 3W POTE 900G NEUTRO",
-    "preco": 359,
+    "preco": 359.0,
     "embalagem": 4,
     "categoria": "whey_fort_100_whey_protein_pre",
     "categoriaNome": "WHEY FORT - 100% WHEY PROTEIN PREMIUM - ISOLADO E CONCENTRADO",
@@ -1757,7 +1757,7 @@
   {
     "codigo": "WFT900PA",
     "nome": "WHEY FORT 3W POTE 900G PAÇOCA",
-    "preco": 359,
+    "preco": 359.0,
     "embalagem": 4,
     "categoria": "whey_fort_100_whey_protein_pre",
     "categoriaNome": "WHEY FORT - 100% WHEY PROTEIN PREMIUM - ISOLADO E CONCENTRADO",
@@ -1766,16 +1766,16 @@
   {
     "codigo": "WPI250",
     "nome": "WHEY PROTEIN ISOLATE 250g",
-    "preco": 224,
+    "preco": 224.0,
     "embalagem": 12,
     "categoria": "whey_protein_isolate_modulo_de",
     "categoriaNome": "WHEY PROTEIN ISOLATE - MÓDULO DE PROTEÍNA PARA NUTRIÇÃO ENTERAL E ORAL",
-    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/155459/WPI250-01.jpg"
+    "imagem": "https://vitafor.vteximg.com.br/arquivos/ids/611606/WPI250-01.jpg"
   },
   {
     "codigo": "WPI15",
     "nome": "WHEY PROTEIN ISOLATE 15 SACHES DE 15g",
-    "preco": 242,
+    "preco": 242.0,
     "embalagem": 6,
     "categoria": "whey_protein_isolate_modulo_de",
     "categoriaNome": "WHEY PROTEIN ISOLATE - MÓDULO DE PROTEÍNA PARA NUTRIÇÃO ENTERAL E ORAL",
@@ -1784,7 +1784,7 @@
   {
     "codigo": "WP900BA",
     "nome": "WHEY PROTEIN WPC POUCH 900G BAUNILHA",
-    "preco": 236,
+    "preco": 236.0,
     "embalagem": 4,
     "categoria": "whey_protein_wpc_pouch",
     "categoriaNome": "WHEY PROTEIN WPC POUCH",
@@ -1793,7 +1793,7 @@
   {
     "codigo": "WP900MO",
     "nome": "WHEY PROTEIN WPC POUCH 900G MORANGO",
-    "preco": 236,
+    "preco": 236.0,
     "embalagem": 4,
     "categoria": "whey_protein_wpc_pouch",
     "categoriaNome": "WHEY PROTEIN WPC POUCH",
@@ -1802,7 +1802,7 @@
   {
     "codigo": "WP900BJ",
     "nome": "WHEY PROTEIN WPC POUCH 900G BEIJINHO",
-    "preco": 236,
+    "preco": 236.0,
     "embalagem": 4,
     "categoria": "whey_protein_wpc_pouch",
     "categoriaNome": "WHEY PROTEIN WPC POUCH",
@@ -1811,7 +1811,7 @@
   {
     "codigo": "WP900MM",
     "nome": "WHEY PROTEIN WPC POUCH 900G MOUSSE DE MARACUJÁ",
-    "preco": 236,
+    "preco": 236.0,
     "embalagem": 4,
     "categoria": "whey_protein_wpc_pouch",
     "categoriaNome": "WHEY PROTEIN WPC POUCH",
@@ -1820,7 +1820,7 @@
   {
     "codigo": "XLF300",
     "nome": "XILITOL FAMILY POUCH 300g",
-    "preco": 69,
+    "preco": 69.0,
     "embalagem": 6,
     "categoria": "xilitol_family",
     "categoriaNome": "XILITOL FAMILY",
@@ -1829,7 +1829,7 @@
   {
     "codigo": "ACA90",
     "nome": "ACANTHOPANAX 90 CÁPSULAS",
-    "preco": 107,
+    "preco": 107.0,
     "embalagem": 6,
     "categoria": "acanthopanax_ciwujia_jiaonang",
     "categoriaNome": "ACANTHOPANAX -  CIWUJIA JIAONANG",
@@ -1838,7 +1838,7 @@
   {
     "codigo": "BCO100",
     "nome": "BUPLEURUM COMBINATION 100 CÁPSULAS 400mg",
-    "preco": 189,
+    "preco": 189.0,
     "embalagem": 6,
     "categoria": "acanthopanax_ciwujia_jiaonang",
     "categoriaNome": "ACANTHOPANAX -  CIWUJIA JIAONANG",
@@ -1847,7 +1847,7 @@
   {
     "codigo": "CNP90",
     "nome": "CINNAMON & PORIA 90 CÁPSULAS",
-    "preco": 125,
+    "preco": 125.0,
     "embalagem": 6,
     "categoria": "cinnamon_poria_guizhi_fuling_j",
     "categoriaNome": "CINNAMON & PORIA - GUIZHI FULING JIAONANG",
@@ -1856,7 +1856,7 @@
   {
     "codigo": "CRD90",
     "nome": "CORDYCEPS 90 CÁPSULAS",
-    "preco": 134,
+    "preco": 134.0,
     "embalagem": 6,
     "categoria": "cordyceps_jinhuibao_jiaonang",
     "categoriaNome": "CORDYCEPS -  JINHUIBAO JIAONANG",
@@ -1865,7 +1865,7 @@
   {
     "codigo": "ECH90",
     "nome": "ECHINACEA 90 CÁPSULAS",
-    "preco": 93,
+    "preco": 93.0,
     "embalagem": 6,
     "categoria": "echinacea_chuanxinlian_jiaonan",
     "categoriaNome": "ECHINACEA -  CHUANXINLIAN JIAONANG",
@@ -1874,7 +1874,7 @@
   {
     "codigo": "HLO36",
     "nome": "HYPERICUM & LONICERA 36 CÁPSULAS",
-    "preco": 84,
+    "preco": 84.0,
     "embalagem": 6,
     "categoria": "hypericum_lonicera_lianhuaqing",
     "categoriaNome": "HYPERICUM & LONICERA - LIANHUAQINGWEN JIAONANG",
@@ -1883,7 +1883,7 @@
   {
     "codigo": "REF100",
     "nome": "REHMANNIA EIGHT FÓRMULA 100 CÁPSULAS",
-    "preco": 130,
+    "preco": 130.0,
     "embalagem": 6,
     "categoria": "rehmannia_eight_formula_guifu_",
     "categoriaNome": "REHMANNIA EIGHT FÓRMULA - GUIFU DIHUANG JIAONANG",
@@ -1892,7 +1892,7 @@
   {
     "codigo": "REH100",
     "nome": "REHMANNIA & EPIMEDII 100 CÁPSULAS 350mg",
-    "preco": 159,
+    "preco": 159.0,
     "embalagem": 6,
     "categoria": "rehmannia_epimedii_100_capsula",
     "categoriaNome": "REHMANNIA & EPIMEDII 100 CÁPSULAS",
@@ -1901,7 +1901,7 @@
   {
     "codigo": "RHD60",
     "nome": "RHODIOLA 60 CÁPSULAS",
-    "preco": 92,
+    "preco": 92.0,
     "embalagem": 6,
     "categoria": "rhodiola_nuodikang_jiaonang",
     "categoriaNome": "RHODIOLA - NUODIKANG JIAONANG",
@@ -1910,7 +1910,7 @@
   {
     "codigo": "SFT60",
     "nome": "SIX FLAVOR TEA 60 CÁPSULAS",
-    "preco": 140,
+    "preco": 140.0,
     "embalagem": 6,
     "categoria": "six_flavor_liuwei_dihuang_jiao",
     "categoriaNome": "SIX FLAVOR -  LIUWEI DIHUANG JIAONANG",
@@ -1919,7 +1919,7 @@
   {
     "codigo": "VPI1005TR",
     "nome": "VITAPOWER INTEGRAL POTE 1005G SABOR TRADICIONAL",
-    "preco": 288,
+    "preco": 288.0,
     "embalagem": 6,
     "categoria": "linha_integral",
     "categoriaNome": "LINHA INTEGRAL",
@@ -1928,7 +1928,7 @@
   {
     "codigo": "VPI1005CR",
     "nome": "VITAPOWER INTEGRAL POTE 1005G SABOR CROCANTE",
-    "preco": 288,
+    "preco": 288.0,
     "embalagem": 6,
     "categoria": "linha_integral",
     "categoriaNome": "LINHA INTEGRAL",
@@ -1937,7 +1937,7 @@
   {
     "codigo": "VPI450TR",
     "nome": "VITAPOWER INTEGRAL POTE 450G SABOR TRADICIONAL",
-    "preco": 200,
+    "preco": 200.0,
     "embalagem": 8,
     "categoria": "linha_integral",
     "categoriaNome": "LINHA INTEGRAL",
@@ -1946,7 +1946,7 @@
   {
     "codigo": "VPI450CR",
     "nome": "VITAPOWER INTEGRAL POTE 450G SABOR CROCANTE",
-    "preco": 240,
+    "preco": 240.0,
     "embalagem": 8,
     "categoria": "linha_integral",
     "categoriaNome": "LINHA INTEGRAL",
@@ -1955,7 +1955,7 @@
   {
     "codigo": "VPI1005CC",
     "nome": "VITAPOWER INTEGRAL POTE 1005G SABOR COOKIES & CREAM",
-    "preco": 528,
+    "preco": 528.0,
     "embalagem": 6,
     "categoria": "linha_gourmet",
     "categoriaNome": "LINHA GOURMET",
@@ -1964,7 +1964,7 @@
   {
     "codigo": "VPI1005SP",
     "nome": "VITAPOWER INTEGRAL POTE 1005G SABOR SHOT PROTEIN",
-    "preco": 528,
+    "preco": 528.0,
     "embalagem": 6,
     "categoria": "linha_gourmet",
     "categoriaNome": "LINHA GOURMET",
@@ -1973,7 +1973,7 @@
   {
     "codigo": "VPI1005BR",
     "nome": "VITAPOWER INTEGRAL POTE 1005G SABOR BROWNIE CREAM",
-    "preco": 528,
+    "preco": 528.0,
     "embalagem": 6,
     "categoria": "linha_gourmet",
     "categoriaNome": "LINHA GOURMET",
@@ -1991,7 +1991,7 @@
   {
     "codigo": "VPI450CC",
     "nome": "VITAPOWER INTEGRAL POTE 450G SABOR COOKIES & CREAM",
-    "preco": 360,
+    "preco": 360.0,
     "embalagem": 8,
     "categoria": "linha_gourmet",
     "categoriaNome": "LINHA GOURMET",
@@ -2000,7 +2000,7 @@
   {
     "codigo": "VPI450SP",
     "nome": "VITAPOWER INTEGRAL POTE 450G SABOR SHOT PROTEIN",
-    "preco": 440,
+    "preco": 440.0,
     "embalagem": 8,
     "categoria": "linha_gourmet",
     "categoriaNome": "LINHA GOURMET",
@@ -2009,7 +2009,7 @@
   {
     "codigo": "VPI450BR",
     "nome": "VITAPOWER INTEGRAL POTE 450G SABOR BROWNIE CREAM",
-    "preco": 360,
+    "preco": 360.0,
     "embalagem": 8,
     "categoria": "linha_gourmet",
     "categoriaNome": "LINHA GOURMET",
@@ -2153,7 +2153,7 @@
   {
     "codigo": "B1220ME",
     "nome": "VITAMINA B12 GOTAS FRASCO 20ML MENTA",
-    "preco": 51,
+    "preco": 51.0,
     "embalagem": 32,
     "categoria": "vitamina_b12_gotas",
     "categoriaNome": "VITAMINA B12 GOTAS",
