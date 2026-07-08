@@ -19,6 +19,27 @@
  * ============================================================ */
 
 const API_BASE = "/api/db";
+const BUYER_TOKEN_KEY = "buyerToken";
+const ADMIN_TOKEN_KEY = "adminToken";
+
+function readPersistedToken(key) {
+  return sessionStorage.getItem(key) || localStorage.getItem(key) || "";
+}
+
+function writePersistedToken(key, value) {
+  if (!value) {
+    sessionStorage.removeItem(key);
+    localStorage.removeItem(key);
+    return;
+  }
+  sessionStorage.setItem(key, value);
+  localStorage.setItem(key, value);
+}
+
+function clearPersistedToken(key) {
+  sessionStorage.removeItem(key);
+  localStorage.removeItem(key);
+}
 
 /* ----------------------- Confirm modal customizado --------- */
 function customConfirm(msg) {
@@ -185,7 +206,7 @@ const app = {
       this.switchTab("admin");
     }
     // Cadastro obrigatório logo na entrada
-    if (!this.state.isRegistered) {
+    if (!this.hasAppAccess()) {
       this.showRegistrationModal(true, "login");
     } else {
       // Detecta pedidos órfãos do banco para limpar histórico
@@ -347,8 +368,8 @@ const app = {
 
   /* ----------------- Cadastro ----------------- */
   checkRegistration() {
-    this.state.buyerToken = sessionStorage.getItem("buyerToken") || "";
-    this.state.adminToken = sessionStorage.getItem("adminToken") || "";
+    this.state.buyerToken = readPersistedToken(BUYER_TOKEN_KEY);
+    this.state.adminToken = readPersistedToken(ADMIN_TOKEN_KEY);
     const reg = localStorage.getItem("userRegistered");
     if (reg === "true" && this.state.buyerToken) {
       this.state.isRegistered = true;
@@ -356,6 +377,10 @@ const app = {
       this.state.user.phone = localStorage.getItem("registeredPhone") || "";
       this.state.user.email = localStorage.getItem("registeredEmail") || "";
     }
+  },
+
+  hasAppAccess() {
+    return this.state.isRegistered || this.state.isAdminLoggedIn;
   },
 
   clearBuyerSession(showModal = true) {
@@ -366,22 +391,22 @@ const app = {
     localStorage.removeItem("registeredName");
     localStorage.removeItem("registeredPhone");
     localStorage.removeItem("registeredEmail");
-    sessionStorage.removeItem("buyerToken");
+    clearPersistedToken(BUYER_TOKEN_KEY);
     this.state.lastOrder = null;
     this.renderHeaderUser();
     this.saveLocal();
-    if (showModal) this.showRegistrationModal(true, "login");
+    if (showModal && !this.state.isAdminLoggedIn) this.showRegistrationModal(true, "login");
   },
 
   clearAdminSession() {
     this.state.isAdminLoggedIn = false;
     this.state.adminToken = "";
-    sessionStorage.removeItem("adminToken");
+    clearPersistedToken(ADMIN_TOKEN_KEY);
     this.saveLocal();
   },
 
   requireRegistration() {
-    if (!this.state.isRegistered) {
+    if (!this.hasAppAccess()) {
       this.showRegistrationModal(true);
       return false;
     }
@@ -430,6 +455,9 @@ const app = {
             <button class="btn btn-primary btn-block" onclick="app.submitRegistration('${mode}')">${isLogin ? "Entrar" : "Cadastrar e entrar"}</button>
             <button class="btn btn-ghost btn-block" onclick="app.showRegistrationModal(${blocking}, '${isLogin ? "signup" : "login"}')">
               ${isLogin ? "Criar cadastro (primeiro acesso)" : "Já tenho cadastro — entrar"}
+            </button>
+            <button class="btn btn-ghost btn-block" onclick="document.getElementById('registrationModal')?.remove(); app.promptAdminLogin()">
+              Entrar como admin
             </button>
           </div>
         </div>
@@ -520,7 +548,7 @@ const app = {
     localStorage.setItem("registeredName", name);
     localStorage.setItem("registeredPhone", phone);
     localStorage.setItem("registeredEmail", email);
-    if (this.state.buyerToken) sessionStorage.setItem("buyerToken", this.state.buyerToken);
+    writePersistedToken(BUYER_TOKEN_KEY, this.state.buyerToken);
     document.getElementById("registrationModal")?.remove();
     this.renderHeaderUser();
     this.toast(`Olá, ${name.split(" ")[0]}!`, "success");
@@ -1595,6 +1623,7 @@ const app = {
       this.switchTab("admin");
       return;
     }
+    document.getElementById("registrationModal")?.remove();
     const existing = document.getElementById("adminLoginModal");
     if (existing) existing.remove();
     const modal = document.createElement("div");
@@ -1645,7 +1674,7 @@ const app = {
     if (res && res.success) {
       this.state.isAdminLoggedIn = true;
       this.state.adminToken = res?.token || res?.data?.token || "";
-      if (this.state.adminToken) sessionStorage.setItem("adminToken", this.state.adminToken);
+      writePersistedToken(ADMIN_TOKEN_KEY, this.state.adminToken);
       const tabAdmin = document.getElementById("tabAdmin");
       if (tabAdmin) tabAdmin.hidden = false;
       document
@@ -1653,8 +1682,10 @@ const app = {
         ?.classList.add("hidden");
       document.getElementById("adminContent")?.classList.remove("hidden");
       document.getElementById("adminLoginModal")?.remove();
+      document.getElementById("registrationModal")?.remove();
       this.switchTab("admin");
       await this.renderAdmin();
+      this.saveLocal();
       this.toast("Acesso liberado", "success");
     } else {
       this.toast("Senha incorreta", "error");
@@ -2624,10 +2655,8 @@ const app = {
     localStorage.setItem("cart", JSON.stringify(this.state.cart));
     localStorage.setItem("discountPct", String(this.state.discountPct || 0));
     localStorage.setItem("lastOrder", JSON.stringify(this.state.lastOrder || null));
-    if (this.state.adminToken) sessionStorage.setItem("adminToken", this.state.adminToken);
-    else sessionStorage.removeItem("adminToken");
-    if (this.state.buyerToken) sessionStorage.setItem("buyerToken", this.state.buyerToken);
-    else sessionStorage.removeItem("buyerToken");
+    writePersistedToken(ADMIN_TOKEN_KEY, this.state.adminToken);
+    writePersistedToken(BUYER_TOKEN_KEY, this.state.buyerToken);
   },
   loadLocal() {
     try {
@@ -2635,8 +2664,8 @@ const app = {
       const d = localStorage.getItem("discountPct");
       const theme = localStorage.getItem("theme");
       const lo = localStorage.getItem("lastOrder");
-      const adminToken = sessionStorage.getItem("adminToken");
-      const buyerToken = sessionStorage.getItem("buyerToken");
+      const adminToken = readPersistedToken(ADMIN_TOKEN_KEY);
+      const buyerToken = readPersistedToken(BUYER_TOKEN_KEY);
       if (c) this.state.cart = JSON.parse(c);
       if (d) this.state.discountPct = parseFloat(d) || 0;
       if (theme === "dark" || theme === "light") this.state.theme = theme;

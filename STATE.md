@@ -278,7 +278,7 @@ App de compras coletivas para produtos Vitafor. O grupo já está formado com 23
 - [x] Escritas críticas de pedidos/itens/merge/remoções foram protegidas com `BEGIN/COMMIT/ROLLBACK`.
 - [x] CORS deixou de usar wildcard nas APIs e `vercel.json`; allowlist: produção e `localhost:3000`.
 - [x] Runtime não executa mais `ensureMigrations()`; nova migration manual: `sql/04_security_sessions.sql`.
-- [x] Frontend usa `sessionStorage` para tokens admin/comprador e mantém carrinho em falhas de envio.
+- [x] Frontend persiste tokens admin/comprador em `localStorage` + `sessionStorage`, evita pedir novo cadastro a cada reabertura e libera atalho direto para login admin no modal inicial.
 - [ ] Executar `sql/04_security_sessions.sql` no Supabase antes do próximo deploy.
 
 ### Backend
