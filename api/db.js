@@ -875,22 +875,68 @@ export default async function handler(req) {
         });
       }
 
-      // POST /comprador/login  { nome, telefone, pin }
+      // POST /comprador/login
+      // - Novo formato (recomendado): { identificador, pin }
+      //   onde `identificador` = telefone OU email do comprador.
+      // - Formato legado (retrocompatibilidade para apps antigos em cache):
+      //   { nome, telefone, pin } — continua funcionando como antes.
       if (path === 'comprador/login') {
-        const { nome, telefone, pin } = body;
-        const { nome: n, telefone: t } = normalizeNomeTel(nome, telefone);
-        const phoneCandidates = getPhoneLookupCandidates(t);
-        if (!n || !t || !pin) {
-          await client.end();
-          return json({ success: false, error: 'Dados incompletos' }, 400);
+        const { identificador, nome, telefone, pin } = body;
+
+        // SECTION: Detecção do formato de entrada
+        // Se `identificador` veio, usamos o formato novo (telefone ou email + PIN).
+        // Caso contrário, fallback para o formato legado (nome + telefone + pin).
+        const useNewFormat = !!identificador;
+        let row = null;
+
+        if (useNewFormat) {
+          const id = String(identificador || '').trim();
+          if (!id || !pin) {
+            await client.end();
+            return json({ success: false, error: 'Dados incompletos' }, 400);
+          }
+
+          // SECTION: Busca por telefone (normalizado) ou email (case-insensitive)
+          const isEmail = /^\S+@\S+\.\S+$/.test(id);
+          let r;
+          if (isEmail) {
+            r = await client.query(
+              `SELECT id, nome, telefone, email, pin_hash FROM compradores
+               WHERE LOWER(COALESCE(email, '')) = LOWER($1)
+               LIMIT 5`,
+              [id]
+            );
+          } else {
+            const phoneCandidates = getPhoneLookupCandidates(id);
+            if (!phoneCandidates.length) {
+              await client.end();
+              return json({ success: false, error: 'Dados incompletos' }, 400);
+            }
+            r = await client.query(
+              `SELECT id, nome, telefone, email, pin_hash FROM compradores
+               WHERE regexp_replace(COALESCE(telefone, ''), '\\D', '', 'g') = ANY($1::text[])
+               ORDER BY id ASC`,
+              [phoneCandidates]
+            );
+          }
+          row = r.rows[0] || null;
+        } else {
+          // SECTION: Formato legado — nome + telefone + pin (app antigo cached)
+          const { nome: n, telefone: t } = normalizeNomeTel(nome, telefone);
+          const phoneCandidates = getPhoneLookupCandidates(t);
+          if (!n || !t || !pin) {
+            await client.end();
+            return json({ success: false, error: 'Dados incompletos' }, 400);
+          }
+          const r = await client.query(
+            `SELECT id, nome, telefone, email, pin_hash FROM compradores
+             WHERE regexp_replace(COALESCE(telefone, ''), '\\D', '', 'g') = ANY($1::text[])
+             ORDER BY id ASC`,
+            [phoneCandidates]
+          );
+          row = r.rows.find((candidate) => namesEquivalent(n, candidate.nome)) || null;
         }
-        const r = await client.query(
-          `SELECT id, nome, telefone, email, pin_hash FROM compradores
-           WHERE regexp_replace(COALESCE(telefone, ''), '\\D', '', 'g') = ANY($1::text[])
-           ORDER BY id ASC`,
-          [phoneCandidates]
-        );
-        const row = r.rows.find((candidate) => namesEquivalent(n, candidate.nome));
+
         if (!row) {
           await client.end();
           return json({ success: false, error: 'Comprador não encontrado. Use "Criar cadastro".', not_found: true }, 404);

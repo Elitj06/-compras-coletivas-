@@ -413,6 +413,9 @@ const app = {
     return true;
   },
 
+  // SECTION: Modal de login/cadastro do comprador
+  // - mode="login"  → only Telefone-or-Email + PIN (sem nome)
+  // - mode="signup" → nome + telefone + email + PIN (cadastro completo)
   showRegistrationModal(blocking = false, mode = "login") {
     const existing = document.getElementById("registrationModal");
     if (existing) existing.remove();
@@ -427,27 +430,28 @@ const app = {
             <div class="modal-header-icon">${icon("user")}</div>
             <h2>${isLogin ? "Entrar na compra coletiva" : "Novo cadastro"}</h2>
             <p>${isLogin
-              ? "Informe seu nome, telefone e PIN. Se é sua primeira vez, clique em <b>Criar cadastro</b>."
+              ? "Informe <b>telefone ou e-mail</b> e seu PIN. Se é sua primeira vez, clique em <b>Criar cadastro</b>."
               : "Cadastre-se informando seus dados e um PIN de 4 a 6 dígitos. Você usará o PIN para acessar seu histórico de compras."}</p>
           </div>
           <div class="modal-body">
+            ${isLogin ? "" : `
             <div class="form-group">
               <label for="regName">Nome completo</label>
-              <input type="text" id="regName" placeholder="Nome e sobrenome" />
+              <input type="text" id="regName" placeholder="Nome e sobrenome" autocomplete="name" />
               <small>Informe ao menos nome e sobrenome.</small>
-            </div>
+            </div>`}
             <div class="form-group">
-              <label for="regPhone">Telefone / WhatsApp</label>
-              <input type="tel" id="regPhone" placeholder="(00) 00000-0000" />
+              <label for="regIdentifier">${isLogin ? "Telefone ou E-mail" : "Telefone / WhatsApp"}</label>
+              <input type="text" id="regIdentifier" placeholder="${isLogin ? "(00) 00000-0000  ou  seu@email.com" : "(00) 00000-0000"}" autocomplete="${isLogin ? "username" : "tel"}" inputmode="${isLogin ? "text" : "tel"}" />
             </div>
             ${isLogin ? "" : `
             <div class="form-group">
               <label for="regEmail">E-mail</label>
-              <input type="email" id="regEmail" placeholder="seu@email.com" />
+              <input type="email" id="regEmail" placeholder="seu@email.com" autocomplete="email" />
             </div>`}
             <div class="form-group">
               <label for="regPin">${isLogin ? "PIN" : "Crie um PIN (4 a 6 dígitos)"}</label>
-              <input type="password" id="regPin" inputmode="numeric" maxlength="6" placeholder="••••" />
+              <input type="password" id="regPin" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="${isLogin ? "current-password" : "new-password"}" />
               <small>Apenas números. Guarde seu PIN para acessar seu histórico.</small>
             </div>
           </div>
@@ -463,8 +467,12 @@ const app = {
         </div>
       </div>`;
     document.body.appendChild(modal);
-    setTimeout(() => document.getElementById("regName")?.focus(), 50);
-    ["regName", "regPhone", "regEmail", "regPin"].forEach((id) => {
+    // SECTION: Focus + Enter key handling
+    setTimeout(() => {
+      const firstField = isLogin ? "regIdentifier" : "regName";
+      document.getElementById(firstField)?.focus();
+    }, 50);
+    ["regName", "regIdentifier", "regEmail", "regPin"].forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
       el.addEventListener("keydown", (e) => {
@@ -533,9 +541,7 @@ const app = {
     this._saveUserSession(
       comprador.nome,
       comprador.telefone || phone,
-      comprador.email || "",
-      res.token || comprador.token || ""
-    );
+      
   },
 
   _saveUserSession(name, phone, email, token) {
