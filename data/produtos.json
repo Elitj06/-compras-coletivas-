@@ -42,7 +42,7 @@
     "embalagem": 6,
     "categoria": "arginofor_l_arginina_aminoacid",
     "categoriaNome": "ARGINOFOR - L-ARGININA , AMINOÁCIDO EM CÁPSULAS",
-    "imagem": ""
+    "imagem": "https://www.vitafor.com.br/AGF30-01.jpg"
   },
   {
     "codigo": "AGF60",
@@ -69,7 +69,7 @@
     "embalagem": 12,
     "categoria": "arginofor_l_arginina_aminoacid",
     "categoriaNome": "ARGINOFOR - L-ARGININA , AMINOÁCIDO EM CÁPSULAS",
-    "imagem": ""
+    "imagem": "https://www.vitafor.com.br/BF210LI-01.jpg"
   },
   {
     "codigo": "BF210TA",
@@ -78,7 +78,7 @@
     "embalagem": 12,
     "categoria": "arginofor_l_arginina_aminoacid",
     "categoriaNome": "ARGINOFOR - L-ARGININA , AMINOÁCIDO EM CÁPSULAS",
-    "imagem": ""
+    "imagem": "https://www.vitafor.com.br/BF210TA-01.jpg"
   },
   {
     "codigo": "BF120",
@@ -2067,7 +2067,7 @@
     "embalagem": 6,
     "categoria": "linha_exclusiva_air_com_whey",
     "categoriaNome": "LINHA EXCLUSIVA AIR COM WHEY",
-    "imagem": ""
+    "imagem": "https://www.vitafor.com.br/VPA600SC-01.jpg"
   },
   {
     "codigo": "VPA600SM",
@@ -2076,7 +2076,7 @@
     "embalagem": 6,
     "categoria": "linha_exclusiva_air_com_whey",
     "categoriaNome": "LINHA EXCLUSIVA AIR COM WHEY",
-    "imagem": ""
+    "imagem": "https://www.vitafor.com.br/VPA600SM-01.jpg"
   },
   {
     "codigo": "VPA600CT",
@@ -2085,7 +2085,7 @@
     "embalagem": 6,
     "categoria": "linha_exclusiva_air_com_whey",
     "categoriaNome": "LINHA EXCLUSIVA AIR COM WHEY",
-    "imagem": ""
+    "imagem": "https://www.vitafor.com.br/VPA600CT-01.jpg"
   },
   {
     "codigo": "VPA280SC",
@@ -2094,7 +2094,7 @@
     "embalagem": 16,
     "categoria": "linha_exclusiva_air_com_whey",
     "categoriaNome": "LINHA EXCLUSIVA AIR COM WHEY",
-    "imagem": ""
+    "imagem": "https://www.vitafor.com.br/VPA280SC-01.jpg"
   },
   {
     "codigo": "VPA280SM",
@@ -2103,7 +2103,7 @@
     "embalagem": 16,
     "categoria": "linha_exclusiva_air_com_whey",
     "categoriaNome": "LINHA EXCLUSIVA AIR COM WHEY",
-    "imagem": ""
+    "imagem": "https://www.vitafor.com.br/VPA280SM-01.jpg"
   },
   {
     "codigo": "VPA280CCT",
@@ -2148,7 +2148,7 @@
     "embalagem": 16,
     "categoria": "linha_exclusiva_air_com_whey",
     "categoriaNome": "LINHA EXCLUSIVA AIR COM WHEY",
-    "imagem": ""
+    "imagem": "https://www.vitafor.com.br/VPA280CT-01.jpg"
   },
   {
     "codigo": "B1220ME",
