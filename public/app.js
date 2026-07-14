@@ -482,20 +482,25 @@ const app = {
   },
 
   async submitRegistration(mode = "login") {
-    const name = document.getElementById("regName").value.trim();
-    const phone = document.getElementById("regPhone").value.trim();
-    const emailEl = document.getElementById("regEmail");
-    const email = emailEl ? emailEl.value.trim() : "";
-    const pin = (document.getElementById("regPin").value || "").replace(/\D/g, "");
-    if (!name || name.split(/\s+/).length < 2) {
-      this.toast("Digite nome e sobrenome", "error");
-      return;
-    }
-    if (phone.replace(/\D/g, "").length < 8) {
-      this.toast("Telefone inválido", "error");
-      return;
-    }
+    const pinEl = document.getElementById("regPin");
+    const pin = (pinEl?.value || "").replace(/\D/g, "");
+    const identifierEl = document.getElementById("regIdentifier");
+    const identifier = identifierEl?.value?.trim() || "";
+
+    // SECTION: Modo signup — campos completos (nome + telefone + email + pin)
     if (mode === "signup") {
+      const name = document.getElementById("regName")?.value?.trim() || "";
+      const emailEl = document.getElementById("regEmail");
+      const email = emailEl ? emailEl.value.trim() : "";
+
+      if (!name || name.split(/\s+/).length < 2) {
+        this.toast("Digite nome e sobrenome", "error");
+        return;
+      }
+      if (identifier.replace(/\D/g, "").length < 8) {
+        this.toast("Telefone inválido", "error");
+        return;
+      }
       if (!/^\S+@\S+\.\S+$/.test(email)) {
         this.toast("E-mail inválido", "error");
         return;
@@ -505,7 +510,7 @@ const app = {
         return;
       }
       const res = await this.api("comprador/registro", "POST", {
-        nome: name, telefone: phone, email, pin,
+        nome: name, telefone: identifier, email, pin,
       });
       if (!res?.success) {
         this.toast(res?.error || "Falha no cadastro", "error");
@@ -513,19 +518,24 @@ const app = {
       }
       this._saveUserSession(
         res?.data?.nome || name,
-        res?.data?.telefone || phone,
+        res?.data?.telefone || identifier,
         res?.data?.email || email,
         res?.token || res?.data?.token || ""
       );
       return;
     }
-    // login
+
+    // SECTION: Modo login — identificador (telefone ou email) + pin
+    if (!identifier) {
+      this.toast("Informe telefone ou e-mail", "error");
+      return;
+    }
     if (!/^\d{4,6}$/.test(pin)) {
       this.toast("Informe seu PIN (4 a 6 dígitos)", "error");
       return;
     }
     const res = await this.api("comprador/login", "POST", {
-      nome: name, telefone: phone, pin,
+      identificador: identifier, pin,
     });
     if (!res?.success) {
       if (res?.not_found) {
@@ -540,8 +550,10 @@ const app = {
     const comprador = res.comprador || res.data || {};
     this._saveUserSession(
       comprador.nome,
-      comprador.telefone || phone,
-      
+      comprador.telefone || "",
+      comprador.email || "",
+      res?.token || comprador.token || ""
+    );
   },
 
   _saveUserSession(name, phone, email, token) {
