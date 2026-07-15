@@ -8,6 +8,15 @@
 
 ## Atualização 15/07/2026 12:10 BRT
 
+## Atualização 15/07/2026 — ciclos de compra
+
+**Status:** implementação e migração concluídas localmente; publicação em andamento.
+
+- Criada estrutura aditiva de ciclos: Abril/2026 (encerrado) e Julho/2026 (ativo).
+- Migração preservou 19 pedidos, 84 itens e 17 pagamentos: 17 pedidos foram associados a Abril e 2 a Julho; nenhum pedido ficou sem ciclo.
+- Painel, consolidado, exportações e pagamentos passaram a usar somente o ciclo ativo. Novos pedidos recebem obrigatoriamente o ciclo ativo.
+- O painel identifica explicitamente o ciclo em exibição e a API administrativa expõe os ciclos.
+
 **Status:** correção de UX da recuperação de PIN publicada em produção.
 
 - Causa raiz: o modal de recuperação permanecia no DOM após a redefinição do PIN;

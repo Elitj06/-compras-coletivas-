@@ -15,6 +15,7 @@ Access-Control-Allow-Origin: *
 ## Índice
 
 ### GET
+- [Ciclos de Compra](#get-ciclos-compra)
 - [Health Check](#get-health)
 - [Tabelas](#get-tables)
 - [Pedidos (todos)](#get-pedidos)
@@ -57,6 +58,12 @@ Access-Control-Allow-Origin: *
 ---
 
 ## GET
+
+### GET /ciclos-compra
+
+Lista os ciclos de compra para o administrador. O registro com `ativo: true` define o escopo padrão do painel, consolidados, pagamentos e exportações. Pedidos antigos não são removidos: permanecem associados ao seu ciclo.
+
+**Autorização:** sessão de administrador.
 
 ### GET /health
 

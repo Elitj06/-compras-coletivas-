@@ -167,6 +167,13 @@ async function requireBuyer(req, client) {
   return session.rows[0] || null;
 }
 
+async function getActiveCycle(client) {
+  const result = await client.query(
+    `SELECT id, nome, inicio_em, fim_em, status FROM ciclos_compra WHERE ativo = TRUE LIMIT 1`
+  );
+  return result.rows[0] || null;
+}
+
 async function hashAdminPassword(password, saltHex = randomHex(16)) {
   const key = await crypto.subtle.importKey(
     'raw',
@@ -328,6 +335,18 @@ export default async function handler(req) {
         return json({ success: true, data: rows.rows });
       }
 
+      if (path === 'ciclos-compra') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
+        const rows = await client.query(
+          'SELECT id, nome, inicio_em, fim_em, status, ativo FROM ciclos_compra ORDER BY inicio_em DESC'
+        );
+        await client.end();
+        return json({ success: true, data: rows.rows });
+      }
+
       if (path === 'pedidos') {
         if (!adminSession) {
           await client.end();
@@ -338,6 +357,7 @@ export default async function handler(req) {
           FROM itens_pedido ip
           JOIN pedidos p ON ip.pedido_id = p.id
           WHERE p.status != 'cancelado'
+            AND p.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
           ORDER BY p.created_at DESC
         `);
         await client.end();
@@ -373,6 +393,7 @@ export default async function handler(req) {
           JOIN itens_pedido ip ON ip.pedido_id = p.id
           LEFT JOIN compradores c ON c.nome = p.usuario
           WHERE p.status != 'cancelado'
+            AND p.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
           GROUP BY p.usuario
           ORDER BY p.usuario
         `);
@@ -496,7 +517,9 @@ export default async function handler(req) {
             p.parc1, p.parc2, p.parc3, p.observacoes, p.created_at, p.updated_at,
             COALESCE(p.parc1,0) + COALESCE(p.parc2,0) + COALESCE(p.parc3,0) as total_pago,
             p.valor_compra - (COALESCE(p.parc1,0) + COALESCE(p.parc2,0) + COALESCE(p.parc3,0)) as total_devido
-          FROM pagamentos p ORDER BY p.comprador
+          FROM pagamentos p JOIN pedidos pe ON pe.id = p.pedido_id
+          WHERE pe.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
+          ORDER BY p.comprador
         `);
         await client.end();
         return json({ success: true, data: rows.rows });
@@ -512,7 +535,8 @@ export default async function handler(req) {
           SELECT COUNT(*) as total_compradores, SUM(valor_compra) as total_compras, 
             SUM(COALESCE(parc1,0)+COALESCE(parc2,0)+COALESCE(parc3,0)) as total_recebido,
             SUM(valor_compra) - SUM(COALESCE(parc1,0)+COALESCE(parc2,0)+COALESCE(parc3,0)) as total_pendente
-          FROM pagamentos
+          FROM pagamentos pg JOIN pedidos p ON p.id = pg.pedido_id
+          WHERE p.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
         `);
         await client.end();
         return json({ success: true, data: rows.rows[0] });
@@ -530,7 +554,7 @@ export default async function handler(req) {
             p.created_at AS data_pedido
           FROM itens_pedido ip
           JOIN pedidos p ON ip.pedido_id = p.id
-          WHERE p.status != 'cancelado'
+          WHERE p.status != 'cancelado' AND p.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
           ORDER BY p.usuario, ip.nome_produto
         `);
         const data = rows.rows;
@@ -645,9 +669,15 @@ export default async function handler(req) {
             return json({ success: false, duplicate: true, error: 'Pedido recente já existe. Aguarde ou edite o pedido existente.' }, 409);
           }
 
+          const cycle = await getActiveCycle(client);
+          if (!cycle) {
+            await client.query('ROLLBACK');
+            await client.end();
+            return json({ success: false, error: 'Não há ciclo de compras aberto no momento' }, 409);
+          }
           const pedidoResult = await client.query(
-            'INSERT INTO pedidos (comprador_id, usuario, status) VALUES ($1, $2, $3) RETURNING id',
-            [buyerSession.id, usuario, 'pendente']
+            'INSERT INTO pedidos (comprador_id, usuario, status, ciclo_id) VALUES ($1, $2, $3, $4) RETURNING id',
+            [buyerSession.id, usuario, 'pendente', cycle.id]
           );
           const pedidoId = pedidoResult.rows[0].id;
 
@@ -717,6 +747,7 @@ export default async function handler(req) {
           SELECT p.id, p.usuario, p.total_final
           FROM pedidos p
           WHERE p.status != 'cancelado'
+          AND p.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
           AND NOT EXISTS (SELECT 1 FROM pagamentos pg WHERE pg.pedido_id = p.id)
         `);
         await client.end();

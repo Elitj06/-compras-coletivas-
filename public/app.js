@@ -1717,15 +1717,17 @@ const app = {
       "refresh"
     )}<h3>Carregando dados...</h3></div></div>`;
 
-    const [statsRes, conRes, usersRes] = await Promise.all([
+    const [statsRes, conRes, usersRes, cyclesRes] = await Promise.all([
       this.api("stats"),
       this.api("pedidos/consolidado"),
       this.api("pedidos/por-usuario"),
+      this.api("ciclos-compra"),
     ]);
 
     const stats = statsRes?.data || {};
     const con = conRes?.data || [];
     const users = usersRes?.data || [];
+    const activeCycle = (cyclesRes?.data || []).find((cycle) => cycle.ativo);
 
     const statCard = (iconName, label, value) => `
       <div class="stat-card">
@@ -1743,6 +1745,9 @@ const app = {
     const totalComDesconto = valorBruto - economia;
 
     let html = `
+      <div class="card" style="margin-bottom:16px;padding:14px 20px;display:flex;align-items:center;gap:10px">
+        ${icon("calendar")} <div><strong>Ciclo ativo: ${fmt.escape(activeCycle?.nome || "não configurado")}</strong><br><small style="color:var(--c-text-muted)">Os dados abaixo, pagamentos e exportações consideram somente este ciclo. Pedidos anteriores permanecem preservados no histórico.</small></div>
+      </div>
       <div class="stats-grid">
         ${statCard("users", "Compradores", stats.total_compradores || 0)}
         ${statCard("box", "Produtos", stats.produtos_distintos || 0)}

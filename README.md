@@ -150,7 +150,8 @@ O schema `compras_coletivas` é isolado dentro do Supabase do FitFlow. Tabelas p
 - **categorias** — categorias de produtos
 - **produtos** — catálogo (código, nome, preço, embalagem, imagem)
 - **compradores** — compradores cadastrados (nome, telefone, email, pin_hash)
-- **pedidos** — pedidos (usuario, status, totais)
+- **ciclos_compra** — períodos formais de compra; há exatamente um ciclo ativo
+- **pedidos** — pedidos (usuario, status, totais, ciclo)
 - **itens_pedido** — itens de cada pedido
 - **descontos** — descontos por categoria ou global
 - **faixas_desconto** — faixas de desconto progressivo
