@@ -140,6 +140,18 @@ async function createBuyerSession(client, compradorId) {
   return token;
 }
 
+/** Retorna a conta de comprador explicitamente vinculada ao administrador. */
+async function getAdminBuyer(client) {
+  const buyer = await client.query(
+    `SELECT c.id, c.nome, c.telefone, c.email
+     FROM admin_buyer_link link
+     JOIN compradores c ON c.id = link.comprador_id
+     WHERE link.singleton = TRUE
+     LIMIT 1`
+  );
+  return buyer.rows[0] || null;
+}
+
 async function requireAdmin(req, client) {
   const token = getTokenFromRequest(req, 'x-admin-token');
   if (!token) return null;
@@ -170,6 +182,19 @@ async function requireBuyer(req, client) {
 async function getActiveCycle(client) {
   const result = await client.query(
     `SELECT id, nome, inicio_em, fim_em, status FROM ciclos_compra WHERE ativo = TRUE LIMIT 1`
+  );
+  return result.rows[0] || null;
+}
+
+/** Resolve o ciclo administrativo solicitado; sem parâmetro usa o ciclo ativo. */
+async function getRequestedAdminCycle(client, url) {
+  const requested = url.searchParams.get('ciclo_id');
+  if (!requested) return getActiveCycle(client);
+  const cycleId = Number(requested);
+  if (!Number.isSafeInteger(cycleId) || cycleId < 1) return null;
+  const result = await client.query(
+    'SELECT id, nome, inicio_em, fim_em, status, ativo FROM ciclos_compra WHERE id = $1 LIMIT 1',
+    [cycleId]
   );
   return result.rows[0] || null;
 }
@@ -369,6 +394,11 @@ export default async function handler(req) {
           await client.end();
           return unauthorized();
         }
+        const cycle = await getRequestedAdminCycle(client, url);
+        if (!cycle) {
+          await client.end();
+          return json({ success: false, error: 'Ciclo de compra não encontrado' }, 404);
+        }
         const rows = await client.query(`
           SELECT
             p.usuario,
@@ -393,10 +423,10 @@ export default async function handler(req) {
           JOIN itens_pedido ip ON ip.pedido_id = p.id
           LEFT JOIN compradores c ON c.nome = p.usuario
           WHERE p.status != 'cancelado'
-            AND p.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
+            AND p.ciclo_id = $1
           GROUP BY p.usuario
           ORDER BY p.usuario
-        `);
+        `, [cycle.id]);
         await client.end();
         return json({ success: true, data: rows.rows });
       }
@@ -406,7 +436,22 @@ export default async function handler(req) {
           await client.end();
           return unauthorized();
         }
-        const rows = await client.query('SELECT * FROM vw_relatorio_produtos');
+        const cycle = await getRequestedAdminCycle(client, url);
+        if (!cycle) {
+          await client.end();
+          return json({ success: false, error: 'Ciclo de compra não encontrado' }, 404);
+        }
+        const rows = await client.query(`
+          SELECT COALESCE(ip.codigo,'') AS codigo, COALESCE(ip.nome_produto,'') AS nome,
+            COALESCE(ip.categoria,'') AS categoria, ROUND(AVG(ip.preco_unitario),2) AS preco_unitario,
+            ROUND(AVG(ip.desconto_percentual),2) AS desconto_percentual,
+            ROUND(AVG(ip.preco_com_desconto),2) AS preco_com_desconto,
+            SUM(ip.quantidade) AS quantidade_total, SUM(ip.subtotal_bruto) AS total_bruto,
+            SUM(ip.subtotal_final) AS total_final
+          FROM itens_pedido ip JOIN pedidos p ON p.id = ip.pedido_id
+          WHERE p.status != 'cancelado' AND p.ciclo_id = $1
+          GROUP BY ip.codigo, ip.nome_produto, ip.categoria ORDER BY ip.nome_produto
+        `, [cycle.id]);
         await client.end();
         return json({ success: true, data: rows.rows });
       }
@@ -416,7 +461,19 @@ export default async function handler(req) {
           await client.end();
           return unauthorized();
         }
-        const stats = await client.query('SELECT * FROM vw_dashboard_stats');
+        const cycle = await getRequestedAdminCycle(client, url);
+        if (!cycle) {
+          await client.end();
+          return json({ success: false, error: 'Ciclo de compra não encontrado' }, 404);
+        }
+        const stats = await client.query(`
+          SELECT
+            (SELECT COUNT(DISTINCT usuario) FROM pedidos WHERE status != 'cancelado' AND ciclo_id = $1) AS total_compradores,
+            (SELECT COUNT(DISTINCT COALESCE(ip.codigo, ip.nome_produto)) FROM itens_pedido ip JOIN pedidos p ON p.id = ip.pedido_id WHERE p.status != 'cancelado' AND p.ciclo_id = $1) AS produtos_distintos,
+            (SELECT COALESCE(SUM(ip.quantidade), 0) FROM itens_pedido ip JOIN pedidos p ON p.id = ip.pedido_id WHERE p.status != 'cancelado' AND p.ciclo_id = $1) AS unidades_totais,
+            (SELECT COALESCE(SUM(total_bruto), 0) FROM pedidos WHERE status != 'cancelado' AND ciclo_id = $1) AS valor_bruto_geral,
+            (SELECT COALESCE(SUM(total_desconto), 0) FROM pedidos WHERE status != 'cancelado' AND ciclo_id = $1) AS economia_geral
+        `, [cycle.id]);
         await client.end();
         return json({ success: true, data: stats.rows[0] });
       }
@@ -485,6 +542,7 @@ export default async function handler(req) {
           : `p.comprador_id = $1`;
         const rows = await client.query(`
           SELECT p.id, p.created_at, p.status, p.total_bruto, p.total_final, p.total_desconto,
+            cc.nome AS ciclo_nome, cc.ativo AS ciclo_ativo,
             json_agg(json_build_object(
               'item_id', ip.id,
               'codigo', ip.codigo,
@@ -498,6 +556,7 @@ export default async function handler(req) {
           FROM pedidos p
           LEFT JOIN itens_pedido ip ON ip.pedido_id = p.id
           LEFT JOIN compradores c ON c.id = p.comprador_id OR (p.comprador_id IS NULL AND c.nome = p.usuario)
+          JOIN ciclos_compra cc ON cc.id = p.ciclo_id
           WHERE ${where} AND p.status != 'cancelado'
           GROUP BY p.id
           ORDER BY p.created_at DESC
@@ -759,12 +818,16 @@ export default async function handler(req) {
         const isValid = await verifyAdminPassword(client, senha);
         if (isValid) {
           const token = await createAdminSession(client);
+          const buyer = await getAdminBuyer(client);
+          const buyerToken = buyer ? await createBuyerSession(client, buyer.id) : null;
           await client.end();
           return json({
             success: true,
             message: 'Login autorizado',
             token,
-            data: { token }
+            buyer_token: buyerToken,
+            comprador: buyer || null,
+            data: { token, buyer_token: buyerToken, comprador: buyer || null }
           });
         }
         await client.end();

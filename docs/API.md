@@ -900,6 +900,24 @@ Desativa todos os descontos (set `ativo = FALSE`).
 
 ## Upload
 
+## Ciclos e histórico
+
+### GET /api/db/pedidos/historico
+
+Retorna os pedidos do comprador autenticado, inclusive de ciclos encerrados. Cada pedido inclui `ciclo_nome` e `ciclo_ativo` para que o histórico não se misture ao pedido atual.
+
+O administrador pode consultar o histórico de um comprador informado no painel; essa consulta exige o token administrativo.
+
+### GET /api/db/stats, /pedidos/consolidado, /pedidos/por-usuario
+
+Para administrador, aceitam `?ciclo_id=<id>`. Sem o parâmetro, retornam o ciclo ativo. Um ciclo encerrado é consulta histórica e não altera seus pedidos.
+
+### POST /api/db/admin/login
+
+Quando a conta administrativa estiver vinculada explicitamente a um comprador, a resposta também contém `buyer_token` e `comprador`. O cliente usa essa sessão limitada para abrir o painel de comprador e o histórico sem um segundo login; ela não concede permissões administrativas.
+
+---
+
 ### POST /api/upload-planilha
 
 Faz upload de planilha Excel com catálogo de produtos. **Node.js Runtime** (não Edge).

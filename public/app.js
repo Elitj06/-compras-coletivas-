@@ -175,6 +175,7 @@ const app = {
     user: { name: "", phone: "", email: "" },
     buyerToken: "",
     adminToken: "",
+    adminCycleId: null,
     useServer: true,
     theme: "light", // 'light' | 'dark'
     // Variante atualmente selecionada em cada grupo (grupoId -> codigo)
@@ -289,7 +290,7 @@ const app = {
   },
 
   /* ----------------- API ----------------- */
-  async api(path, method = "GET", body = null) {
+  async api(path, method = "GET", body = null, authScope = null) {
     try {
       const isBuyerRoute =
         path === "comprador/session" ||
@@ -298,7 +299,9 @@ const app = {
         path === "pedidos/historico" ||
         (path === "pedidos" && method === "POST") ||
         (/^pedidos\/\d+$/.test(path) && method === "DELETE");
-      const token = isBuyerRoute ? this.state.buyerToken : (this.state.adminToken || this.state.buyerToken);
+      const token = authScope === "admin"
+        ? this.state.adminToken
+        : (isBuyerRoute ? this.state.buyerToken : (this.state.adminToken || this.state.buyerToken));
       const opts = {
         method,
         headers: {
@@ -1106,8 +1109,10 @@ const app = {
     try {
       const res = await this.api("pedidos/historico");
       const pedidos = res?.data || [];
-      // Pega o pedido pendente mais recente
-      const pendente = pedidos.find(p => p.status === "pendente") || pedidos[0];
+      // Mostra em “Meu Pedido” somente o pedido do ciclo ativo. Pedidos de
+      // ciclos encerrados continuam exclusivamente no Histórico.
+      const pendente = pedidos.find(p => p.ciclo_ativo && p.status === "pendente")
+        || pedidos.find(p => p.ciclo_ativo);
       if (!pendente) return false;
       // Converte formato do servidor para formato do lastOrder
       const itens = (pendente.itens || []).filter(it => it && it.codigo).map(it => ({
@@ -1693,6 +1698,16 @@ const app = {
     if (res && res.success) {
       this.state.isAdminLoggedIn = true;
       this.state.adminToken = res?.token || res?.data?.token || "";
+      const adminBuyer = res?.comprador || res?.data?.comprador;
+      const adminBuyerToken = res?.buyer_token || res?.data?.buyer_token;
+      if (adminBuyer && adminBuyerToken) {
+        this._saveUserSession(
+          adminBuyer.nome,
+          adminBuyer.telefone || "",
+          adminBuyer.email || "",
+          adminBuyerToken
+        );
+      }
       writePersistedToken(ADMIN_TOKEN_KEY, this.state.adminToken);
       const tabAdmin = document.getElementById("tabAdmin");
       if (tabAdmin) tabAdmin.hidden = false;
@@ -1718,16 +1733,19 @@ const app = {
     )}<h3>Carregando dados...</h3></div></div>`;
 
     const [statsRes, conRes, usersRes, cyclesRes] = await Promise.all([
-      this.api("stats"),
-      this.api("pedidos/consolidado"),
-      this.api("pedidos/por-usuario"),
+      this.api(`stats${this.state.adminCycleId ? `?ciclo_id=${this.state.adminCycleId}` : ""}`),
+      this.api(`pedidos/consolidado${this.state.adminCycleId ? `?ciclo_id=${this.state.adminCycleId}` : ""}`),
+      this.api(`pedidos/por-usuario${this.state.adminCycleId ? `?ciclo_id=${this.state.adminCycleId}` : ""}`),
       this.api("ciclos-compra"),
     ]);
 
     const stats = statsRes?.data || {};
     const con = conRes?.data || [];
     const users = usersRes?.data || [];
-    const activeCycle = (cyclesRes?.data || []).find((cycle) => cycle.ativo);
+    const cycles = cyclesRes?.data || [];
+    const activeCycle = cycles.find((cycle) => cycle.ativo);
+    const selectedCycle = cycles.find((cycle) => Number(cycle.id) === Number(this.state.adminCycleId)) || activeCycle;
+    const isHistoricalCycle = selectedCycle && !selectedCycle.ativo;
 
     const statCard = (iconName, label, value) => `
       <div class="stat-card">
@@ -1746,7 +1764,10 @@ const app = {
 
     let html = `
       <div class="card" style="margin-bottom:16px;padding:14px 20px;display:flex;align-items:center;gap:10px">
-        ${icon("calendar")} <div><strong>Ciclo ativo: ${fmt.escape(activeCycle?.nome || "não configurado")}</strong><br><small style="color:var(--c-text-muted)">Os dados abaixo, pagamentos e exportações consideram somente este ciclo. Pedidos anteriores permanecem preservados no histórico.</small></div>
+        ${icon("calendar")} <div style="flex:1"><strong>Ciclo em exibição: ${fmt.escape(selectedCycle?.nome || "não configurado")}</strong><br><small style="color:var(--c-text-muted)">${isHistoricalCycle ? "Consulta histórica: este ciclo é somente leitura." : "Ciclo ativo: novos pedidos, pagamentos e exportações usam este período."}</small></div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:.85rem">Ciclo
+          <select onchange="app.selectAdminCycle(this.value)">${cycles.map((cycle) => `<option value="${cycle.id}" ${Number(cycle.id) === Number(selectedCycle?.id) ? "selected" : ""}>${fmt.escape(cycle.nome)}${cycle.ativo ? " · ativo" : ""}</option>`).join("")}</select>
+        </label>
       </div>
       <div class="stats-grid">
         ${statCard("users", "Compradores", stats.total_compradores || 0)}
@@ -2131,6 +2152,11 @@ const app = {
     // Troca para a aba histórico mostrando os pedidos do comprador escolhido
     this.switchTab("historico");
     this.renderHistorico(usuario, telefone);
+  },
+
+  selectAdminCycle(cycleId) {
+    this.state.adminCycleId = Number(cycleId) || null;
+    this.renderAdmin();
   },
 
   async deletePedidoUsuario(usuario) {
@@ -2626,7 +2652,12 @@ const app = {
       params.set("usuario", usuario);
       params.set("telefone", telefone || "");
     }
-    const res = await this.api(params.toString() ? `pedidos/historico?${params.toString()}` : "pedidos/historico");
+    const res = await this.api(
+      params.toString() ? `pedidos/historico?${params.toString()}` : "pedidos/historico",
+      "GET",
+      null,
+      forcedUsuario ? "admin" : "buyer"
+    );
     const pedidos = res?.data || [];
     const isAdminView = !!forcedUsuario;
     const header = isAdminView
@@ -2660,7 +2691,7 @@ const app = {
       return `
         <div class="card report-card" style="margin-bottom:14px">
           <div class="report-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-            <span>${icon("receipt")} Pedido #${p.id} · ${data}</span>
+            <span>${icon("receipt")} ${fmt.escape(p.ciclo_nome || "Ciclo não identificado")} · Pedido #${p.id} · ${data}</span>
             <span style="font-size:0.85rem;color:var(--c-text-muted)">${statusLabel}</span>
           </div>
           <table class="data-table">

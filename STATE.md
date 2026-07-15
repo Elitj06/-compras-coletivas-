@@ -8,6 +8,14 @@
 
 ## Atualização 15/07/2026 12:10 BRT
 
+## Atualização 15/07/2026 — histórico e login unificado
+
+**Status:** implementação em validação.
+
+- Migração aditiva vinculou pedidos legados que tinham correspondência única com o cadastro do comprador; não removeu pedidos, itens ou pagamentos.
+- O histórico individual passou a identificar o ciclo de cada pedido e o painel administrativo ganhou consulta por ciclo.
+- A conta administrativa foi vinculada explicitamente ao cadastro do responsável para abrir Admin e painel de comprador no mesmo login, com sessões separadas e permissões preservadas.
+
 ## Atualização 15/07/2026 — ciclos de compra
 
 **Status:** implementação e migração concluídas localmente; publicação em andamento.
