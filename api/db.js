@@ -558,7 +558,7 @@ export default async function handler(req) {
           LEFT JOIN compradores c ON c.id = p.comprador_id OR (p.comprador_id IS NULL AND c.nome = p.usuario)
           JOIN ciclos_compra cc ON cc.id = p.ciclo_id
           WHERE ${where} AND p.status != 'cancelado'
-          GROUP BY p.id
+          GROUP BY p.id, cc.nome, cc.ativo
           ORDER BY p.created_at DESC
         `, params);
         await client.end();
