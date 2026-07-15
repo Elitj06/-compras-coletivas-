@@ -176,6 +176,7 @@ const app = {
     buyerToken: "",
     adminToken: "",
     adminCycleId: null,
+    adminCycleIsActive: true,
     useServer: true,
     theme: "light", // 'light' | 'dark'
     // Variante atualmente selecionada em cada grupo (grupoId -> codigo)
@@ -1746,6 +1747,7 @@ const app = {
     const activeCycle = cycles.find((cycle) => cycle.ativo);
     const selectedCycle = cycles.find((cycle) => Number(cycle.id) === Number(this.state.adminCycleId)) || activeCycle;
     const isHistoricalCycle = selectedCycle && !selectedCycle.ativo;
+    this.state.adminCycleIsActive = !isHistoricalCycle;
 
     const statCard = (iconName, label, value) => `
       <div class="stat-card">
@@ -2020,6 +2022,7 @@ const app = {
   },
 
   async adminMergeOrders(usuario) {
+    if (!this.canManageSelectedCycle()) return;
     if (!(await customConfirm(
       `Mesclar pedidos duplicados de "${usuario}"?\n\n` +
       `Os pedidos serão unificados em um só, mantendo os itens sem duplicar. ` +
@@ -2037,6 +2040,7 @@ const app = {
   },
 
   async adminConfirmarPedido(usuario) {
+    if (!this.canManageSelectedCycle()) return;
     if (!(await customConfirm(
       `Confirmar o pedido de "${usuario}"?\n\nO status será revertido de "em edição" para "pendente".`
     ))) return;
@@ -2053,6 +2057,7 @@ const app = {
   },
 
   async adminLiberarEdicao(usuario) {
+    if (!this.canManageSelectedCycle()) return;
     if (!(await customConfirm(
       `Liberar o pedido de "${usuario}" para edição?\n\n` +
       `O comprador poderá remover itens, alterar quantidades ou ` +
@@ -2071,6 +2076,7 @@ const app = {
   },
 
   showAdminAddItem(pedidoId, usuario) {
+    if (!this.canManageSelectedCycle()) return;
     // Modal para admin selecionar produto e quantidade para adicionar ao pedido
     const pct = this.state.discountPct || 0;
     const prodOptions = PRODUTOS.map(
@@ -2106,6 +2112,7 @@ const app = {
   },
 
   async adminChangeQty(itemId, newQty) {
+    if (!this.canManageSelectedCycle()) return;
     if (newQty < 1) {
       this.toast("Use o botão de lixeira para remover", "info");
       return;
@@ -2119,6 +2126,7 @@ const app = {
   },
 
   async adminAddItem(pedidoId) {
+    if (!this.canManageSelectedCycle()) return;
     const sel = document.getElementById("adminAddProduto");
     const qty = parseInt(document.getElementById("adminAddQty").value) || 1;
     const opt = sel.options[sel.selectedIndex];
@@ -2159,7 +2167,14 @@ const app = {
     this.renderAdmin();
   },
 
+  canManageSelectedCycle() {
+    if (this.state.adminCycleIsActive) return true;
+    this.toast("O ciclo encerrado é somente para consulta", "info");
+    return false;
+  },
+
   async deletePedidoUsuario(usuario) {
+    if (!this.canManageSelectedCycle()) return;
     if (!(await customConfirm(`Apagar TODOS os pedidos de "${usuario}"?`))) return;
     const r = await this.api(`pedidos/usuario/${encodeURIComponent(usuario)}`, "DELETE");
     if (r?.success) {
@@ -2171,6 +2186,7 @@ const app = {
   },
 
   async removeItemFromPedido(itemId, nome) {
+    if (!this.canManageSelectedCycle()) return;
     if (!(await customConfirm(`Remover o item "${nome}" deste pedido? Os demais itens serão mantidos.`))) return;
     const r = await this.api(`itens/${itemId}`, "DELETE");
     if (r?.success) {
@@ -2182,6 +2198,7 @@ const app = {
   },
 
   async removeProdutoGlobal(codigo, nome) {
+    if (!this.canManageSelectedCycle()) return;
     if (!(await customConfirm(
       `Remover o produto "${nome}" (${codigo}) de TODOS os pedidos?\n\n` +
       `Use esta opção quando o fornecedor estiver em falta. ` +
@@ -2197,6 +2214,7 @@ const app = {
   },
 
   async applyDiscount() {
+    if (!this.canManageSelectedCycle()) return;
     if (!this.state.isAdminLoggedIn) {
       this.toast("Apenas o administrador pode alterar o desconto", "error");
       return;
@@ -2222,6 +2240,7 @@ const app = {
   },
 
   async clearDiscounts() {
+    if (!this.canManageSelectedCycle()) return;
     if (!this.state.isAdminLoggedIn) {
       this.toast("Apenas o administrador pode remover o desconto", "error");
       return;
@@ -2306,7 +2325,8 @@ const app = {
   },
 
   async exportPedidoFornecedor() {
-    const conRes = await this.api("pedidos/consolidado");
+    const cycleQuery = this.state.adminCycleId ? `?ciclo_id=${this.state.adminCycleId}` : "";
+    const conRes = await this.api(`pedidos/consolidado${cycleQuery}`);
     const con = conRes?.data || [];
     if (!con.length) {
       this.toast("Nenhum pedido para exportar", "error");
@@ -2363,7 +2383,7 @@ const app = {
     XLSX.utils.book_append_sheet(wb, ws, "Pedido Fornecedor");
 
     // Segunda aba: por comprador
-    const usersRes = await this.api("pedidos/por-usuario");
+    const usersRes = await this.api(`pedidos/por-usuario${cycleQuery}`);
     const users = usersRes?.data || [];
     if (users.length) {
       const aoa2 = [
@@ -2408,8 +2428,9 @@ const app = {
   },
 
   async exportCSV() {
-    const conRes = await this.api("pedidos/consolidado");
-    const usersRes = await this.api("pedidos/por-usuario");
+    const cycleQuery = this.state.adminCycleId ? `?ciclo_id=${this.state.adminCycleId}` : "";
+    const conRes = await this.api(`pedidos/consolidado${cycleQuery}`);
+    const usersRes = await this.api(`pedidos/por-usuario${cycleQuery}`);
     const con = conRes?.data || [];
     const users = usersRes?.data || [];
     let csv = "\uFEFFCOMPRAS COLETIVAS — VIDA FORTE\n";
@@ -2461,9 +2482,10 @@ const app = {
     const c = document.getElementById("adminContent");
     c.innerHTML = `<div class="card"><div class="empty-state">${icon("refresh")}<h3>Carregando pagamentos...</h3></div></div>`;
 
+    const cycleQuery = this.state.adminCycleId ? `?ciclo_id=${this.state.adminCycleId}` : "";
     const [pgRes, resRes] = await Promise.all([
-      this.api("pagamentos"),
-      this.api("pagamentos/resumo"),
+      this.api(`pagamentos${cycleQuery}`),
+      this.api(`pagamentos/resumo${cycleQuery}`),
     ]);
 
     const pagamentos = pgRes?.data || [];
@@ -2569,6 +2591,7 @@ const app = {
   },
 
   async initPagamentos() {
+    if (!this.canManageSelectedCycle()) return;
     if (!(await customConfirm("Inicializar registros de pagamento para pedidos que ainda não têm?\n\nIsso criará um registro para cada pedido ativo (não cancelado)."))) return;
     const r = await this.api("pagamentos/inicializar", "POST");
     if (r?.success) {
@@ -2580,6 +2603,7 @@ const app = {
   },
 
   editPagamento(id) {
+    if (!this.canManageSelectedCycle()) return;
     // Busca dados do pagamento do estado atual
     // Primeiro precisa ter os dados carregados; se não, busca
     const openEditModal = (pg) => {
@@ -2612,7 +2636,8 @@ const app = {
 
     // Se já temos os dados em cache, usa direto
     // Senão busca da API
-    this.api("pagamentos").then(res => {
+    const cycleQuery = this.state.adminCycleId ? `?ciclo_id=${this.state.adminCycleId}` : "";
+    this.api(`pagamentos${cycleQuery}`).then(res => {
       const pg = (res?.data || []).find(p => p.id === id);
       if (pg) openEditModal(pg);
       else this.toast("Pagamento não encontrado", "error");
@@ -2620,6 +2645,7 @@ const app = {
   },
 
   async savePagamento(id) {
+    if (!this.canManageSelectedCycle()) return;
     const parc = {};
     for (let i = 1; i <= 3; i++) {
       const val = document.getElementById(`pgParc${i}`).value;

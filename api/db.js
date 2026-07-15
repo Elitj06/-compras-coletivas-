@@ -571,15 +571,20 @@ export default async function handler(req) {
           await client.end();
           return unauthorized();
         }
+        const cycle = await getRequestedAdminCycle(client, url);
+        if (!cycle) {
+          await client.end();
+          return json({ success: false, error: 'Ciclo de compra não encontrado' }, 404);
+        }
         const rows = await client.query(`
           SELECT p.id, p.pedido_id, p.comprador, p.valor_compra,
             p.parc1, p.parc2, p.parc3, p.observacoes, p.created_at, p.updated_at,
             COALESCE(p.parc1,0) + COALESCE(p.parc2,0) + COALESCE(p.parc3,0) as total_pago,
             p.valor_compra - (COALESCE(p.parc1,0) + COALESCE(p.parc2,0) + COALESCE(p.parc3,0)) as total_devido
           FROM pagamentos p JOIN pedidos pe ON pe.id = p.pedido_id
-          WHERE pe.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
+          WHERE pe.ciclo_id = $1
           ORDER BY p.comprador
-        `);
+        `, [cycle.id]);
         await client.end();
         return json({ success: true, data: rows.rows });
       }
@@ -590,13 +595,18 @@ export default async function handler(req) {
           await client.end();
           return unauthorized();
         }
+        const cycle = await getRequestedAdminCycle(client, url);
+        if (!cycle) {
+          await client.end();
+          return json({ success: false, error: 'Ciclo de compra não encontrado' }, 404);
+        }
         const rows = await client.query(`
           SELECT COUNT(*) as total_compradores, SUM(valor_compra) as total_compras, 
             SUM(COALESCE(parc1,0)+COALESCE(parc2,0)+COALESCE(parc3,0)) as total_recebido,
             SUM(valor_compra) - SUM(COALESCE(parc1,0)+COALESCE(parc2,0)+COALESCE(parc3,0)) as total_pendente
           FROM pagamentos pg JOIN pedidos p ON p.id = pg.pedido_id
-          WHERE p.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
-        `);
+          WHERE p.ciclo_id = $1
+        `, [cycle.id]);
         await client.end();
         return json({ success: true, data: rows.rows[0] });
       }
@@ -613,9 +623,9 @@ export default async function handler(req) {
             p.created_at AS data_pedido
           FROM itens_pedido ip
           JOIN pedidos p ON ip.pedido_id = p.id
-          WHERE p.status != 'cancelado' AND p.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
+          WHERE p.status != 'cancelado' AND p.ciclo_id = COALESCE($1::int, (SELECT id FROM ciclos_compra WHERE ativo = TRUE))
           ORDER BY p.usuario, ip.nome_produto
-        `);
+        `, [Number(url.searchParams.get('ciclo_id')) || null]);
         const data = rows.rows;
         let csv = 'Comprador;Código;Produto;Qtd;Preço Unit.;Desconto %;Preço c/ Desc.;Total Bruto;Total Final;Data\n';
         for (const r of data) {
@@ -886,7 +896,7 @@ export default async function handler(req) {
           return json({ success: false, error: `Status inválido. Opções: ${validos.join(', ')}` }, 400);
         }
         const r = await client.query(
-          'UPDATE pedidos SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id',
+          'UPDATE pedidos SET status = $1, updated_at = NOW() WHERE id = $2 AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE) RETURNING id',
           [status, pid]
         );
         await client.end();
@@ -909,7 +919,7 @@ export default async function handler(req) {
           return json({ success: false, error: `Status inválido` }, 400);
         }
         const r = await client.query(
-          `UPDATE pedidos SET status = $1, updated_at = NOW() WHERE usuario = $2 AND status != 'cancelado' RETURNING id`,
+          `UPDATE pedidos SET status = $1, updated_at = NOW() WHERE usuario = $2 AND status != 'cancelado' AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE) RETURNING id`,
           [status, usuario]
         );
         await client.end();
@@ -933,7 +943,9 @@ export default async function handler(req) {
         await client.query('BEGIN');
         try {
           const item = await client.query(
-            'SELECT pedido_id, preco_unitario, preco_com_desconto FROM itens_pedido WHERE id = $1',
+            `SELECT ip.pedido_id, ip.preco_unitario, ip.preco_com_desconto
+             FROM itens_pedido ip JOIN pedidos p ON p.id = ip.pedido_id
+             WHERE ip.id = $1 AND p.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)`,
             [iid]
           );
           if (!item.rows.length) {
@@ -980,7 +992,8 @@ export default async function handler(req) {
         try {
         // Busca todos os pedidos ativos do usuário
         const pedidos = await client.query(
-          `SELECT id FROM pedidos WHERE usuario = $1 AND status != 'cancelado' ORDER BY created_at DESC`,
+          `SELECT id FROM pedidos WHERE usuario = $1 AND status != 'cancelado'
+           AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE) ORDER BY created_at DESC`,
           [usuario]
         );
         if (pedidos.rows.length <= 1) {
@@ -1067,6 +1080,15 @@ export default async function handler(req) {
         const subtBruto = pBruto * qty;
         const subtFinal = pDesc * qty;
 
+        const target = await client.query(
+          'SELECT id FROM pedidos WHERE id = $1 AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)',
+          [pid]
+        );
+        if (!target.rows.length) {
+          await client.end();
+          return json({ success: false, error: 'Pedido não está no ciclo ativo' }, 409);
+        }
+
         await client.query('BEGIN');
         try {
           // Verifica se já existe esse produto no pedido — se sim, incrementa
@@ -1122,8 +1144,8 @@ export default async function handler(req) {
         }
         await client.query('BEGIN');
         try {
-          await client.query('DELETE FROM itens_pedido');
-          await client.query('DELETE FROM pedidos');
+          await client.query('DELETE FROM itens_pedido WHERE pedido_id IN (SELECT id FROM pedidos WHERE ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE))');
+          await client.query('DELETE FROM pedidos WHERE ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)');
           await client.query('COMMIT');
           await client.end();
           return json({ success: true, message: 'Todos os pedidos foram apagados' });
@@ -1154,8 +1176,8 @@ export default async function handler(req) {
         }
         await client.query('BEGIN');
         try {
-          await client.query('DELETE FROM itens_pedido WHERE pedido_id = $1', [pid]);
-          const r = await client.query('DELETE FROM pedidos WHERE id = $1 RETURNING id', [pid]);
+          await client.query('DELETE FROM itens_pedido WHERE pedido_id = $1 AND EXISTS (SELECT 1 FROM pedidos WHERE id = $1 AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE))', [pid]);
+          const r = await client.query('DELETE FROM pedidos WHERE id = $1 AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE) RETURNING id', [pid]);
           await client.query('COMMIT');
           await client.end();
           if (!r.rowCount) return json({ success: false, error: 'Pedido não encontrado' }, 404);
@@ -1177,10 +1199,10 @@ export default async function handler(req) {
         await client.query('BEGIN');
         try {
           await client.query(
-            'DELETE FROM itens_pedido WHERE pedido_id IN (SELECT id FROM pedidos WHERE usuario = $1)',
+            'DELETE FROM itens_pedido WHERE pedido_id IN (SELECT id FROM pedidos WHERE usuario = $1 AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE))',
             [usuario]
           );
-          const r = await client.query('DELETE FROM pedidos WHERE usuario = $1 RETURNING id', [usuario]);
+          const r = await client.query('DELETE FROM pedidos WHERE usuario = $1 AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE) RETURNING id', [usuario]);
           await client.query('COMMIT');
           await client.end();
           return json({ success: true, message: `${r.rowCount} pedido(s) de ${usuario} apagados` });
@@ -1200,7 +1222,10 @@ export default async function handler(req) {
         const iid = parseInt(itemMatch[1]);
         await client.query('BEGIN');
         try {
-          const r = await client.query('DELETE FROM itens_pedido WHERE id = $1 RETURNING pedido_id', [iid]);
+          const r = await client.query(`DELETE FROM itens_pedido ip USING pedidos p
+            WHERE ip.id = $1 AND p.id = ip.pedido_id
+              AND p.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
+            RETURNING ip.pedido_id`, [iid]);
           if (r.rowCount) {
             const pedidoId = r.rows[0].pedido_id;
             const count = await client.query('SELECT COUNT(*)::int AS c FROM itens_pedido WHERE pedido_id = $1', [pedidoId]);
@@ -1229,9 +1254,13 @@ export default async function handler(req) {
         const codigo = decodeURIComponent(produtoMatch[1]);
         await client.query('BEGIN');
         try {
-          const r = await client.query('DELETE FROM itens_pedido WHERE codigo = $1 RETURNING pedido_id', [codigo]);
+          const r = await client.query(`DELETE FROM itens_pedido ip USING pedidos p
+            WHERE ip.codigo = $1 AND p.id = ip.pedido_id
+              AND p.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
+            RETURNING ip.pedido_id`, [codigo]);
           await client.query(`
             DELETE FROM pedidos WHERE id NOT IN (SELECT DISTINCT pedido_id FROM itens_pedido)
+              AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
           `);
           await client.query('COMMIT');
           await client.end();
