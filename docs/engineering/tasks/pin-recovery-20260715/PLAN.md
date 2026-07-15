@@ -29,7 +29,7 @@
 
 ## Fatos de produção e regras de identidade
 
-- Existem 34 compradores, 4 grupos de telefone normalizado duplicado e 4 grupos de e-mail normalizado duplicado.
+- Existem 35 compradores, 4 grupos de telefone normalizado duplicado e 4 grupos de e-mail normalizado duplicado.
 - Recuperação pública só envia código quando o identificador resolve exatamente um comprador. Resultado inexistente, ambíguo, limitado ou com falha de entrega envia nada e mantém resposta pública idêntica.
 - Cadastro passa a ser create-only e rejeita telefone ou e-mail equivalente já existente; não sobrescreve comprador.
 - `POST /pedidos` deixa de atualizar telefone/e-mail.
@@ -39,7 +39,7 @@
 
 ### Público
 
-- `POST /api/db/comprador/pin-recovery/request`
+- `POST /api/pin-recovery-request` (função Node isolada; entrega Gmail SMTP)
   - Entrada: `{ identificador }`.
   - Saída: sempre `202` com mensagem neutra e `challenge_id` opaco aleatório, inclusive em inexistência, ambiguidade, limite ou falha de entrega.
 - `POST /api/db/comprador/pin-recovery/complete`
@@ -75,18 +75,18 @@
 
 ## E-mail e configuração
 
-- Provedor: Resend por HTTP.
-- Variáveis obrigatórias para ativar recuperação por e-mail: `RESEND_API_KEY`, `RECOVERY_FROM_EMAIL`, `APP_BASE_URL`, `RECOVERY_HMAC_KEY`, `RATE_LIMIT_HMAC_KEY`.
+- Provedor: Gmail por SMTP autenticado com senha de app.
+- Variáveis obrigatórias para ativar recuperação por e-mail: `SMTP_USER`, `SMTP_APP_PASSWORD`, `RECOVERY_FROM_EMAIL`, `APP_BASE_URL`, `RECOVERY_HMAC_KEY`, `RATE_LIMIT_HMAC_KEY`.
 - Falha ou ausência do provedor revoga o desafio, registra auditoria sanitizada e mantém o `202` neutro.
 - Nenhuma credencial será criada ou alterada sem aprovação explícita do proprietário. Código e migração podem ser preparados com a feature desativada.
 
 ## Módulos e escritores
 
 - `api/db.js`: somente despacho das novas rotas e remoção da mutação de identidade em pedidos.
-- `api/routes/buyer-auth-routes.js`: validação HTTP e respostas.
-- `api/services/buyer-auth-service.js`: regras e transações da jornada.
-- `api/data/buyer-auth-data.js`: queries e persistência.
-- `api/lib/pin-crypto.js`, `api/lib/rate-limit.js`, `api/lib/recovery-email.js`: primitivas isoladas.
+- `server/routes/buyer-auth-routes.js`: validação HTTP e respostas.
+- `server/services/buyer-auth-service.js`: regras e transações da jornada.
+- `server/data/buyer-auth-data.js`: queries e persistência.
+- `server/lib/pin-crypto.js`, `server/lib/rate-limit.js`, `server/lib/recovery-email.js`: primitivas isoladas.
 - `public/auth-recovery.js` e `public/auth-recovery.css`: interface das três jornadas.
 - `public/app.js` e `public/index.html`: apenas hooks/delegação mínimos.
 - `sql/05_pin_recovery.sql` e schemas frescos: migração aditiva e idempotente.

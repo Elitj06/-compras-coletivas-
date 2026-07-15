@@ -206,7 +206,8 @@ const app = {
       this.switchTab("admin");
     }
     // Cadastro obrigatório logo na entrada
-    if (!this.hasAppAccess()) {
+    const recoveryLink = new URLSearchParams(location.search).has("recover");
+    if (!this.hasAppAccess() && !recoveryLink) {
       this.showRegistrationModal(true, "login");
     } else {
       // Detecta pedidos órfãos do banco para limpar histórico
@@ -292,6 +293,8 @@ const app = {
     try {
       const isBuyerRoute =
         path === "comprador/session" ||
+        path === "comprador/pin" ||
+        path === "comprador/logout" ||
         path === "pedidos/historico" ||
         (path === "pedidos" && method === "POST") ||
         (/^pedidos\/\d+$/.test(path) && method === "DELETE");
@@ -305,6 +308,7 @@ const app = {
       };
       if (body) opts.body = JSON.stringify(body);
       const res = await fetch(`${API_BASE}/${path}`, opts);
+      if (res.status === 204) return { success: true };
       const data = await res.json();
       if (res.status === 401) {
         if (path.startsWith("admin/") || path.startsWith("pagamentos") || path.startsWith("pedidos/por-usuario") || path.startsWith("pedidos/consolidado") || path.startsWith("stats") || path.startsWith("compradores") || path.startsWith("descontos")) {
@@ -457,6 +461,7 @@ const app = {
           </div>
           <div class="modal-footer" style="display:flex;gap:10px;flex-direction:column">
             <button class="btn btn-primary btn-block" onclick="app.submitRegistration('${mode}')">${isLogin ? "Entrar" : "Cadastrar e entrar"}</button>
+            ${isLogin ? `<button class="btn btn-link btn-block" onclick="app.openPinRecoveryRequest(${blocking})">Esqueci meu PIN</button>` : ""}
             <button class="btn btn-ghost btn-block" onclick="app.showRegistrationModal(${blocking}, '${isLogin ? "signup" : "login"}')">
               ${isLogin ? "Criar cadastro (primeiro acesso)" : "Já tenho cadastro — entrar"}
             </button>
@@ -538,13 +543,7 @@ const app = {
       identificador: identifier, pin,
     });
     if (!res?.success) {
-      if (res?.not_found) {
-        this.toast("Cadastro não encontrado. Use 'Criar cadastro'.", "error");
-      } else if (res?.no_pin) {
-        this.toast("Este comprador ainda não tem PIN. Faça um novo cadastro.", "error");
-      } else {
-        this.toast(res?.error || "PIN incorreto", "error");
-      }
+      this.toast(res?.error || "Credenciais inválidas", "error");
       return;
     }
     const comprador = res.comprador || res.data || {};
@@ -578,6 +577,7 @@ const app = {
 
   async logoutUser() {
     if (!(await customConfirm("Sair da sua conta? O carrinho continuará salvo neste navegador."))) return;
+    await this.api("comprador/logout", "POST");
     this.clearBuyerSession(true);
   },
 
@@ -595,6 +595,7 @@ const app = {
     );
     document.getElementById("headerUserName").textContent =
       this.state.user.name;
+    this.renderAuthSecurityAction?.();
   },
 
   /* ----------------- Tabs ----------------- */
@@ -1792,6 +1793,9 @@ const app = {
         <button class="btn btn-success" onclick="app.exportCSV()">${icon(
           "download"
         )} Exportar CSV</button>
+        <button class="btn btn-secondary" onclick="app.openAdminPinRecovery()">${icon(
+          "user"
+        )} Recuperar PIN</button>
         <button class="btn btn-danger" onclick="app.clearAllOrders()">${icon(
           "trash"
         )} Apagar pedidos</button>

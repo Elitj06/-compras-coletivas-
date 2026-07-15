@@ -1,0 +1,44 @@
+.btn-link {
+  border: 0;
+  background: transparent;
+  color: var(--c-brand);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 8px;
+}
+
+.auth-modal { max-width: 480px; }
+.auth-actions { display: flex; gap: 10px; }
+.auth-help { color: var(--c-text-muted); font-size: .82rem; line-height: 1.5; }
+.auth-code-result { display: grid; gap: 8px; text-align: center; }
+.auth-code-result code { overflow-wrap: anywhere; padding: 10px; border-radius: 8px; background: var(--c-bg); }
+.auth-code-result strong { font-size: 2rem; letter-spacing: .35rem; color: var(--c-brand); }
+
+.header-security-btn {
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: var(--c-surface);
+  color: var(--c-brand);
+  font-size: .7rem;
+  font-weight: 800;
+  padding: 6px 9px;
+  cursor: pointer;
+}
+
+.auth-modal textarea,
+.auth-modal select {
+  width: 100%;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: var(--c-surface);
+  color: var(--c-text);
+  padding: 11px 12px;
+  font: inherit;
+}
+
+.auth-modal textarea { min-height: 96px; resize: vertical; }
+
+@media (max-width: 520px) {
+  .auth-actions { flex-direction: column-reverse; }
+  .header-security-btn { padding: 5px 7px; }
+}

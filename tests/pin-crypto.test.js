@@ -12,7 +12,7 @@ import {
   isValidPin,
   randomHex,
   verifyPinHash,
-} from '../api/lib/pin-crypto.js';
+} from '../server/lib/pin-crypto.js';
 
 describe('PIN crypto compatibility', () => {
   const legacySalt = 'Joao Silva:21998887766';

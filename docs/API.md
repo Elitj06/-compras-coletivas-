@@ -299,9 +299,11 @@ Lista todos os compradores com contagem de pedidos. Usado pelo admin para seleci
   "success": true,
   "data": [
     {
+      "id": 12,
       "nome": "João Silva",
       "telefone": "21998887766",
       "email": "joao@email.com",
+      "has_pin": true,
       "total_pedidos": 2
     }
   ]
@@ -312,13 +314,14 @@ Lista todos os compradores com contagem de pedidos. Usado pelo admin para seleci
 
 ### GET /pedidos/historico
 
-Histórico de pedidos de um comprador.
+Histórico de pedidos de um comprador. O comprador usa seu Bearer token, sem
+parâmetros. O administrador pode consultar informando nome e telefone.
 
 **Query Params:**
 | Parâmetro | Tipo | Obrigatório | Descrição |
 |---|---|---|---|
-| `usuario` | string | Sim | Nome do comprador |
-| `telefone` | string | Não | Telefone (filtro de privacidade) |
+| `usuario` | string | Só para admin | Nome do comprador |
+| `telefone` | string | Só para admin | Telefone cadastrado |
 
 **Response `200`:**
 ```json
@@ -349,9 +352,9 @@ Histórico de pedidos de um comprador.
 }
 ```
 
-**Error `400`:**
+**Error `401`:**
 ```json
-{ "success": false, "error": "Usuário não informado" }
+{ "success": false, "error": "Não autorizado" }
 ```
 
 ---
@@ -373,6 +376,9 @@ Colunas: `Comprador;Código;Produto;Qtd;Preço Unit.;Desconto %;Preço c/ Desc.;
 ### POST /pedidos
 
 Cria um novo pedido com itens.
+
+Telefone e e-mail do corpo são usados apenas para validar a sessão. Esta rota
+não altera mais a identidade persistida do comprador.
 
 **Body:**
 ```json
@@ -450,7 +456,8 @@ Aplica desconto global ou por categoria. Chama a função `aplicar_desconto()` n
 
 ### POST /comprador/registro
 
-Cria ou atualiza cadastro de comprador com PIN.
+Cria um cadastro novo com PIN. A rota é `create-only`: nunca altera identidade
+ou PIN de comprador existente.
 
 **Body:**
 ```json
@@ -462,47 +469,29 @@ Cria ou atualiza cadastro de comprador com PIN.
 }
 ```
 
-Se o comprador já tem PIN, exige `pin_atual` para sobrescrever:
-
-**Body (atualização):**
+**Response `201`:**
 ```json
-{
-  "nome": "João Silva",
-  "telefone": "21998887766",
-  "email": "joao@email.com",
-  "pin": "5678",
-  "pin_atual": "1234"
-}
+{ "success": true, "message": "Cadastro criado com PIN", "token": "..." }
 ```
 
-**Response `200`:**
-```json
-{ "success": true, "message": "PIN registrado" }
-```
-
-**Response `409` (PIN já existe sem informar atual):**
+**Response `409` (telefone ou e-mail equivalente já existe):**
 ```json
 {
   "success": false,
-  "error": "PIN já cadastrado. Faça login ou informe o PIN atual para alterá-lo.",
-  "requires_current_pin": true
+  "error": "Cadastro já existe. Entre ou recupere seu PIN.",
+  "code": "IDENTITY_ALREADY_REGISTERED"
 }
-```
-
-**Response `401` (PIN atual incorreto):**
-```json
-{ "success": false, "error": "PIN atual incorreto" }
 ```
 
 **Response `400`:**
 ```json
-{ "success": false, "error": "Nome e telefone são obrigatórios" }
+{ "success": false, "error": "Nome, telefone e e-mail válidos são obrigatórios" }
 ```
 
 **Notas:**
 - PIN: 4 a 6 dígitos numéricos
-- Hash SHA-256 com salt `nome:telefone` (usando dados do banco, não digitados)
-- Busca case-insensitive por nome
+- Hash PBKDF2-SHA256 com 210 mil iterações e salt aleatório
+- Cadastro concorrente é serializado por telefone e e-mail normalizados
 
 ---
 
@@ -531,31 +520,88 @@ Autentica comprador via PIN.
 ```json
 {
   "success": true,
-  "data": {
+  "token": "...",
+  "comprador": {
+    "id": 12,
     "nome": "João Silva",
     "telefone": "21998887766",
     "email": "joao@email.com"
+  },
+  "data": {
+    "id": 12,
+    "nome": "João Silva",
+    "telefone": "21998887766",
+    "email": "joao@email.com",
+    "token": "..."
   }
 }
 ```
 
-Se o comprador não tem PIN, retorna `409` com `no_pin: true`; o login nunca define um PIN automaticamente.
-
-**Response `404`:**
-```json
-{ "success": false, "error": "Comprador não encontrado. Use \"Criar cadastro\".", "not_found": true }
-```
-
 **Response `401`:**
 ```json
-{ "success": false, "error": "PIN incorreto" }
+{ "success": false, "error": "Credenciais inválidas", "code": "INVALID_CREDENTIALS" }
 ```
 
 **Compatibilidade de hash:** o login verifica tanto SHA-256 legado com salt
 `nome:telefone` quanto envelopes `pbkdf2:sha256:<iterações>:<salt>:<hash>`.
-Não ocorre migração automática nesta release, e novos cadastros ainda geram o
-formato legado. As rotas de recuperação/alteração de PIN permanecem inativas
-até a release funcional e não fazem parte do contrato público atual.
+Com `PIN_HASH_MIGRATION_ENABLED=true`, um login legado válido migra o hash para
+PBKDF2. Inexistência, duplicidade, conta sem PIN e PIN incorreto usam a mesma
+resposta pública.
+
+---
+
+### POST /api/pin-recovery-request
+
+Solicita código de seis dígitos por e-mail. Sempre retorna `202` com a mesma
+mensagem e um `challenge_id` opaco, inclusive para identificador inexistente,
+ambíguo, limitado ou com falha de entrega.
+
+```json
+{ "identificador": "joao@email.com" }
+```
+
+```json
+{
+  "success": true,
+  "message": "Se os dados estiverem aptos, você receberá as instruções em instantes.",
+  "challenge_id": "64-caracteres-hexadecimais"
+}
+```
+
+O código expira em 10 minutos, aceita cinco tentativas e funciona uma vez.
+
+---
+
+### POST /comprador/pin-recovery/complete
+
+```json
+{ "challenge_id": "...", "code": "123456", "new_pin": "5678" }
+```
+
+Sucesso revoga todas as sessões e exige novo login. Código inválido, expirado,
+usado ou bloqueado retorna `400 INVALID_OR_EXPIRED_RECOVERY`.
+
+---
+
+### POST /comprador/logout
+
+Exige Bearer de comprador, revoga somente a sessão apresentada e retorna `204`.
+
+---
+
+### POST /admin/compradores/:id/pin-recovery
+
+Exige Bearer administrativo e validação humana registrada.
+
+```json
+{
+  "verification_method": "WhatsApp",
+  "verification_note": "Confirmou telefone e último pedido"
+}
+```
+
+Retorna uma única vez `challenge_id`, código temporário de seis dígitos e
+expiração. O administrador nunca define nem visualiza o novo PIN.
 
 ---
 
@@ -565,7 +611,7 @@ Autentica administrador.
 
 **Body:**
 ```json
-{ "senha": "admin123" }
+{ "senha": "sua-senha-administrativa" }
 ```
 
 **Response `200`:**
@@ -586,6 +632,19 @@ Autentica administrador.
 ---
 
 ## PUT
+
+### PUT /comprador/pin
+
+Exige Bearer de comprador.
+
+```json
+{ "current_pin": "1234", "new_pin": "5678" }
+```
+
+Sucesso revoga todas as sessões anteriores, cria uma sessão substituta e
+retorna o novo `token`. O PIN atual incorreto retorna `401` sem encerrar a sessão.
+
+---
 
 ### PUT /pedidos/:id/status
 

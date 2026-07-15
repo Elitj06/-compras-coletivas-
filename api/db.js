@@ -19,7 +19,16 @@
  */
 
 import { createClient } from '@vercel/postgres';
-import { hashLegacyPin, verifyPinHash } from './lib/pin-crypto.js';
+import {
+  namesEquivalent,
+  normalizeNomeTel,
+  phonesEquivalent,
+} from '../server/lib/buyer-identity.js';
+import { timingSafeEqual } from '../server/lib/pin-crypto.js';
+import {
+  handleBuyerAuthPost,
+  handleBuyerAuthPut,
+} from '../server/routes/buyer-auth-routes.js';
 
 // @vercel/postgres createClient with explicit connectionString
 // Bypasses POSTGRES_URL_NON_POOLING env var check
@@ -58,6 +67,15 @@ function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers });
 }
 
+function authResponse(result) {
+  const responseHeaders = { ...headers, 'Cache-Control': 'no-store', Pragma: 'no-cache' };
+  if (result.status === 204) return new Response(null, { status: 204, headers: responseHeaders });
+  return new Response(JSON.stringify(result.body), {
+    status: result.status || 200,
+    headers: responseHeaders,
+  });
+}
+
 const ADMIN_SESSION_TTL_SECONDS = 60 * 60 * 8;
 const BUYER_SESSION_TTL_SECONDS = 60 * 60 * 24;
 const PASSWORD_PBKDF2_ITERATIONS = 210000;
@@ -89,17 +107,6 @@ function randomHex(bytes = 32) {
   const data = new Uint8Array(bytes);
   crypto.getRandomValues(data);
   return bytesToHex(data);
-}
-
-function constantTimeEqual(left, right) {
-  const a = String(left || '');
-  const b = String(right || '');
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i += 1) {
-    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return diff === 0;
 }
 
 function getTokenFromRequest(req, headerName) {
@@ -150,7 +157,7 @@ async function requireBuyer(req, client) {
   const token = getTokenFromRequest(req, 'x-buyer-token');
   if (!token) return null;
   const session = await client.query(
-    `SELECT c.id, c.nome, c.telefone, c.email
+    `SELECT c.id, c.nome, c.telefone, c.email, bs.id AS session_id
      FROM buyer_sessions bs
      JOIN compradores c ON c.id = bs.comprador_id
      WHERE bs.token_hash = $1 AND bs.expires_at > NOW()
@@ -198,7 +205,7 @@ async function verifyPbkdf2Password(password, savedValue) {
     key,
     256
   );
-  return constantTimeEqual(hashHex, bytesToHex(new Uint8Array(bits)));
+  return timingSafeEqual(hashHex, bytesToHex(new Uint8Array(bits)));
 }
 
 async function verifyAdminPassword(client, password) {
@@ -235,99 +242,6 @@ async function getClient() {
   await client.connect();
   await client.query('SET search_path TO compras_coletivas');
   return client;
-}
-
-/**
- * Gera hash SHA-256 de um PIN com salt.
- * Usa WebCrypto API (disponível no Edge Runtime).
- * @param {string} pin - PIN em texto plano (4-6 dígitos).
- * @param {string} salt - Salt (formato: `nome:telefone` do banco).
- * @returns {Promise<string>} Hash hexadecimal de 64 caracteres.
- */
-const hashPin = hashLegacyPin;
-
-/**
- * Normaliza nome (trim) e telefone (remove não-dígitos).
- * @param {string} nome - Nome do comprador.
- * @param {string} telefone - Telefone com ou sem formatação.
- * @returns {{ nome: string, telefone: string }} Dados normalizados.
- */
-function normalizeNomeTel(nome, telefone) {
-  return {
-    nome: String(nome || '').trim(),
-    telefone: String(telefone || '').replace(/\D/g, ''),
-  };
-}
-
-function normalizeNameForComparison(nome) {
-  return String(nome || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function getNameComparisonTokens(nome) {
-  return normalizeNameForComparison(nome)
-    .split(' ')
-    .map((token) => token.replace(/[^a-z0-9]/g, ''))
-    .filter((token) => token && !['da', 'de', 'do', 'dos', 'das', 'e'].includes(token));
-}
-
-function namesEquivalent(left, right) {
-  const leftTokens = getNameComparisonTokens(left);
-  const rightTokens = getNameComparisonTokens(right);
-
-  if (!leftTokens.length || !rightTokens.length) return false;
-  if (leftTokens.join(' ') === rightTokens.join(' ')) return true;
-
-  const leftFirst = leftTokens[0];
-  const rightFirst = rightTokens[0];
-  const leftLast = leftTokens[leftTokens.length - 1];
-  const rightLast = rightTokens[rightTokens.length - 1];
-
-  if (leftFirst !== rightFirst || leftLast !== rightLast) return false;
-
-  const leftSet = new Set(leftTokens);
-  const rightSet = new Set(rightTokens);
-  const smaller = leftSet.size <= rightSet.size ? leftSet : rightSet;
-  const larger = smaller === leftSet ? rightSet : leftSet;
-
-  for (const token of smaller) {
-    if (!larger.has(token)) return false;
-  }
-
-  return true;
-}
-
-function collectPhoneCandidates(candidates, rawDigits) {
-  const digits = String(rawDigits || '').replace(/\D/g, '').replace(/^00+/, '');
-  if (!digits || candidates.has(digits)) return;
-  candidates.add(digits);
-
-  if (digits.startsWith('55') && digits.length >= 12) {
-    collectPhoneCandidates(candidates, digits.slice(2));
-  }
-
-  if (digits.startsWith('0') && digits.length >= 11) {
-    collectPhoneCandidates(candidates, digits.slice(1));
-  }
-
-  if (!digits.startsWith('55') && digits.length >= 10 && digits.length <= 11) {
-    candidates.add(`55${digits}`);
-  }
-}
-
-function getPhoneLookupCandidates(telefone) {
-  const candidates = new Set();
-  collectPhoneCandidates(candidates, telefone);
-  return Array.from(candidates);
-}
-
-function phonesEquivalent(left, right) {
-  const leftCandidates = new Set(getPhoneLookupCandidates(left));
-  return getPhoneLookupCandidates(right).some((candidate) => leftCandidates.has(candidate));
 }
 
 /**
@@ -525,7 +439,8 @@ export default async function handler(req) {
           return unauthorized();
         }
         const rows = await client.query(`
-          SELECT DISTINCT c.nome, c.telefone, c.email,
+          SELECT c.id, c.nome, c.telefone, c.email,
+            (c.pin_hash IS NOT NULL) AS has_pin,
             (SELECT COUNT(*) FROM pedidos p WHERE p.usuario = c.nome AND p.status != 'cancelado') AS total_pedidos
           FROM compradores c
           ORDER BY c.nome
@@ -644,7 +559,15 @@ export default async function handler(req) {
       if (path === 'comprador/session') {
         await client.end();
         if (!buyerSession) return unauthorized();
-        return json({ success: true, data: buyerSession });
+        return json({
+          success: true,
+          data: {
+            id: buyerSession.id,
+            nome: buyerSession.nome,
+            telefone: buyerSession.telefone,
+            email: buyerSession.email,
+          },
+        });
       }
     }
 
@@ -652,12 +575,27 @@ export default async function handler(req) {
     if (req.method === 'POST') {
       const body = await req.json();
 
+      const authResult = await handleBuyerAuthPost({
+        path,
+        req,
+        body,
+        client,
+        adminSession,
+        buyerSession,
+        createBuyerSession,
+        env: process.env,
+      });
+      if (authResult) {
+        await client.end();
+        return authResponse(authResult);
+      }
+
       if (path === 'pedidos') {
         if (!buyerSession) {
           await client.end();
           return unauthorized('Faça login novamente para enviar seu pedido');
         }
-        const { usuario, telefone, email, itens, replace_pedido_id } = body;
+        const { usuario, telefone, itens, replace_pedido_id } = body;
         if (!usuario || !itens || !itens.length) {
           await client.end();
           return json({ success: false, error: 'Dados incompletos' }, 400);
@@ -688,17 +626,6 @@ export default async function handler(req) {
             }
             await client.query('DELETE FROM itens_pedido WHERE pedido_id = $1', [replacePedidoId]);
             await client.query('DELETE FROM pedidos WHERE id = $1', [replacePedidoId]);
-          }
-
-          // Atualiza dados complementares do comprador autenticado.
-          if (telefone || email) {
-            await client.query(
-              `UPDATE compradores
-               SET telefone = COALESCE($1, telefone),
-                   email = COALESCE($2, email)
-               WHERE id = $3`,
-              [telefone || null, email || null, buyerSession.id]
-            );
           }
 
           // Proteção contra envios duplicados: verifica se já existe pedido
@@ -779,196 +706,6 @@ export default async function handler(req) {
         return json({ success: true, message: `Desconto de ${percentual}% aplicado em ${categoria}` });
       }
 
-      // ===== Autenticação do comprador via PIN =====
-      // POST /comprador/registro  { nome, telefone, email, pin }
-      // Cria ou define o PIN de um comprador. Se já existia pin_hash, exige
-      // o pin_atual (não permite sobrescrever sem conhecer o atual).
-      if (path === 'comprador/registro') {
-        const { nome, telefone, email, pin, pin_atual } = body;
-        const { nome: n, telefone: t } = normalizeNomeTel(nome, telefone);
-        const phoneCandidates = getPhoneLookupCandidates(t);
-        if (!n || !t) { await client.end(); return json({ success: false, error: 'Nome e telefone são obrigatórios' }, 400); }
-        if (!/^\d{4,6}$/.test(String(pin || ''))) {
-          await client.end();
-          return json({ success: false, error: 'PIN deve ter de 4 a 6 dígitos numéricos' }, 400);
-        }
-        // Verifica se já existe (case-insensitive)
-        const existing = await client.query(
-          `SELECT id, nome, telefone, email, pin_hash FROM compradores
-           WHERE regexp_replace(COALESCE(telefone,''), '\\D', '', 'g') = ANY($1::text[])
-           ORDER BY id ASC`,
-          [phoneCandidates]
-        );
-        const row = existing.rows.find((candidate) => namesEquivalent(n, candidate.nome));
-        if (row) {
-          // Já existe — usa o nome exato do banco
-          const dbNome = row.nome;
-          const dbTel = (row.telefone || '').replace(/\D/g, '');
-          if (row.pin_hash) {
-            if (!pin_atual) {
-              await client.end();
-              return json({ success: false, error: 'PIN já cadastrado. Faça login ou informe o PIN atual para alterá-lo.', requires_current_pin: true }, 409);
-            }
-            const atualHash = await hashPin(pin_atual, dbNome + ':' + dbTel);
-            if (atualHash !== row.pin_hash) {
-              await client.end();
-              return json({ success: false, error: 'PIN atual incorreto' }, 401);
-            }
-          }
-          const newHash = await hashPin(pin, dbNome + ':' + (t || dbTel));
-          await client.query(
-            `UPDATE compradores SET pin_hash = $1, telefone = COALESCE($2, telefone), email = COALESCE($3, email) WHERE nome = $4`,
-            [newHash, t || null, email || null, dbNome]
-          );
-          const token = await createBuyerSession(client, row.id);
-          await client.end();
-          return json({
-            success: true,
-            message: 'PIN registrado',
-            token,
-            comprador: {
-              id: row.id,
-              nome: dbNome,
-              telefone: t || dbTel,
-              email: email || row.email || '',
-            },
-            data: {
-              id: row.id,
-              nome: dbNome,
-              telefone: t || dbTel,
-              email: email || row.email || '',
-              token,
-            }
-          });
-        }
-        // Novo comprador
-        const newHash = await hashPin(pin, n + ':' + t);
-        const inserted = await client.query(
-          `INSERT INTO compradores (nome, telefone, email, pin_hash) VALUES ($1, $2, $3, $4) RETURNING id`,
-          [n, t, email || null, newHash]
-        );
-        const compradorId = inserted.rows?.[0]?.id || null;
-        const token = await createBuyerSession(client, compradorId);
-        await client.end();
-        return json({
-          success: true,
-          message: 'Cadastro criado com PIN',
-          token,
-          comprador: {
-            id: compradorId,
-            nome: n,
-            telefone: t,
-            email: email || '',
-          },
-          data: {
-            id: compradorId,
-            nome: n,
-            telefone: t,
-            email: email || '',
-            token,
-          }
-        });
-      }
-
-      // POST /comprador/login
-      // - Novo formato (recomendado): { identificador, pin }
-      //   onde `identificador` = telefone OU email do comprador.
-      // - Formato legado (retrocompatibilidade para apps antigos em cache):
-      //   { nome, telefone, pin } — continua funcionando como antes.
-      if (path === 'comprador/login') {
-        const { identificador, nome, telefone, pin } = body;
-
-        // SECTION: Detecção do formato de entrada
-        // Se `identificador` veio, usamos o formato novo (telefone ou email + PIN).
-        // Caso contrário, fallback para o formato legado (nome + telefone + pin).
-        const useNewFormat = !!identificador;
-        let row = null;
-
-        if (useNewFormat) {
-          const id = String(identificador || '').trim();
-          if (!id || !pin) {
-            await client.end();
-            return json({ success: false, error: 'Dados incompletos' }, 400);
-          }
-
-          // SECTION: Busca por telefone (normalizado) ou email (case-insensitive)
-          const isEmail = /^\S+@\S+\.\S+$/.test(id);
-          let r;
-          if (isEmail) {
-            r = await client.query(
-              `SELECT id, nome, telefone, email, pin_hash FROM compradores
-               WHERE LOWER(COALESCE(email, '')) = LOWER($1)
-               LIMIT 5`,
-              [id]
-            );
-          } else {
-            const phoneCandidates = getPhoneLookupCandidates(id);
-            if (!phoneCandidates.length) {
-              await client.end();
-              return json({ success: false, error: 'Dados incompletos' }, 400);
-            }
-            r = await client.query(
-              `SELECT id, nome, telefone, email, pin_hash FROM compradores
-               WHERE regexp_replace(COALESCE(telefone, ''), '\\D', '', 'g') = ANY($1::text[])
-               ORDER BY id ASC`,
-              [phoneCandidates]
-            );
-          }
-          row = r.rows[0] || null;
-        } else {
-          // SECTION: Formato legado — nome + telefone + pin (app antigo cached)
-          const { nome: n, telefone: t } = normalizeNomeTel(nome, telefone);
-          const phoneCandidates = getPhoneLookupCandidates(t);
-          if (!n || !t || !pin) {
-            await client.end();
-            return json({ success: false, error: 'Dados incompletos' }, 400);
-          }
-          const r = await client.query(
-            `SELECT id, nome, telefone, email, pin_hash FROM compradores
-             WHERE regexp_replace(COALESCE(telefone, ''), '\\D', '', 'g') = ANY($1::text[])
-             ORDER BY id ASC`,
-            [phoneCandidates]
-          );
-          row = r.rows.find((candidate) => namesEquivalent(n, candidate.nome)) || null;
-        }
-
-        if (!row) {
-          await client.end();
-          return json({ success: false, error: 'Comprador não encontrado. Use "Criar cadastro".', not_found: true }, 404);
-        }
-        // Usa o nome/telefone SALVOS no banco como salt (não o digitado)
-        const dbNome = row.nome;
-        const dbTel = (row.telefone || '').replace(/\D/g, '');
-        if (!row.pin_hash) {
-          await client.end();
-          return json({ success: false, error: 'Conta não ativada', no_pin: true }, 409);
-        }
-        const pinIsValid = await verifyPinHash(pin, row.pin_hash, dbNome + ':' + dbTel);
-        if (!pinIsValid) {
-          await client.end();
-          return json({ success: false, error: 'PIN incorreto' }, 401);
-        }
-        const token = await createBuyerSession(client, row.id);
-        await client.end();
-        return json({
-          success: true,
-          token,
-          comprador: {
-            id: row.id,
-            nome: dbNome,
-            telefone: row.telefone,
-            email: row.email,
-          },
-          data: {
-            id: row.id,
-            nome: dbNome,
-            telefone: row.telefone,
-            email: row.email,
-            token,
-          }
-        });
-      }
-
       // POST /pagamentos/inicializar — cria registros de pagamento para pedidos pendentes
       if (path === 'pagamentos/inicializar') {
         if (!adminSession) {
@@ -1007,6 +744,20 @@ export default async function handler(req) {
     // ===== PUT ROUTES =====
     if (req.method === 'PUT') {
       const body = await req.json();
+
+      const authResult = await handleBuyerAuthPut({
+        path,
+        req,
+        body,
+        client,
+        buyerSession,
+        createBuyerSession,
+        env: process.env,
+      });
+      if (authResult) {
+        await client.end();
+        return authResponse(authResult);
+      }
 
       // PUT /pagamentos/:id — atualiza parcelas/obs de um pagamento
       const pgtoMatch = path.match(/^pagamentos\/(\d+)$/);

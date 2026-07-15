@@ -1,7 +1,7 @@
 /**
  * @fileoverview Primitivas WebCrypto para PIN e recuperacao de acesso.
  * Compativel com o Vercel Edge Runtime e com o runner de testes do Node.
- * @module api/lib/pin-crypto
+ * @module server/lib/pin-crypto
  */
 
 export const PIN_PBKDF2_ITERATIONS = 210000;
@@ -43,6 +43,11 @@ function constantTimeEqual(left, right) {
     difference |= (a.charCodeAt(index) || 0) ^ (b.charCodeAt(index) || 0);
   }
   return difference === 0;
+}
+
+/** Compara valores codificados sem retorno antecipado por tamanho. */
+export function timingSafeEqual(left, right) {
+  return constantTimeEqual(left, right);
 }
 
 function assertValidIterations(iterations) {

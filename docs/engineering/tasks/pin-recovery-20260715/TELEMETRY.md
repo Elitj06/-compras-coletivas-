@@ -1,32 +1,33 @@
-# Telemetria — pin-recovery-20260715 / release 1
+# Telemetria — pin-recovery-20260715
 
 - Projeto: `compras-coletivas`.
-- Janela: 2026-07-15, aproximadamente 03:05–03:40 UTC / 00:05–00:40 BRT.
-- Risco e lane: `high / release`.
-- Deep Architecture: sim; plano aprovado preexistente consumido pelo writer.
-- Baseline/retorno: `02b052449375ef6a5ee5bb53cd2ac1c6c25da684`.
-- Writer unico: sessao Codex desta entrega; provedor OpenAI, variante exata nao
-  exposta no handoff, esforco alto.
-- Planner: artefato `PLAN.md` preexistente; provedor/modelo/esforco nao expostos
-  no handoff desta fase.
-- Verifier de arquitetura/release 1: Z.AI GLM-5.2 em esforco `max`, independente
-  da familia do writer; aprovou a release 1 e aprovou condicionalmente a
-  arquitetura da release 2, com sete reparos obrigatorios registrados.
-- Reviewer de terceira familia: pendente para o diff final da release 2.
-- Duracao da implementacao e verificacao local: aproximadamente 35 minutos.
-- Timeouts/fallbacks/retries de provedor: 0 observados nesta fase.
-- Ciclos de reparo: 1 ajuste de fixtures deterministicas de teste; 0 reparos de
-  comportamento apos gates verdes.
-- Gates: sintaxe Node aprovada; 8/8 testes aprovados; schemas frescos aprovados;
-  migracao idempotente aprovada em duas execucoes PostgreSQL 16; diff check
-  focado aprovado.
-- Findings do writer: 0 bloqueadores restantes no escopo da release 1.
-- Findings independentes: release 1 com um `LOW` e dois `INFO`, todos
-  encaminhados para a release 2; arquitetura release 2 com tres `BLOCKER`, dois
-  `HIGH` e dois `MEDIUM`, incorporados como gates de implementacao.
-- Defeitos unicos por familia e falsos positivos: ainda nao medidos.
-- Migracao de producao: aplicada e verificada; tres tabelas presentes, zero
-  grants expostos e grants backend confirmados.
-- Deploy/live smoke: pendente para o commit de compatibilidade.
-- Rollback invocado: nao.
-- Defeito escapado em producao: nao aplicavel; codigo nao publicado.
+- Janela: 15/07/2026, aproximadamente 00:05–09:50 BRT.
+- Risco/lane: `high / release`; Deep Architecture ativa.
+- Baseline original: `02b052449375ef6a5ee5bb53cd2ac1c6c25da684`.
+- Rollback canônico publicado: `0fda4ec156e0792811762a8d7c0469f8ff0230ed`.
+- Planner: GPT-5.6 Sol, esforço `max`.
+- Writer único: família OpenAI, esforço alto, sem escritores concorrentes nos
+  hotspots.
+- Verifier de arquitetura e Release 1: GLM-5.2, esforço `max`; Release 1 aprovada
+  e sete reparos obrigatórios de Release 2 incorporados.
+- Verifier do diff final: GLM-5.2 independente, `APPROVE`, sem finding
+  bloqueante; quatro observações `LOW` foram avaliadas e as duas de código
+  compartilhado/memória do código admin foram reparadas.
+- Reviewer de terceira família: duas tentativas Mimo falharam antes de gerar
+  resposta por rejeição do provedor. Circuit breaker atingido; gate não satisfeito
+  e release bloqueada antes de commit/deploy.
+- Ciclos de reparo do writer: extração de helpers fora de `/api` após inspeção do
+  bundle Vercel; casts SQL do rate limit/auditoria; serialização de identidade;
+  desafio utilizável somente após entrega; cobertura de falha, reenvio, expiração
+  e cinco tentativas.
+- Gates atuais: 11 unitários e 9 integrações aprovados; sintaxe, diff check e
+  build aprovados; duas funções Vercel no bundle; UI móvel renderizada.
+- Migração: idempotência provada localmente e produção verificada com grants
+  fechados para papéis expostos.
+- Release 1: GitHub, deploy `READY` e smoke canônico aprovados.
+- Release 2: push, deploy, flags e smoke no ar bloqueados pelo Reviewer ausente.
+- Fallbacks de provedor: uma tentativa anterior e a tentativa final do Reviewer
+  Mimo falharam antes de produzir saída; nenhuma terceira tentativa foi feita.
+- Bloqueio externo: domínio próprio ausente para provisionar Resend/remetente.
+- Rollback invocado: não.
+- Defeito escapado em produção: nenhum observado.

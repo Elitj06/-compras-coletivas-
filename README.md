@@ -25,11 +25,18 @@ Plataforma de compras coletivas para a igreja Vida Forte. Membros fazem pedidos 
 compras-coletivas/
 ├── api/
 │   ├── db.js                  # API principal (Edge Runtime) — todas as rotas REST
-│   ├── lib/pin-crypto.js      # Compatibilidade SHA-256/PBKDF2 e primitivas seguras
+│   ├── pin-recovery-request.js # Solicitação SMTP de PIN (Node.js Runtime)
 │   └── upload-planilha.js     # Upload de planilha Excel (Node.js Runtime)
+├── server/
+│   ├── routes/                # Adaptadores HTTP internos
+│   ├── services/              # Regras de PIN, recuperação e rate limit
+│   ├── data/                  # Queries PostgreSQL de autenticação
+│   └── lib/                   # Criptografia, identidade e entrega Gmail SMTP
 ├── public/
 │   ├── index.html             # SPA — página única com 4 abas
 │   ├── app.js                 # Lógica do frontend (carrinho, pedidos, admin)
+│   ├── auth-recovery.js       # Recuperação, troca e fallback administrativo
+│   ├── auth-recovery.css      # UI das jornadas de segurança
 │   ├── styles.css             # Estilos com tema claro/escuro
 │   ├── produtos.js            # Catálogo de produtos (gerado automaticamente)
 │   ├── variantes.js           # Grupos de variantes (sabor/tamanho)
@@ -58,6 +65,7 @@ compras-coletivas/
 - Carrinho persistido no localStorage
 - Cadastro com nome, telefone, e-mail e PIN (4-6 dígitos)
 - Login via PIN para acessar histórico
+- Recuperação por código de e-mail e troca autenticada de PIN
 - Finalização de pedido com desconto automático
 - Visualização de pedido enviado (editar ou cancelar)
 - Histórico de pedidos com detalhes
@@ -70,6 +78,7 @@ compras-coletivas/
 - Liberar pedido para edição pelo comprador
 - Mesclar pedidos duplicados de um comprador
 - Adicionar item a pedido existente
+- Gerar código temporário após validação humana auditada
 - Remover produto de todos os pedidos (fornecedor em falta)
 - Exportar pedido consolidado (Excel `.xlsx` ou CSV)
 - Apagar pedidos (individual ou em massa)
@@ -123,6 +132,14 @@ vercel --prod
 |---|---|---|
 | `POSTGRES_URL` | Sim | URL de conexão PostgreSQL com search_path=compras_coletivas |
 | `DATABASE_URL` | Alternativa | Usada pelo upload-planilha.js (Neon) |
+| `PIN_RECOVERY_ENABLED` | Sim | Feature flag das rotas de recuperação |
+| `PIN_HASH_MIGRATION_ENABLED` | Sim | Migra SHA-256 legado para PBKDF2 após login válido |
+| `RECOVERY_HMAC_KEY` | Sim | HMAC dos códigos; segredo exclusivo |
+| `RATE_LIMIT_HMAC_KEY` | Sim | HMAC de IP/identificador para rate limit |
+| `SMTP_USER` | Para e-mail | Conta Gmail exclusiva usada como remetente |
+| `SMTP_APP_PASSWORD` | Para e-mail | Senha de app do Gmail, armazenada somente no Vercel |
+| `RECOVERY_FROM_EMAIL` | Para e-mail | Remetente Gmail no formato `Compras Coletivas <conta@gmail.com>` |
+| `APP_BASE_URL` | Para e-mail | URL canônica usada no e-mail de recuperação |
 
 ---
 
@@ -138,7 +155,7 @@ O schema `compras_coletivas` é isolado dentro do Supabase do FitFlow. Tabelas p
 - **descontos** — descontos por categoria ou global
 - **faixas_desconto** — faixas de desconto progressivo
 - **configuracoes** — chave-valor (admin_senha, prazo, etc.)
-- **pin_recovery_challenges**, **pin_recovery_rate_limits** e **pin_recovery_audit** — suporte persistente à recuperação de PIN, ainda sem rotas públicas nesta release
+- **pin_recovery_challenges**, **pin_recovery_rate_limits** e **pin_recovery_audit** — desafios de uso único, limites persistentes e auditoria sanitizada
 
 Views: `vw_dashboard_stats`, `vw_relatorio_produtos`, `vw_relatorio_compradores`
 
@@ -150,15 +167,16 @@ Funções: `aplicar_desconto()`, `calcular_desconto_progressivo()`, `recalcular_
 
 - Senha admin aceita envelope PBKDF2-SHA256; valores legados são migrados após autenticação válida
 - Login de comprador aceita PIN legado SHA-256 e envelope PBKDF2-SHA256
-- Cadastro continua gerando SHA-256 legado nesta release de compatibilidade; não há migração automática de PIN
-- Tabelas de recuperação ficam sem acesso para `PUBLIC`, `anon`, `authenticated` e `service_role`; a recuperação ainda está desativada
+- Novos cadastros e alterações geram PBKDF2-SHA256 com salt aleatório
+- Recuperação usa código CSPRNG, HMAC, expiração, cinco tentativas e consumo transacional
+- Tabelas de recuperação ficam sem acesso para `PUBLIC`, `anon`, `authenticated` e `service_role`
+- Rate limiting persistente não armazena IP, telefone ou e-mail em claro
 - Proteção contra pedidos duplicados (60s de janela)
 - CORS restrito à origem de produção e ao desenvolvimento local
 
 ### Pendências de segurança
-- [ ] Mover senha admin para env var ou hash
-- [ ] Rate limiting nos endpoints
-- [ ] Validação de input mais rigorosa
+- [x] Senha admin armazenada como PBKDF2 após autenticação válida
+- [ ] Validar envio Gmail SMTP em produção antes de ativar a recuperação
 
 ---
 
