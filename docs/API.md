@@ -510,7 +510,15 @@ Se o comprador já tem PIN, exige `pin_atual` para sobrescrever:
 
 Autentica comprador via PIN.
 
-**Body:**
+**Body recomendado (telefone ou e-mail):**
+```json
+{
+  "identificador": "21998887766",
+  "pin": "1234"
+}
+```
+
+**Body legado (mantido para clientes em cache):**
 ```json
 {
   "nome": "João Silva",
@@ -531,16 +539,7 @@ Autentica comprador via PIN.
 }
 ```
 
-Se o comprador não tem PIN (cadastro antigo), define automaticamente:
-
-**Response `200` (PIN set):**
-```json
-{
-  "success": true,
-  "data": { "nome": "João Silva", "telefone": "21998887766", "email": null },
-  "pin_set": true
-}
-```
+Se o comprador não tem PIN, retorna `409` com `no_pin: true`; o login nunca define um PIN automaticamente.
 
 **Response `404`:**
 ```json
@@ -551,6 +550,12 @@ Se o comprador não tem PIN (cadastro antigo), define automaticamente:
 ```json
 { "success": false, "error": "PIN incorreto" }
 ```
+
+**Compatibilidade de hash:** o login verifica tanto SHA-256 legado com salt
+`nome:telefone` quanto envelopes `pbkdf2:sha256:<iterações>:<salt>:<hash>`.
+Não ocorre migração automática nesta release, e novos cadastros ainda geram o
+formato legado. As rotas de recuperação/alteração de PIN permanecem inativas
+até a release funcional e não fazem parte do contrato público atual.
 
 ---
 

@@ -25,6 +25,7 @@ Plataforma de compras coletivas para a igreja Vida Forte. Membros fazem pedidos 
 compras-coletivas/
 ├── api/
 │   ├── db.js                  # API principal (Edge Runtime) — todas as rotas REST
+│   ├── lib/pin-crypto.js      # Compatibilidade SHA-256/PBKDF2 e primitivas seguras
 │   └── upload-planilha.js     # Upload de planilha Excel (Node.js Runtime)
 ├── public/
 │   ├── index.html             # SPA — página única com 4 abas
@@ -37,7 +38,9 @@ compras-coletivas/
 │   ├── 01_schema_supabase.sql # Schema completo (tabelas, views, funções)
 │   ├── 01_schema.sql          # Schema alternativo (sem views)
 │   ├── 02_faixas_desconto.sql # Faixas de desconto progressivo
-│   └── 03_pin_comprador.sql   # PIN hash para autenticação de compradores
+│   ├── 03_pin_comprador.sql   # PIN hash para autenticação de compradores
+│   ├── 04_security_sessions.sql # Sessões autenticadas
+│   └── 05_pin_recovery.sql    # Estrutura aditiva para recuperação de PIN
 ├── docs/
 │   └── API.md                 # Documentação completa da API
 ├── .env.example               # Template de variáveis de ambiente
@@ -135,6 +138,7 @@ O schema `compras_coletivas` é isolado dentro do Supabase do FitFlow. Tabelas p
 - **descontos** — descontos por categoria ou global
 - **faixas_desconto** — faixas de desconto progressivo
 - **configuracoes** — chave-valor (admin_senha, prazo, etc.)
+- **pin_recovery_challenges**, **pin_recovery_rate_limits** e **pin_recovery_audit** — suporte persistente à recuperação de PIN, ainda sem rotas públicas nesta release
 
 Views: `vw_dashboard_stats`, `vw_relatorio_produtos`, `vw_relatorio_compradores`
 
@@ -144,14 +148,15 @@ Funções: `aplicar_desconto()`, `calcular_desconto_progressivo()`, `recalcular_
 
 ## Segurança
 
-- Senha admin armazenada em texto no banco (pendência: migrar para hash)
-- Compradores autenticam via PIN (SHA-256 com salt)
+- Senha admin aceita envelope PBKDF2-SHA256; valores legados são migrados após autenticação válida
+- Login de comprador aceita PIN legado SHA-256 e envelope PBKDF2-SHA256
+- Cadastro continua gerando SHA-256 legado nesta release de compatibilidade; não há migração automática de PIN
+- Tabelas de recuperação ficam sem acesso para `PUBLIC`, `anon`, `authenticated` e `service_role`; a recuperação ainda está desativada
 - Proteção contra pedidos duplicados (60s de janela)
-- CORS liberado (`Access-Control-Allow-Origin: *`)
+- CORS restrito à origem de produção e ao desenvolvimento local
 
 ### Pendências de segurança
 - [ ] Mover senha admin para env var ou hash
-- [ ] Implementar autenticação real (JWT)
 - [ ] Rate limiting nos endpoints
 - [ ] Validação de input mais rigorosa
 

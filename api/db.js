@@ -6,7 +6,7 @@
  *
  * Funcionalidades:
  * - CRUD de pedidos e itens
- * - Autenticação de compradores via PIN (SHA-256)
+ * - Autenticação de compradores via PIN (SHA-256 legado e PBKDF2)
  * - Autenticação de admin via senha
  * - Aplicação de descontos globais
  * - Exportação CSV
@@ -19,6 +19,7 @@
  */
 
 import { createClient } from '@vercel/postgres';
+import { hashLegacyPin, verifyPinHash } from './lib/pin-crypto.js';
 
 // @vercel/postgres createClient with explicit connectionString
 // Bypasses POSTGRES_URL_NON_POOLING env var check
@@ -243,13 +244,7 @@ async function getClient() {
  * @param {string} salt - Salt (formato: `nome:telefone` do banco).
  * @returns {Promise<string>} Hash hexadecimal de 64 caracteres.
  */
-async function hashPin(pin, salt) {
-  const data = new TextEncoder().encode(`${salt}::${pin}`);
-  const buf = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(buf))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-}
+const hashPin = hashLegacyPin;
 
 /**
  * Normaliza nome (trim) e telefone (remove não-dígitos).
@@ -948,8 +943,8 @@ export default async function handler(req) {
           await client.end();
           return json({ success: false, error: 'Conta não ativada', no_pin: true }, 409);
         }
-        const hash = await hashPin(pin, dbNome + ':' + dbTel);
-        if (hash !== row.pin_hash) {
+        const pinIsValid = await verifyPinHash(pin, row.pin_hash, dbNome + ':' + dbTel);
+        if (!pinIsValid) {
           await client.end();
           return json({ success: false, error: 'PIN incorreto' }, 401);
         }

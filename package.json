@@ -3,6 +3,9 @@
   "version": "5.2.0",
   "type": "module",
   "private": true,
+  "scripts": {
+    "test": "node --test"
+  },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.0",
     "@vercel/postgres": "^0.10.0",
