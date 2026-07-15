@@ -8,9 +8,7 @@
 
 ## Atualização 15/07/2026 09:50 BRT
 
-**Status:** recuperação de PIN implementada; Release 1 em produção e Release 2
-nos gates finais. Entrega Gmail SMTP está isolada em função Node e aguarda teste
-real em produção antes da ativação.
+**Status:** recuperação de PIN publicada e ativa em produção.
 
 - Rollback canônico `0fda4ec` publicado e testado no alias de produção.
 - Migração aditiva aplicada; tabelas de desafio, rate limit e auditoria fechadas
@@ -22,8 +20,12 @@ real em produção antes da ativação.
 - Verifier GLM aprovou o diff final sem bloqueadores.
 - Bloqueio de release: o Reviewer obrigatório não produziu veredito em duas
   tentativas; o circuit breaker impediu commit/deploy da Release 2.
-- Pendente: push/deploy, confirmar os segredos Gmail SMTP, executar envio real e
-  completar o smoke de recuperação, sessão e interface.
+- Release 2 publicada no commit `23c27d0`; deploy Vercel `READY` no alias canônico.
+- Endpoint SMTP isolado em Node retornou `202` e o Gmail aceitou o envio controlado.
+- Banco de teste temporário foi removido após a validação; smoke local cobriu
+  conclusão, rotação e revogação de sessão em PostgreSQL 16 descartável.
+- Pendente: executar uma recuperação completa por um comprador real para confirmar
+  a experiência final na caixa de entrada e na interface.
 
 ---
 

@@ -4,9 +4,8 @@
 
 Release 1 de compatibilidade publicada e provada. Release 2 implementada e
 aprovada pelo Verifier independente e nos gates locais, mas não publicada: o
-Reviewer obrigatório de terceira família foi retomado e aprovou o isolamento do
-SMTP. A entrega automática por e-mail permanece pendente de teste real no runtime
-Node da Vercel antes da ativação.
+Reviewer obrigatório de terceira família aprovou o isolamento do SMTP. A Release
+2 foi publicada e o envio Gmail SMTP foi aceito em teste controlado de produção.
 
 ## Release 1 — rollback canônico
 
@@ -64,8 +63,21 @@ Node da Vercel antes da ativação.
   gates de release.
 - Gmail SMTP usa a conta exclusiva do projeto e senha de app armazenada no Vercel;
   não exige domínio próprio nem serviço pago. O endpoint SMTP roda isolado em
-  Node, enquanto a API principal permanece Edge. A entrega real ainda deve ser
-  comprovada em produção antes de habilitar a recuperação.
+  Node, enquanto a API principal permanece Edge. A entrega controlada foi aceita
+  pelo Gmail em produção antes da ativação.
+
+## Publicação e validação de produção
+
+- Commit `23c27d0` enviado ao GitHub; deploy Vercel `READY` e associado ao alias
+  canônico `https://compras-coletivas-phi.vercel.app`.
+- `GET /api/db/health` respondeu `200`; a função Node de solicitação respondeu
+  `405` a `GET`, confirmando o roteamento sem ativar fluxo indevido.
+- Uma conta de teste efêmera recebeu solicitação por `POST /api/pin-recovery-request`;
+  resposta pública `202` e auditoria `pin_recovery_delivered` confirmaram que o
+  Gmail aceitou a mensagem. A conta, desafio e auditoria de teste foram removidos.
+- A sequência completa de consumo, expiração, concorrência e revogação foi coberta
+  em PostgreSQL 16 descartável: 20 testes aprovados. A confirmação final de UX na
+  caixa de entrada de um comprador real continua como acompanhamento operacional.
 
 ## Rollback
 

@@ -25,9 +25,11 @@
 - Migração: idempotência provada localmente e produção verificada com grants
   fechados para papéis expostos.
 - Release 1: GitHub, deploy `READY` e smoke canônico aprovados.
-- Release 2: push, deploy, flags e smoke no ar bloqueados pelo Reviewer ausente.
+- Release 2: commit `23c27d0`, GitHub e deploy Vercel `READY` no alias canônico.
 - Fallbacks de provedor: uma tentativa anterior e a tentativa final do Reviewer
   Mimo falharam antes de produzir saída; nenhuma terceira tentativa foi feita.
-- Bloqueio externo: domínio próprio ausente para provisionar Resend/remetente.
+- Reparo crítico: SMTP isolado em função Node; bundle Edge ficou livre de Nodemailer.
+- Gates finais: PostgreSQL 16 descartável 20/20; envio Gmail aceito em produção;
+  health `200` e endpoint Node roteado. Confirmação UX de comprador real pendente.
 - Rollback invocado: não.
 - Defeito escapado em produção: nenhum observado.
