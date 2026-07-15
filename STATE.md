@@ -6,6 +6,28 @@
 
 ---
 
+## Atualização 15/07/2026 12:10 BRT
+
+**Status:** correção de UX da recuperação de PIN publicada em produção.
+
+- Causa raiz: o modal de recuperação permanecia no DOM após a redefinição do PIN;
+  depois do login ele voltava a bloquear a tela, dando a impressão de que era
+  necessário sair e abrir o app novamente.
+- Correção: o fluxo fecha explicitamente o modal de recuperação antes de abrir o
+  login, inclusive no botão **Voltar**. A recuperação continua a revogar sessões
+  e exige login manual com o novo PIN.
+- Commit funcional: `2b7343c`; commit adicional de teste: `8467807`; ambos no
+  GitHub.
+- Deploy Vercel de produção: `dpl_3yQiPFhqAKNES1BetLTocEjUUomG`, `READY`, no
+  alias canônico. A home, o script atualizado e a API health responderam `200`.
+- Gates: teste de ciclo de modal, suíte completa (13 testes aprovados), sintaxe,
+  build Vercel e verificação independente aprovados.
+- A automação visual do navegador local estava indisponível; o fluxo pós-sucesso
+  foi exercitado em teste de DOM isolado e o arquivo publicado foi conferido no
+  alias de produção.
+
+---
+
 ## Atualização 15/07/2026 09:50 BRT
 
 **Status:** recuperação de PIN publicada e ativa em produção.
