@@ -11,10 +11,16 @@ Object.assign(app, {
         <input id="recoveryIdentifier" autocomplete="username" placeholder="(00) 00000-0000 ou seu@email.com" />
       </div></div>
       <div class="modal-footer auth-actions">
-        <button class="btn btn-ghost" onclick="app.showRegistrationModal(${blocking},'login')">Voltar</button>
+        <button class="btn btn-ghost" onclick="app.returnToLogin(${blocking})">Voltar</button>
         <button class="btn btn-primary" onclick="app.submitPinRecoveryRequest(${blocking})">Enviar código</button>
       </div>
       <button class="btn btn-link btn-block" onclick="app.openPinRecoveryComplete('',${blocking})">Tenho um código do administrador</button>`, blocking);
+  },
+
+  // SECTION: Nunca mantenha o modal de recuperação atrás do modal de login.
+  returnToLogin(blocking = false) {
+    closeAuthModal();
+    this.showRegistrationModal(blocking, "login");
   },
 
   async submitPinRecoveryRequest(blocking = false) {
@@ -67,8 +73,8 @@ Object.assign(app, {
     sessionStorage.removeItem("pinRecoveryChallenge");
     history.replaceState({}, "", location.pathname);
     this.clearBuyerSession(false);
-    this.toast("PIN redefinido. Entre novamente.", "success");
-    this.showRegistrationModal(blocking, "login");
+    this.returnToLogin(blocking);
+    this.toast("PIN redefinido. Entre agora com seu telefone ou e-mail e o novo PIN.", "success");
   },
 
   renderAuthSecurityAction() {
