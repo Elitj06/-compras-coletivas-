@@ -8,6 +8,25 @@
 
 ## Atualização 15/07/2026 12:10 BRT
 
+## Atualização 16/07/2026 — status de erro do login do comprador
+
+**Status:** correção publicada e validada em produção.
+
+- Causa raiz: o despachante das rotas de autenticação retornava promessas sem
+  aguardá-las dentro do `try`; falhas esperadas de validação e PIN escapavam do
+  tratamento controlado e apareciam como erro interno `500`.
+- Correção: as rotas assíncronas de autenticação agora são aguardadas dentro do
+  `try`, preservando os contratos `400`, `401` e `429`.
+- Commit: `0cdaa90` (`fix: preserve buyer login error statuses`), enviado ao
+  GitHub e publicado pela integração Vercel.
+- Evidência no alias canônico: health `200`; entrada inválida no login retorna
+  `400 INVALID_LOGIN_INPUT`; PIN de credencial inexistente retorna
+  `401 INVALID_CREDENTIALS` — sem `500`.
+- Gates locais: 15 testes aprovados; uma suíte de integração PostgreSQL foi
+  pulada por ausência de banco de teste descartável. Revisão independente
+  aprovou a correção; o comportamento de rate limit `429` foi também conferido
+  localmente.
+
 ## Atualização 15/07/2026 — histórico e login unificado
 
 **Status:** implementação em validação.
