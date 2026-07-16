@@ -19,26 +19,9 @@
  * ============================================================ */
 
 const API_BASE = "/api/db";
-const BUYER_TOKEN_KEY = "buyerToken";
-const ADMIN_TOKEN_KEY = "adminToken";
-
-function readPersistedToken(key) {
-  return sessionStorage.getItem(key) || localStorage.getItem(key) || "";
-}
-
-function writePersistedToken(key, value) {
-  if (!value) {
-    sessionStorage.removeItem(key);
-    localStorage.removeItem(key);
-    return;
-  }
-  sessionStorage.setItem(key, value);
-  localStorage.setItem(key, value);
-}
-
-function clearPersistedToken(key) {
-  sessionStorage.removeItem(key);
-  localStorage.removeItem(key);
+function csrfToken(scope) {
+  const prefix = `__Host-cc-${scope}-csrf=`;
+  return document.cookie.split("; ").find((entry) => entry.startsWith(prefix))?.slice(prefix.length) || "";
 }
 
 /* ----------------------- Confirm modal customizado --------- */
@@ -173,8 +156,6 @@ const app = {
     isAdminLoggedIn: false,
     isRegistered: false,
     user: { name: "", phone: "", email: "" },
-    buyerToken: "",
-    adminToken: "",
     adminCycleId: null,
     adminCycleIsActive: true,
     useServer: true,
@@ -300,15 +281,14 @@ const app = {
         path === "pedidos/historico" ||
         (path === "pedidos" && method === "POST") ||
         (/^pedidos\/\d+$/.test(path) && method === "DELETE");
-      const token = authScope === "admin"
-        ? this.state.adminToken
-        : (isBuyerRoute ? this.state.buyerToken : (this.state.adminToken || this.state.buyerToken));
+      const scope = authScope === "admin" ? "admin" : (isBuyerRoute ? "buyer" : "admin");
       const opts = {
         method,
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(["POST", "PUT", "DELETE"].includes(method) ? { "X-CSRF-Token": csrfToken(scope), "X-Session-Scope": scope } : {}),
         },
+        credentials: "same-origin",
       };
       if (body) opts.body = JSON.stringify(body);
       const res = await fetch(`${API_BASE}/${path}`, opts);
@@ -331,7 +311,7 @@ const app = {
   },
 
   async restoreSessions() {
-    if (this.state.adminToken) {
+    {
       const adminSession = await this.api("admin/session");
       if (adminSession?.success) {
         this.state.isAdminLoggedIn = true;
@@ -339,7 +319,7 @@ const app = {
         this.clearAdminSession();
       }
     }
-    if (this.state.buyerToken) {
+    {
       const buyerSession = await this.api("comprador/session");
       if (buyerSession?.success) {
         this.state.isRegistered = true;
@@ -376,10 +356,8 @@ const app = {
 
   /* ----------------- Cadastro ----------------- */
   checkRegistration() {
-    this.state.buyerToken = readPersistedToken(BUYER_TOKEN_KEY);
-    this.state.adminToken = readPersistedToken(ADMIN_TOKEN_KEY);
     const reg = localStorage.getItem("userRegistered");
-    if (reg === "true" && this.state.buyerToken) {
+    if (reg === "true") {
       this.state.isRegistered = true;
       this.state.user.name = localStorage.getItem("registeredName") || "";
       this.state.user.phone = localStorage.getItem("registeredPhone") || "";
@@ -399,7 +377,6 @@ const app = {
     localStorage.removeItem("registeredName");
     localStorage.removeItem("registeredPhone");
     localStorage.removeItem("registeredEmail");
-    clearPersistedToken(BUYER_TOKEN_KEY);
     this.state.lastOrder = null;
     this.renderHeaderUser();
     this.saveLocal();
@@ -409,7 +386,6 @@ const app = {
   clearAdminSession() {
     this.state.isAdminLoggedIn = false;
     this.state.adminToken = "";
-    clearPersistedToken(ADMIN_TOKEN_KEY);
     this.saveLocal();
   },
 
@@ -564,12 +540,10 @@ const app = {
     this.state.user.phone = phone;
     this.state.user.email = email;
     this.state.isRegistered = true;
-    this.state.buyerToken = token || this.state.buyerToken;
     localStorage.setItem("userRegistered", "true");
     localStorage.setItem("registeredName", name);
     localStorage.setItem("registeredPhone", phone);
     localStorage.setItem("registeredEmail", email);
-    writePersistedToken(BUYER_TOKEN_KEY, this.state.buyerToken);
     document.getElementById("registrationModal")?.remove();
     this.renderHeaderUser();
     this.toast(`Olá, ${name.split(" ")[0]}!`, "success");
@@ -1106,7 +1080,7 @@ const app = {
      this.state.lastOrder para exibir na tab "Meu Pedido".
      Só é chamado quando o carrinho está vazio E não há lastOrder no localStorage. */
   async loadServerOrder() {
-    if (!this.state.isRegistered || !this.state.user.name || !this.state.buyerToken) return false;
+    if (!this.state.isRegistered || !this.state.user.name) return false;
     try {
       const res = await this.api("pedidos/historico");
       const pedidos = res?.data || [];
@@ -1349,7 +1323,7 @@ const app = {
   async checkPedidoAberto() {
     this.state._editCheckDone = true;
     try {
-      if (!this.state.user.name || !this.state.buyerToken) return;
+      if (!this.state.user.name) return;
       const res = await this.api("pedidos/historico");
       const pedidos = res?.data || [];
       const aberto = pedidos.find((p) => p.status === "aberto_edicao");
@@ -1491,17 +1465,7 @@ const app = {
 
     this.state._submitting = true;
 
-    const itens = Object.entries(this.state.cart).map(([cod, qty]) => {
-      const p = PRODUTO_INDEX[cod];
-      return {
-        codigo: cod,
-        nome: p?.nome || cod,
-        quantidade: qty,
-        preco_bruto: p?.preco || 0,
-        preco_desconto: p ? this.applyDiscountTo(p.preco) : 0,
-        categoria: p?.categoria || "",
-      };
-    });
+    const itens = Object.entries(this.state.cart).map(([codigo, quantidade]) => ({ codigo, quantidade }));
 
     let res;
     try {
@@ -1698,18 +1662,14 @@ const app = {
     const res = await this.api("admin/login", "POST", { senha: pwd });
     if (res && res.success) {
       this.state.isAdminLoggedIn = true;
-      this.state.adminToken = res?.token || res?.data?.token || "";
       const adminBuyer = res?.comprador || res?.data?.comprador;
-      const adminBuyerToken = res?.buyer_token || res?.data?.buyer_token;
-      if (adminBuyer && adminBuyerToken) {
+      if (adminBuyer) {
         this._saveUserSession(
           adminBuyer.nome,
           adminBuyer.telefone || "",
           adminBuyer.email || "",
-          adminBuyerToken
         );
       }
-      writePersistedToken(ADMIN_TOKEN_KEY, this.state.adminToken);
       const tabAdmin = document.getElementById("tabAdmin");
       if (tabAdmin) tabAdmin.hidden = false;
       document
@@ -2129,27 +2089,17 @@ const app = {
     if (!this.canManageSelectedCycle()) return;
     const sel = document.getElementById("adminAddProduto");
     const qty = parseInt(document.getElementById("adminAddQty").value) || 1;
-    const opt = sel.options[sel.selectedIndex];
     const codigo = sel.value;
-    const nome = opt.dataset.nome;
-    const precoBruto = parseFloat(opt.dataset.preco);
-    const cat = opt.dataset.cat;
-    const pct = this.state.discountPct || 0;
-    const precoDesconto = pct > 0 ? precoBruto * (1 - pct / 100) : precoBruto;
 
     const r = await this.api(`pedidos/${pedidoId}/itens`, "PUT", {
       codigo,
-      nome,
       quantidade: qty,
-      preco_bruto: precoBruto,
-      preco_desconto: precoDesconto,
-      categoria: cat,
     });
 
     document.getElementById("confirmModalWrap").innerHTML = "";
 
     if (r?.success) {
-      this.toast(`${nome} adicionado ao pedido`, "success");
+      this.toast(`${codigo} adicionado ao pedido`, "success");
       this.renderAdmin();
     } else {
       this.toast(r?.error || "Erro ao adicionar item", "error");
@@ -2270,7 +2220,8 @@ const app = {
     this.toast("Histórico completo apagado", "info");
   },
 
-  exitAdmin() {
+  async exitAdmin() {
+    await this.api("admin/logout", "POST", {});
     this.clearAdminSession();
     this.saveLocal();
     const tabAdmin = document.getElementById("tabAdmin");
@@ -2739,8 +2690,6 @@ const app = {
     localStorage.setItem("cart", JSON.stringify(this.state.cart));
     localStorage.setItem("discountPct", String(this.state.discountPct || 0));
     localStorage.setItem("lastOrder", JSON.stringify(this.state.lastOrder || null));
-    writePersistedToken(ADMIN_TOKEN_KEY, this.state.adminToken);
-    writePersistedToken(BUYER_TOKEN_KEY, this.state.buyerToken);
   },
   loadLocal() {
     try {
@@ -2748,15 +2697,10 @@ const app = {
       const d = localStorage.getItem("discountPct");
       const theme = localStorage.getItem("theme");
       const lo = localStorage.getItem("lastOrder");
-      const adminToken = readPersistedToken(ADMIN_TOKEN_KEY);
-      const buyerToken = readPersistedToken(BUYER_TOKEN_KEY);
       if (c) this.state.cart = JSON.parse(c);
       if (d) this.state.discountPct = parseFloat(d) || 0;
       if (theme === "dark" || theme === "light") this.state.theme = theme;
       if (lo && lo !== "null") this.state.lastOrder = JSON.parse(lo);
-      if (adminToken) this.state.isAdminLoggedIn = true;
-      if (adminToken) this.state.adminToken = adminToken;
-      if (buyerToken) this.state.buyerToken = buyerToken;
     } catch (e) {
       this.state.cart = {};
       this.state.discountPct = 0;

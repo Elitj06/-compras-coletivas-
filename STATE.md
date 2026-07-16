@@ -27,6 +27,21 @@
   aprovou a correção; o comportamento de rate limit `429` foi também conferido
   localmente.
 
+## Atualização 16/07/2026 — hardening de segurança
+
+**Status:** código revisado localmente; publicação ainda não iniciada.
+
+- Pedidos passam a usar preço, desconto, categoria e totais calculados no servidor;
+  o navegador envia apenas código e quantidade.
+- Sessões foram migradas para cookies `HttpOnly` com CSRF por escopo, logout
+  administrativo real, rate limit administrativo e respostas sem cache.
+- A migração é aditiva e, em simulação transacional, preservou pedidos, itens,
+  pagamentos e sessões novas após reaplicação.
+- Gates: 21 testes aprovados, auditoria de dependências limpa, build Vercel local e
+  revisão independente dos reparos aprovada.
+- Pendente para release: configurar a chave de rate limit em produção, backup,
+  aplicar migração, publicação e smoke autenticado buyer/admin.
+
 ## Atualização 15/07/2026 — histórico e login unificado
 
 **Status:** implementação em validação.

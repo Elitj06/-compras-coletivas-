@@ -12,7 +12,7 @@ Plataforma de compras coletivas para a igreja Vida Forte. Membros fazem pedidos 
 |---|---|
 | Frontend | HTML/CSS/JS estático (vanilla), Google Fonts (Inter + Sora) |
 | API | Edge Runtime (Vercel) — `/api/db.js` com `@vercel/postgres` |
-| Upload | Node.js Runtime — `/api/upload-planilha.js` com `@neondatabase/serverless` |
+| Upload | Temporariamente desabilitado até parser autenticado, limitado e testado |
 | Banco | PostgreSQL (Supabase), schema isolado `compras_coletivas` |
 | Hosting | Vercel (deploy automático via Git) |
 | Catálogo | Gerado a partir de planilha Vitafor (`produtos.js`, `variantes.js`, `groups.js`) |

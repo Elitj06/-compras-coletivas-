@@ -29,32 +29,61 @@ import {
   handleBuyerAuthPost,
   handleBuyerAuthPut,
 } from '../server/routes/buyer-auth-routes.js';
+import { appendCookies, constantTimeEqual, cookie, expiredCookie, parseCookies, parseJsonBody } from '../server/lib/http-security.js';
+import { priceItems, validateOrderItems } from '../server/services/order-pricing-service.js';
+import { consumeAuthRateLimit } from '../server/services/auth-rate-limit-service.js';
 
 // @vercel/postgres createClient with explicit connectionString
 // Bypasses POSTGRES_URL_NON_POOLING env var check
 // Supabase pooler URL doesn't match Vercel's "-pooler." pattern so we pass it explicitly
 
-const ALLOWED_ORIGINS = new Set([
-  'https://compras-coletivas-phi.vercel.app',
-  'http://localhost:3000',
-]);
+const PRODUCTION_ORIGIN = 'https://compras-coletivas-phi.vercel.app';
 
 const BASE_HEADERS = {
   'Content-Type': 'application/json',
+  'Cache-Control': 'no-store',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, X-CSRF-Token, X-Session-Scope',
   'Vary': 'Origin',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
 };
 
-let headers = { ...BASE_HEADERS };
+function allowedOrigins() {
+  const origins = new Set([PRODUCTION_ORIGIN]);
+  if (process.env.VERCEL !== '1') {
+    for (const origin of (process.env.ALLOWED_DEV_ORIGINS || '').split(',')) {
+      if (origin.trim()) origins.add(origin.trim());
+    }
+  }
+  return origins;
+}
+
+function isAllowedOrigin(origin) {
+  return allowedOrigins().has(origin);
+}
 
 function corsHeadersFor(req) {
   const origin = req?.headers?.get('origin') || '';
   const responseHeaders = { ...BASE_HEADERS };
-  if (ALLOWED_ORIGINS.has(origin)) {
+  if (isAllowedOrigin(origin)) {
     responseHeaders['Access-Control-Allow-Origin'] = origin;
+    responseHeaders['Access-Control-Allow-Credentials'] = 'true';
   }
   return responseHeaders;
+}
+
+function applyCors(req, response) {
+  for (const [name, value] of Object.entries(corsHeadersFor(req))) response.headers.set(name, value);
+  return response;
+}
+
+function publicOriginError(req) {
+  const origin = req.headers.get('origin');
+  return origin && !isAllowedOrigin(origin)
+    ? securityError('ORIGIN_VALIDATION_FAILED', 403, 'Origem não autorizada')
+    : null;
 }
 
 /**
@@ -64,11 +93,13 @@ function corsHeadersFor(req) {
  * @returns {Response}
  */
 function json(data, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers });
+  return new Response(JSON.stringify(data), { status, headers: BASE_HEADERS });
 }
 
+function securityError(code, status, error) { return json({ success: false, code, error }, status); }
+
 function authResponse(result) {
-  const responseHeaders = { ...headers, 'Cache-Control': 'no-store', Pragma: 'no-cache' };
+  const responseHeaders = { ...BASE_HEADERS, 'Cache-Control': 'no-store', Pragma: 'no-cache' };
   if (result.status === 204) return new Response(null, { status: 204, headers: responseHeaders });
   return new Response(JSON.stringify(result.body), {
     status: result.status || 200,
@@ -109,13 +140,6 @@ function randomHex(bytes = 32) {
   return bytesToHex(data);
 }
 
-function getTokenFromRequest(req, headerName) {
-  const explicitToken = req.headers.get(headerName);
-  if (explicitToken) return explicitToken;
-  const authHeader = req.headers.get('authorization') || '';
-  return authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-}
-
 async function hashToken(token) {
   return sha256Hex(`session:${token}`);
 }
@@ -153,23 +177,23 @@ async function getAdminBuyer(client) {
 }
 
 async function requireAdmin(req, client) {
-  const token = getTokenFromRequest(req, 'x-admin-token');
+  const token = parseCookies(req)['__Host-cc-admin'];
   if (!token) return null;
   const session = await client.query(
-    `SELECT id FROM admin_sessions
+    `SELECT id, csrf_token_hash FROM admin_sessions
      WHERE token_hash = $1 AND expires_at > NOW()
      LIMIT 1`,
     [await hashToken(token)]
   );
   if (!session.rows.length) return null;
-  return { id: session.rows[0].id };
+  return session.rows[0];
 }
 
 async function requireBuyer(req, client) {
-  const token = getTokenFromRequest(req, 'x-buyer-token');
+  const token = parseCookies(req)['__Host-cc-buyer'];
   if (!token) return null;
   const session = await client.query(
-    `SELECT c.id, c.nome, c.telefone, c.email, bs.id AS session_id
+    `SELECT c.id, c.nome, c.telefone, c.email, bs.id AS session_id, bs.csrf_token_hash
      FROM buyer_sessions bs
      JOIN compradores c ON c.id = bs.comprador_id
      WHERE bs.token_hash = $1 AND bs.expires_at > NOW()
@@ -177,6 +201,36 @@ async function requireBuyer(req, client) {
     [await hashToken(token)]
   );
   return session.rows[0] || null;
+}
+
+async function csrfValid(req, session, scope) {
+  if (!session) return false;
+  const origin = req.headers.get('origin');
+  const fetchSite = req.headers.get('sec-fetch-site');
+  if (origin && !isAllowedOrigin(origin)) return false;
+  if (fetchSite && !['same-origin', 'none'].includes(fetchSite)) return false;
+  const csrf = parseCookies(req)[`__Host-cc-${scope}-csrf`];
+  return constantTimeEqual(csrf, req.headers.get('x-csrf-token')) && constantTimeEqual(await hashToken(`csrf:${csrf}`), session.csrf_token_hash);
+}
+
+async function mutationCsrfError(req, path, adminSession, buyerSession) {
+  const publicPaths = new Set(['comprador/registro', 'comprador/login', 'admin/login', 'comprador/pin-recovery/complete']);
+  if (publicPaths.has(path)) return publicOriginError(req);
+  const buyerPaths = path === 'comprador/logout' || path === 'comprador/pin' || (req.method === 'POST' && path === 'pedidos');
+  const requestedScope = req.headers.get('x-session-scope');
+  if (/^pedidos\/\d+$/.test(path) && !requestedScope) return securityError('AUTH_SCOPE_REQUIRED', 400, 'Escopo da sessão obrigatório');
+  if (/^pedidos\/\d+$/.test(path) && !['buyer', 'admin'].includes(requestedScope)) return securityError('AUTH_SCOPE_REQUIRED', 400, 'Escopo da sessão inválido');
+  const scope = /^pedidos\/\d+$/.test(path) ? requestedScope : (buyerPaths ? 'buyer' : 'admin');
+  const session = scope === 'buyer' ? buyerSession : adminSession;
+  if (!session) return unauthorized();
+  if (!(await csrfValid(req, session, scope))) return securityError('CSRF_VALIDATION_FAILED', 403, 'Validação CSRF inválida');
+  return null;
+}
+
+async function issueSessionCookies(client, scope, token, csrf, ttl) {
+  const table = scope === 'admin' ? 'admin_sessions' : 'buyer_sessions';
+  await client.query(`UPDATE ${table} SET csrf_token_hash = $1 WHERE token_hash = $2`, [await hashToken(`csrf:${csrf}`), await hashToken(token)]);
+  return [cookie(`__Host-cc-${scope}`, token, ttl, true), cookie(`__Host-cc-${scope}-csrf`, csrf, ttl, false)];
 }
 
 async function getActiveCycle(client) {
@@ -255,8 +309,51 @@ async function verifyAdminPassword(client, password) {
   return true;
 }
 
+function trustedAdminRateRequest(req) {
+  const secret = process.env.RATE_LIMIT_HMAC_KEY || '';
+  if (secret.length < 32) return null;
+  const production = process.env.VERCEL === '1';
+  const value = production ? (req.headers.get('x-vercel-forwarded-for') || '') : (req.headers.get('x-test-client-ip') || process.env.DEV_TRUSTED_CLIENT_IP || '');
+  if (!isCanonicalIp(value)) return null;
+  return new Request(req.url, { headers: { 'x-forwarded-for': value } });
+}
+
+export function isCanonicalIp(value) {
+  if (typeof value !== 'string' || !value || value.includes(',') || value.trim() !== value) return false;
+  const v4 = value.split('.');
+  if (v4.length === 4) return v4.every((part) => /^(0|[1-9]\d{0,2})$/.test(part) && Number(part) <= 255);
+  if (!/^[0-9a-f:]+$/i.test(value) || value.includes(':::')) return false;
+  const compressed = value.indexOf('::');
+  if (compressed !== -1 && compressed !== value.lastIndexOf('::')) return false;
+  const groups = value.split(':').filter(Boolean);
+  if (groups.some((group) => !/^[0-9a-f]{1,4}$/i.test(group))) return false;
+  return compressed === -1 ? groups.length === 8 : groups.length < 8;
+}
+
+async function consumeAdminLoginLimit(client, req) {
+  const trusted = trustedAdminRateRequest(req);
+  if (!trusted) return { configured: false };
+  await client.query('BEGIN');
+  try {
+    const ip = await consumeAuthRateLimit(client, trusted, { scope: 'admin_login_ip', key: 'ip', limit: 5, windowSeconds: 900, blockSeconds: 1800 }, process.env);
+    const global = await consumeAuthRateLimit(client, trusted, { scope: 'admin_login_global', key: 'global', limit: 60, windowSeconds: 60, blockSeconds: 60 }, process.env);
+    await client.query('COMMIT');
+    const until = [ip.blockedUntil, global.blockedUntil].filter(Boolean).map((value) => new Date(value).getTime()).reduce((max, value) => Math.max(max, value), 0);
+    return { configured: ip.configured && global.configured, blocked: ip.blocked || global.blocked, retryAfter: until ? Math.max(1, Math.ceil((until - Date.now()) / 1000)) : 0 };
+  } catch (error) { await client.query('ROLLBACK'); throw error; }
+}
+
 function unauthorized(message = 'Não autorizado') {
   return json({ success: false, error: message }, 401);
+}
+
+function parsePositiveInteger(value) {
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) return value;
+  if (typeof value === 'string' && /^\d+$/.test(value)) {
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+  }
+  return null;
 }
 
 /**
@@ -320,9 +417,12 @@ async function getClient() {
  * @returns {Promise<Response>} Resposta JSON ou CSV.
  */
 export default async function handler(req) {
-  headers = corsHeadersFor(req);
+  return applyCors(req, await dispatch(req));
+}
+
+async function dispatch(req) {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers });
+    return new Response(null, { status: 204, headers: BASE_HEADERS });
   }
 
   const url = new URL(req.url);
@@ -636,7 +736,7 @@ export default async function handler(req) {
         return new Response('\uFEFF' + csv, {
           status: 200,
           headers: {
-            ...headers,
+            ...BASE_HEADERS,
             'Content-Type': 'text/csv; charset=utf-8',
             'Content-Disposition': 'attachment; filename=relatorio_compras_coletivas.csv',
           }
@@ -646,7 +746,7 @@ export default async function handler(req) {
       if (path === 'admin/session') {
         await client.end();
         if (!adminSession) return unauthorized();
-        return json({ success: true, data: adminSession });
+        return json({ success: true, data: { active: true } });
       }
 
       if (path === 'comprador/session') {
@@ -666,7 +766,36 @@ export default async function handler(req) {
 
     // ===== POST ROUTES =====
     if (req.method === 'POST') {
-      const body = await req.json();
+      const parsed = await parseJsonBody(req);
+      if (parsed.error) { await client.end(); return securityError(parsed.error, parsed.status, parsed.error === 'INVALID_JSON' ? 'JSON inválido' : 'Corpo excede o limite permitido'); }
+      const body = parsed.value;
+
+      if (path === 'comprador/logout' && !buyerSession) {
+        const response = new Response(null, { status: 204, headers: BASE_HEADERS });
+        appendCookies(response, [expiredCookie('__Host-cc-buyer'), expiredCookie('__Host-cc-buyer-csrf', false)]);
+        await client.end();
+        return response;
+      }
+
+      if (path === 'admin/logout' && !adminSession) {
+        const response = new Response(null, { status: 204, headers: BASE_HEADERS });
+        appendCookies(response, [expiredCookie('__Host-cc-admin'), expiredCookie('__Host-cc-admin-csrf', false)]);
+        await client.end();
+        return response;
+      }
+
+      const csrfError = await mutationCsrfError(req, path, adminSession, buyerSession);
+      if (csrfError) { await client.end(); return csrfError; }
+
+      if (path === 'comprador/logout' && !(await csrfValid(req, buyerSession, 'buyer'))) { await client.end(); return securityError('CSRF_VALIDATION_FAILED', 403, 'Validação CSRF inválida'); }
+
+      if (path === 'admin/logout') {
+        await client.query('DELETE FROM admin_sessions WHERE id = $1', [adminSession.id]);
+        const response = new Response(null, { status: 204, headers: BASE_HEADERS });
+        appendCookies(response, [expiredCookie('__Host-cc-admin'), expiredCookie('__Host-cc-admin-csrf', false)]);
+        await client.end();
+        return response;
+      }
 
       const authResult = await handleBuyerAuthPost({
         path,
@@ -679,8 +808,19 @@ export default async function handler(req) {
         env: process.env,
       });
       if (authResult) {
+        const token = authResult.body?.token || authResult.body?.data?.token;
+        if (authResult.body) { delete authResult.body.token; if (authResult.body.data) delete authResult.body.data.token; }
+        const response = authResponse(authResult);
+        if (token) {
+          const csrf = randomHex(32);
+          appendCookies(response, await issueSessionCookies(client, 'buyer', token, csrf, BUYER_SESSION_TTL_SECONDS));
+          if (response.status !== 204) {
+            delete authResult.body.token; delete authResult.body?.data?.token;
+          }
+        }
+        if (path === 'comprador/logout' || path === 'comprador/pin-recovery/complete') appendCookies(response, [expiredCookie('__Host-cc-buyer'), expiredCookie('__Host-cc-buyer-csrf', false)]);
         await client.end();
-        return authResponse(authResult);
+        return response;
       }
 
       if (path === 'pedidos') {
@@ -688,37 +828,38 @@ export default async function handler(req) {
           await client.end();
           return unauthorized('Faça login novamente para enviar seu pedido');
         }
-        const { usuario, telefone, itens, replace_pedido_id } = body;
-        if (!usuario || !itens || !itens.length) {
-          await client.end();
-          return json({ success: false, error: 'Dados incompletos' }, 400);
+        if (!(await csrfValid(req, buyerSession, 'buyer'))) {
+          await client.end(); return securityError('CSRF_VALIDATION_FAILED', 403, 'Validação CSRF inválida');
         }
-        const normalizedBody = normalizeNomeTel(usuario, telefone);
-        if (
-          !namesEquivalent(normalizedBody.nome, buyerSession.nome) ||
-          !phonesEquivalent(normalizedBody.telefone, buyerSession.telefone)
-        ) {
+        const { itens, replace_pedido_id } = body;
+        const itemError = validateOrderItems(itens);
+        if (itemError) {
           await client.end();
-          return unauthorized('Sessão não corresponde ao comprador informado');
+          return securityError(itemError.code, itemError.status, 'Itens do pedido inválidos');
         }
 
         await client.query('BEGIN');
         try {
-          const replacePedidoId = replace_pedido_id ? parseInt(replace_pedido_id) : null;
+          const replacePedidoId = replace_pedido_id === null || replace_pedido_id === undefined
+            ? null
+            : parsePositiveInteger(replace_pedido_id);
+          if (replace_pedido_id !== null && replace_pedido_id !== undefined && !replacePedidoId) {
+            await client.query('ROLLBACK');
+            await client.end();
+            return securityError('INVALID_ORDER_REPLACEMENT_ID', 400, 'Pedido de substituição inválido');
+          }
           if (replacePedidoId) {
             const editable = await client.query(
               `SELECT id FROM pedidos
-               WHERE id = $1 AND comprador_id = $2 AND status = 'aberto_edicao'
+              WHERE id = $1 AND comprador_id = $2 AND status = 'aberto_edicao' FOR UPDATE
                LIMIT 1`,
               [replacePedidoId, buyerSession.id]
             );
             if (!editable.rows.length) {
               await client.query('ROLLBACK');
               await client.end();
-              return unauthorized('Pedido em edição inválido');
+              return securityError('ORDER_REPLACEMENT_CONFLICT', 409, 'Pedido em edição não está mais disponível');
             }
-            await client.query('DELETE FROM itens_pedido WHERE pedido_id = $1', [replacePedidoId]);
-            await client.query('DELETE FROM pedidos WHERE id = $1', [replacePedidoId]);
           }
 
           // Proteção contra envios duplicados: verifica se já existe pedido
@@ -730,7 +871,7 @@ export default async function handler(req) {
                AND created_at > NOW() - INTERVAL '60 seconds'
                AND ($3::int IS NULL OR id <> $3)
              LIMIT 1`,
-            [buyerSession.id, usuario, replacePedidoId]
+            [buyerSession.id, buyerSession.nome, replacePedidoId]
           );
           if (dup.rows.length) {
             await client.query('ROLLBACK');
@@ -744,21 +885,33 @@ export default async function handler(req) {
             await client.end();
             return json({ success: false, error: 'Não há ciclo de compras aberto no momento' }, 409);
           }
+          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:pricing-policy:v1'))");
+          const codes = itens.map((item) => String(item.codigo).trim());
+          const catalog = await client.query(
+            `SELECT p.codigo, p.nome, p.preco, c.slug AS categoria,
+              COALESCE(ds.percentual, dg.percentual, 0) AS desconto
+             FROM produtos p JOIN categorias c ON c.id = p.categoria_id
+             LEFT JOIN descontos ds ON ds.ativo = TRUE AND ds.categoria_id = c.id
+             LEFT JOIN descontos dg ON dg.ativo = TRUE AND dg.categoria = 'todos' AND dg.categoria_id IS NULL
+             WHERE p.ativo = TRUE AND lower(btrim(p.codigo)) = ANY($1::text[])`,
+            [codes.map((code) => code.toLowerCase())]
+          );
+          if (catalog.rows.length !== codes.length) { await client.query('ROLLBACK'); await client.end(); return securityError('CATALOG_ITEM_UNAVAILABLE', 409, 'Produto indisponível'); }
+          let pricing;
+          try { pricing = priceItems(catalog.rows, itens); } catch (error) { await client.query('ROLLBACK'); await client.end(); return securityError(error.code || 'CATALOG_ITEM_UNAVAILABLE', error.status || 409, 'Catálogo indisponível'); }
+          if (replacePedidoId) {
+            await client.query('DELETE FROM itens_pedido WHERE pedido_id = $1', [replacePedidoId]);
+            await client.query('DELETE FROM pedidos WHERE id = $1', [replacePedidoId]);
+          }
           const pedidoResult = await client.query(
             'INSERT INTO pedidos (comprador_id, usuario, status, ciclo_id) VALUES ($1, $2, $3, $4) RETURNING id',
-            [buyerSession.id, usuario, 'pendente', cycle.id]
+            [buyerSession.id, buyerSession.nome, 'pendente', cycle.id]
           );
           const pedidoId = pedidoResult.rows[0].id;
 
-          let totalBruto = 0;
-          let totalFinal = 0;
-
-          for (const item of itens) {
-            const precoBruto = parseFloat(item.preco_bruto) || 0;
-            const precoDesconto = parseFloat(item.preco_desconto) || precoBruto;
-            const qty = parseInt(item.quantidade) || 1;
-            const subtBruto = precoBruto * qty;
-            const subtFinal = precoDesconto * qty;
+          for (const item of pricing.items) {
+            const precoBruto = item.bruto / 100; const precoDesconto = item.final / 100;
+            const subtBruto = precoBruto * item.quantidade; const subtFinal = precoDesconto * item.quantidade;
 
             await client.query(
               `INSERT INTO itens_pedido (
@@ -766,23 +919,21 @@ export default async function handler(req) {
                 preco_unitario, preco_bruto, preco_com_desconto, preco_desconto,
                 desconto_percentual, subtotal_bruto, subtotal_final, categoria
               ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-              [pedidoId, item.codigo, item.nome, qty, precoBruto, precoBruto, precoDesconto, precoDesconto, item.desconto || 0, subtBruto, subtFinal, item.categoria || '']
+              [pedidoId, item.codigo, item.nome, item.quantidade, precoBruto, precoBruto, precoDesconto, precoDesconto, item.desconto, subtBruto, subtFinal, item.categoria]
             );
-            totalBruto += subtBruto;
-            totalFinal += subtFinal;
           }
 
           await client.query(
             'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3 WHERE id = $4',
-            [totalBruto, totalFinal, totalBruto - totalFinal, pedidoId]
+            [pricing.totalBruto / 100, pricing.totalFinal / 100, (pricing.totalBruto - pricing.totalFinal) / 100, pedidoId]
           );
           await client.query('COMMIT');
 
           await client.end();
           return json({
             success: true,
-            message: `Pedido de ${usuario} registrado com ${itens.length} itens`,
-            pedido_id: pedidoId
+            message: `Pedido de ${buyerSession.nome} registrado com ${itens.length} itens`, pedido_id: pedidoId,
+            totais: { bruto: pricing.totalBruto / 100, final: pricing.totalFinal / 100, desconto: (pricing.totalBruto - pricing.totalFinal) / 100 }
           });
         } catch (error) {
           await client.query('ROLLBACK');
@@ -800,9 +951,19 @@ export default async function handler(req) {
           await client.end();
           return json({ success: false, error: 'Dados incompletos' }, 400);
         }
-        await client.query('SELECT aplicar_desconto($1, $2)', [categoria, percentual]);
-        await client.end();
-        return json({ success: true, message: `Desconto de ${percentual}% aplicado em ${categoria}` });
+        const normalized = String(categoria).trim(); const percent = Number(percentual);
+        if (!normalized || !Number.isFinite(percent) || percent < 0 || percent > 100) { await client.end(); return securityError('INVALID_DISCOUNT_POLICY', 400, 'Política de desconto inválida'); }
+        await client.query('BEGIN');
+        try {
+          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:pricing-policy:v1'))");
+          const category = normalized === 'todos' ? null : await client.query('SELECT id, slug FROM categorias WHERE slug = $1 LIMIT 2', [normalized]);
+          if (category && category.rows.length !== 1) { await client.query('ROLLBACK'); await client.end(); return securityError('PRICING_POLICY_AMBIGUOUS', 409, 'Categoria ambígua'); }
+          const categoryId = category ? category.rows[0].id : null;
+          await client.query('UPDATE descontos SET ativo = FALSE WHERE ativo = TRUE AND COALESCE(categoria_id, 0) = COALESCE($1, 0)', [categoryId]);
+          await client.query('INSERT INTO descontos (categoria_id, categoria, percentual, ativo) VALUES ($1, $2, $3, TRUE)', [categoryId, normalized, percent]);
+          await client.query('COMMIT'); await client.end();
+          return json({ success: true, message: `Desconto de ${percent}% aplicado em ${normalized}` });
+        } catch (error) { await client.query('ROLLBACK'); throw error; }
       }
 
       // POST /pagamentos/inicializar — cria registros de pagamento para pedidos pendentes
@@ -825,20 +986,24 @@ export default async function handler(req) {
 
       if (path === 'admin/login') {
         const { senha } = body;
+        const limit = await consumeAdminLoginLimit(client, req);
+        if (!limit.configured) { await client.end(); return securityError('AUTH_RATE_LIMIT_UNAVAILABLE', 503, 'Autenticação temporariamente indisponível'); }
+        if (limit.blocked) { await client.end(); const response = securityError('ADMIN_LOGIN_RATE_LIMITED', 429, 'Credenciais inválidas'); response.headers.set('Retry-After', String(limit.retryAfter)); return response; }
         const isValid = await verifyAdminPassword(client, senha);
         if (isValid) {
-          const token = await createAdminSession(client);
+          const token = await createAdminSession(client); const csrf = randomHex(32);
           const buyer = await getAdminBuyer(client);
           const buyerToken = buyer ? await createBuyerSession(client, buyer.id) : null;
-          await client.end();
-          return json({
+          const response = json({
             success: true,
             message: 'Login autorizado',
-            token,
-            buyer_token: buyerToken,
             comprador: buyer || null,
-            data: { token, buyer_token: buyerToken, comprador: buyer || null }
+            data: { comprador: buyer || null }
           });
+          appendCookies(response, await issueSessionCookies(client, 'admin', token, csrf, ADMIN_SESSION_TTL_SECONDS));
+          if (buyerToken) appendCookies(response, await issueSessionCookies(client, 'buyer', buyerToken, randomHex(32), BUYER_SESSION_TTL_SECONDS));
+          await client.end();
+          return response;
         }
         await client.end();
         return json({ success: false, error: 'Senha incorreta' }, 401);
@@ -847,7 +1012,14 @@ export default async function handler(req) {
 
     // ===== PUT ROUTES =====
     if (req.method === 'PUT') {
-      const body = await req.json();
+      const parsed = await parseJsonBody(req);
+      if (parsed.error) { await client.end(); return securityError(parsed.error, parsed.status, 'JSON inválido'); }
+      const body = parsed.value;
+
+      const csrfError = await mutationCsrfError(req, path, adminSession, buyerSession);
+      if (csrfError) { await client.end(); return csrfError; }
+
+      if (path === 'comprador/pin' && !(await csrfValid(req, buyerSession, 'buyer'))) { await client.end(); return securityError('CSRF_VALIDATION_FAILED', 403, 'Validação CSRF inválida'); }
 
       const authResult = await handleBuyerAuthPut({
         path,
@@ -859,8 +1031,12 @@ export default async function handler(req) {
         env: process.env,
       });
       if (authResult) {
+        const token = authResult.body?.token || authResult.body?.data?.token;
+        if (authResult.body) { delete authResult.body.token; if (authResult.body.data) delete authResult.body.data.token; }
+        const response = authResponse(authResult);
+        if (token) appendCookies(response, await issueSessionCookies(client, 'buyer', token, randomHex(32), BUYER_SESSION_TTL_SECONDS));
         await client.end();
-        return authResponse(authResult);
+        return response;
       }
 
       // PUT /pagamentos/:id — atualiza parcelas/obs de um pagamento
@@ -942,6 +1118,7 @@ export default async function handler(req) {
         }
         await client.query('BEGIN');
         try {
+          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:pricing-policy:v1'))");
           const item = await client.query(
             `SELECT ip.pedido_id, ip.preco_unitario, ip.preco_com_desconto
              FROM itens_pedido ip JOIN pedidos p ON p.id = ip.pedido_id
@@ -1068,43 +1245,51 @@ export default async function handler(req) {
           await client.end();
           return unauthorized();
         }
-        const pid = parseInt(addItemMatch[1]);
-        const { codigo, nome, quantidade, preco_bruto, preco_desconto, categoria } = body;
-        if (!codigo || !nome || !quantidade || !preco_bruto) {
+        const pid = parsePositiveInteger(addItemMatch[1]);
+        const { codigo, quantidade } = body;
+        if (!codigo || !Number.isSafeInteger(quantidade) || quantidade < 1 || quantidade > 99) {
           await client.end();
-          return json({ success: false, error: 'Dados do item incompletos' }, 400);
+          return securityError('INVALID_ORDER_ITEM_QUANTITY', 400, 'Dados do item inválidos');
         }
-        const qty = parseInt(quantidade) || 1;
-        const pBruto = parseFloat(preco_bruto);
-        const pDesc = parseFloat(preco_desconto) || pBruto;
-        const subtBruto = pBruto * qty;
-        const subtFinal = pDesc * qty;
-
-        const target = await client.query(
-          'SELECT id FROM pedidos WHERE id = $1 AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)',
-          [pid]
-        );
-        if (!target.rows.length) {
-          await client.end();
-          return json({ success: false, error: 'Pedido não está no ciclo ativo' }, 409);
-        }
+        const qty = quantidade;
 
         await client.query('BEGIN');
         try {
+          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:pricing-policy:v1'))");
+          const target = await client.query(
+            'SELECT id FROM pedidos WHERE id = $1 AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE) FOR UPDATE',
+            [pid]
+          );
+          if (!target.rows.length) { await client.query('ROLLBACK'); await client.end(); return json({ success: false, error: 'Pedido não está no ciclo ativo' }, 409); }
+          const product = await client.query(
+            `SELECT p.codigo, p.nome, p.preco, c.slug AS categoria, COALESCE(ds.percentual, dg.percentual, 0) AS desconto
+             FROM produtos p JOIN categorias c ON c.id = p.categoria_id
+             LEFT JOIN descontos ds ON ds.ativo AND ds.categoria_id = c.id
+             LEFT JOIN descontos dg ON dg.ativo AND dg.categoria = 'todos' AND dg.categoria_id IS NULL
+             WHERE p.ativo AND lower(btrim(p.codigo)) = lower(btrim($1))`, [codigo]);
+          if (product.rows.length !== 1) { await client.query('ROLLBACK'); await client.end(); return securityError('CATALOG_ITEM_UNAVAILABLE', 409, 'Produto indisponível'); }
+          const canonical = priceItems(product.rows, [{ codigo, quantidade: qty }]).items[0];
+          const nome = canonical.nome; const categoria = canonical.categoria;
+          const pBruto = canonical.bruto / 100; const pDesc = canonical.final / 100;
           // Verifica se já existe esse produto no pedido — se sim, incrementa
           const existingItem = await client.query(
-            'SELECT id, quantidade, subtotal_bruto, subtotal_final FROM itens_pedido WHERE pedido_id = $1 AND codigo = $2 LIMIT 1',
+            'SELECT id, quantidade, preco_unitario, preco_com_desconto FROM itens_pedido WHERE pedido_id = $1 AND codigo = $2 LIMIT 1',
             [pid, codigo]
           );
           if (existingItem.rows.length) {
             const ei = existingItem.rows[0];
             const newQty = ei.quantidade + qty;
+            if (newQty > 99) { await client.query('ROLLBACK'); await client.end(); return securityError('INVALID_ORDER_ITEM_QUANTITY', 400, 'Quantidade máxima por item excedida'); }
+            const snapshotBruto = Number(ei.preco_unitario);
+            const snapshotFinal = Number(ei.preco_com_desconto);
             await client.query(
               `UPDATE itens_pedido SET quantidade = $1, subtotal_bruto = $2, subtotal_final = $3 WHERE id = $4`,
-              [newQty, pBruto * newQty, pDesc * newQty, ei.id]
+              [newQty, snapshotBruto * newQty, snapshotFinal * newQty, ei.id]
             );
           } else {
             const descPct = pBruto > 0 ? Math.round((1 - pDesc / pBruto) * 100) : 0;
+            const subtBruto = pBruto * qty;
+            const subtFinal = pDesc * qty;
             await client.query(
               `INSERT INTO itens_pedido (
                 pedido_id, codigo, nome_produto, quantidade,
@@ -1137,6 +1322,8 @@ export default async function handler(req) {
 
     // ===== DELETE ROUTES =====
     if (req.method === 'DELETE') {
+      const csrfError = await mutationCsrfError(req, path, adminSession, buyerSession);
+      if (csrfError) { await client.end(); return csrfError; }
       if (path === 'pedidos') {
         if (!adminSession) {
           await client.end();
@@ -1157,7 +1344,8 @@ export default async function handler(req) {
       const pedidoMatch = path.match(/^pedidos\/(\d+)$/);
       if (pedidoMatch) {
         const pid = parseInt(pedidoMatch[1]);
-        if (!adminSession) {
+        const deleteScope = req.headers.get('x-session-scope');
+        if (deleteScope === 'buyer') {
           if (!buyerSession) {
             await client.end();
             return unauthorized();
@@ -1173,7 +1361,7 @@ export default async function handler(req) {
             await client.end();
             return unauthorized();
           }
-        }
+        } else if (deleteScope !== 'admin' || !adminSession) { await client.end(); return unauthorized(); }
         await client.query('BEGIN');
         try {
           await client.query('DELETE FROM itens_pedido WHERE pedido_id = $1 AND EXISTS (SELECT 1 FROM pedidos WHERE id = $1 AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE))', [pid]);
@@ -1276,9 +1464,9 @@ export default async function handler(req) {
           await client.end();
           return unauthorized();
         }
-        await client.query('UPDATE descontos SET ativo = FALSE');
-        await client.end();
-        return json({ success: true, message: 'Descontos desativados' });
+        await client.query('BEGIN');
+        try { await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:pricing-policy:v1'))"); await client.query('UPDATE descontos SET ativo = FALSE'); await client.query('COMMIT'); await client.end(); return json({ success: true, message: 'Descontos desativados' }); }
+        catch (error) { await client.query('ROLLBACK'); throw error; }
       }
     }
 
