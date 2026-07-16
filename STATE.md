@@ -29,7 +29,7 @@
 
 ## Atualização 16/07/2026 — hardening de segurança
 
-**Status:** código revisado localmente; publicação ainda não iniciada.
+**Status:** release de hardening implementada, enviada ao GitHub e retirada de produção após smoke de autenticação administrativa.
 
 - Pedidos passam a usar preço, desconto, categoria e totais calculados no servidor;
   o navegador envia apenas código e quantidade.
@@ -39,8 +39,10 @@
   pagamentos e sessões novas após reaplicação.
 - Gates: 21 testes aprovados, auditoria de dependências limpa, build Vercel local e
   revisão independente dos reparos aprovada.
-- Pendente para release: configurar a chave de rate limit em produção, backup,
-  aplicar migração, publicação e smoke autenticado buyer/admin.
+- Backup lógico validado e migração aditiva aplicada, preservando as entidades de negócio e revogando apenas sessões incompatíveis com CSRF.
+- A chave de rate limit foi configurada no ambiente de produção e o deploy chegou a `READY`, mas o smoke de login administrativo retornou `503 AUTH_RATE_LIMIT_UNAVAILABLE` em vez de `401` para senha inválida.
+- Para não manter o painel administrativo indisponível, a produção foi revertida ao deployment anterior. O smoke pós-rollback confirmou health `200` e login administrativo inválido `401`.
+- Pendente: corrigir a obtenção confiável do IP no runtime Vercel (o header previsto não está disponível no smoke), passar por uma nova cadeia de revisão e publicar novamente. A migração é aditiva e permanece aplicada; usuários precisarão se autenticar novamente na próxima release.
 
 ## Atualização 15/07/2026 — histórico e login unificado
 
