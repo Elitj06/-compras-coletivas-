@@ -25,7 +25,7 @@ export async function consumeAuthRateLimit(client, req, rule, env) {
     limit: rule.limit,
     blockSeconds: rule.blockSeconds,
   });
-  return { blocked: isRateLimitBlocked(bucket), configured: true, bucketHash, blockedUntil: bucket.blocked_until || null };
+  return { blocked: isRateLimitBlocked(bucket), configured: true, bucketHash };
 }
 
 /** Produz hash de IP para auditoria sanitizada. */

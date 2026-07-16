@@ -7,6 +7,7 @@ Todas as rotas estão sob `/api/db` (Edge Runtime) ou `/api/upload-planilha` (No
 **Headers comuns:**
 ```
 Content-Type: application/json
+Access-Control-Allow-Origin: *
 ```
 
 ---
@@ -919,8 +920,34 @@ Quando a conta administrativa estiver vinculada explicitamente a um comprador, a
 
 ### POST /api/upload-planilha
 
-Está temporariamente indisponível e retorna `503 UPLOAD_TEMPORARILY_DISABLED`. XLSX/CSV
-não é aceito até existir parser limitado, testado e com autenticação por cookie/CSRF.
+Faz upload de planilha Excel com catálogo de produtos. **Node.js Runtime** (não Edge).
+
+**Autenticação:** Query param `key` ou header `X-Admin-Key` com a senha admin.
+
+**Content-Type:** `multipart/form-data` (campo `planilha` ou `file`) ou `application/json` com campo `data` (base64).
+
+**Formatos aceitos:**
+- JSON (base64 encoded): array de `{ codigo, nome, preco, categoria, embalagem }`
+- CSV: linhas com `codigo;nome;preco;categoria;embalagem`
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "message": "Importação concluída!",
+  "resumo": {
+    "total": 150,
+    "atualizados": 120,
+    "inseridos": 30,
+    "ignorados": 0
+  }
+}
+```
+
+**Response `401`:**
+```json
+{ "success": false, "error": "Não autorizado" }
+```
 
 ---
 
@@ -940,6 +967,3 @@ Todos os erros seguem o formato:
 ```
 
 Campos adicionais podem estar presentes (ex: `duplicate`, `not_found`, `requires_current_pin`).
-Sessões são cookies `Secure`, `HttpOnly`, `SameSite=Strict`; mutações autenticadas
-enviam `X-CSRF-Token` do cookie de escopo e `X-Session-Scope` (`buyer` ou `admin`).
-Tokens bearer não são aceitos nem retornados.

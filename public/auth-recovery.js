@@ -109,6 +109,8 @@ Object.assign(app, {
     }
     const result = await this.api("comprador/pin", "PUT", { current_pin, new_pin });
     if (!result?.success) return this.toast(result?.error || "Não foi possível alterar", "error");
+    this.state.buyerToken = result.token;
+    writePersistedToken(BUYER_TOKEN_KEY, result.token);
     closeAuthModal();
     this.toast("PIN alterado e sessão protegida", "success");
   },

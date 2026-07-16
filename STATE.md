@@ -43,7 +43,6 @@
 - A chave de rate limit foi configurada no ambiente de produção e o deploy chegou a `READY`, mas o smoke de login administrativo retornou `503 AUTH_RATE_LIMIT_UNAVAILABLE` em vez de `401` para senha inválida.
 - Para não manter o painel administrativo indisponível, a produção foi revertida ao deployment anterior. O smoke pós-rollback confirmou health `200` e login administrativo inválido `401`.
 - Pendente: corrigir a obtenção confiável do IP no runtime Vercel (o header previsto não está disponível no smoke), passar por uma nova cadeia de revisão e publicar novamente. A migração é aditiva e permanece aplicada; usuários precisarão se autenticar novamente na próxima release.
-
 ## Atualização 15/07/2026 — histórico e login unificado
 
 **Status:** implementação em validação.
