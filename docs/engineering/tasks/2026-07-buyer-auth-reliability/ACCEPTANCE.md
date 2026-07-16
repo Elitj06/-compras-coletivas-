@@ -31,9 +31,9 @@
 - [x] Verifier independente aprovou o diff após o ciclo de reparo 1.
 - [x] Revalidação independente aprovou o digest após o Reviewer `REJECT` e ciclo de reparo 2.
 - [x] Reviewer final aprovou o digest reparado para rollout controlado.
-- [ ] Commit/push e deploy `READY` aprovados.
-- [ ] Smoke no alias canônico comprova health, login, cadastro, recuperação e UI.
-- [ ] Entrega real é comprovada em caixa controlada; endereço pessoal exige autorização específica.
+- [x] Commit/push e deploy `READY` aprovados.
+- [x] Smoke no alias canônico comprova health, login, sessão, histórico, cadastro, recuperação e UI.
+- [x] Entrega real é comprovada em caixa controlada; nenhum envio foi feito a endereço pessoal.
 
 ## Rollback
 

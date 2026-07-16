@@ -11,6 +11,7 @@ function loginContext(body) {
     body,
     client: {
       async query(sql) {
+        if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) return { rows: [], rowCount: 0 };
         if (sql.includes('WITH active AS')) {
           return { rows: [{ request_count: 1, blocked_until: null }] };
         }

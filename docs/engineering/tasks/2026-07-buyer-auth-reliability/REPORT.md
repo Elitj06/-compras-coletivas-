@@ -2,8 +2,9 @@
 
 ## Estado
 
-Implementação local, revalidação independente e Reviewer final concluídos; ainda não
-publicada. Commit/push, deploy e smoke permanecem como gates obrigatórios.
+Publicada e validada em produção em 16/07/2026. O commit funcional `c340b2e`
+está em `main`; o deployment `dpl_CN8XK1AUbCTthbBVntme3fVMXHuA` chegou a
+`READY` e atende o alias canônico.
 
 ## Causa e correção
 
@@ -33,6 +34,27 @@ publicada. Commit/push, deploy e smoke permanecem como gates obrigatórios.
   consumo único, redefinição do PIN, login subsequente no cadastro canônico e preservação do duplicado.
 - Casos com nomes distintos e com mais de um cadastro contendo pedidos não enviaram código.
 - Sintaxe dos módulos e frontend, `git diff --check` escopado e build Vercel de produção: aprovados.
+
+## Evidências de produção
+
+- Backup lógico pré-release validado: 414.980 bytes e 172 entradas legíveis pelo
+  `pg_restore`; nenhuma restauração foi necessária.
+- Health `200`; login inválido `401`; cadastro existente `409`; solicitação de
+  recuperação `202` com `Cache-Control: no-store`.
+- Uma recuperação ponta a ponta em caixa controlada comprovou entrega real pelo
+  provedor, consumo único do código, rejeição do replay, rejeição do PIN antigo e
+  login com o PIN novo.
+- Sessão autenticada e histórico do comprador responderam `200` no alias canônico.
+- O asset SheetJS local respondeu `200` e seu SHA-384 corresponde ao artefato
+  aprovado no build.
+- A resolução somente leitura do caso reportado selecionou o cadastro original
+  vinculado ao pedido de Abril; o duplicado sem histórico foi preservado.
+- O conflito de cadastro existente reproduzido em produção retornou `409`, e a UI
+  publicada agora direciona para login ou recuperação em vez de deixar a ação inerte.
+- Compradores sintéticos usados nos smokes e seus registros auxiliares foram
+  removidos ao final; a verificação de resíduos retornou zero.
+- Nenhum e-mail foi enviado ao endereço pessoal do comprador durante a homologação.
+  O próximo código será enviado quando o próprio comprador solicitar a recuperação.
 
 ## Ciclo de reparo 1
 

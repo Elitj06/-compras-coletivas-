@@ -6,6 +6,43 @@
 
 ---
 
+## Atualização 16/07/2026 10:27 BRT — acesso e recuperação do comprador
+
+**Status:** correção publicada e validada em produção.
+
+- A correção anterior estava incompleta: o segredo criptográfico da recuperação
+  existia no ambiente sem valor efetivo, e o caso reportado possuía dois cadastros
+  semanticamente equivalentes. O original tinha pedido no ciclo de Abril/2026;
+  o posterior não tinha histórico.
+- Foi configurada uma chave CSPRNG exclusiva no ambiente protegido, sem expor ou
+  persistir seu valor fora do gerenciador de segredos.
+- Login e recuperação agora compartilham um resolvedor conservador: somente nome e
+  e-mail equivalentes, com exatamente um cadastro contendo pedidos, permitem usar
+  o registro histórico como canônico. Ambiguidades reais continuam fechadas.
+- Nenhum comprador, pedido ou credencial foi mesclado, transferido ou excluído.
+- O login foi serializado com a redefinição de PIN para impedir que uma sessão criada
+  com o PIN antigo sobreviva ao reset. A entrega de e-mail saiu do caminho síncrono,
+  preservando a resposta pública neutra e sem cache.
+- A UX de login, cadastro e recuperação ganhou loading, bloqueio de clique duplicado,
+  restauração após erro e direcionamento acionável de conta existente para login ou
+  recuperação.
+- Dependências vulneráveis foram atualizadas/removidas; SheetJS `0.20.3` passou a ser
+  servido localmente com SHA-384/SRI.
+- Gates: 26/26 testes sem banco, 40/40 em PostgreSQL 16 descartável, auditoria de
+  dependências zerada, sintaxe, build e duas revisões independentes aprovadas.
+- GitHub: commit `c340b2e`. Produção: deployment
+  `dpl_CN8XK1AUbCTthbBVntme3fVMXHuA`, `READY`, no alias canônico.
+- Smoke no ar: health `200`; login inválido `401`; cadastro existente `409`;
+  recuperação `202`/`no-store`; sessão e histórico autenticados `200`.
+- Recuperação ponta a ponta em caixa controlada comprovou entrega real, consumo
+  único, replay rejeitado, PIN antigo rejeitado e PIN novo aceito. Resíduos de dados
+  sintéticos após a limpeza: zero.
+- O caso com pedido de Abril foi resolvido por leitura para o cadastro histórico.
+  Nenhum e-mail foi enviado ao endereço pessoal durante a homologação; o comprador
+  já pode solicitar um novo código pelo app.
+- Backup lógico pré-release validado. Rollback disponível: desativar
+  `PIN_RECOVERY_ENABLED` e promover novamente o baseline `6298c50`.
+
 ## Atualização 15/07/2026 12:10 BRT
 
 ## Atualização 16/07/2026 — status de erro do login do comprador

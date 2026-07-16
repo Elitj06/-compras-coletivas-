@@ -21,5 +21,15 @@
 - Verifier independente: primeiro veredito `REJECT`; reparos aplicados; segundo veredito `APPROVE`.
 - Reviewer final: primeiro veredito `REJECT`; três findings reparados no ciclo 2;
   segundo veredito `APPROVE` para rollout controlado.
-- GitHub, deploy e smoke de produção: pendentes; nenhuma publicação executada nesta fase.
+- GitHub: commit funcional `c340b2e` publicado em `main`.
+- Produção: deployment `dpl_CN8XK1AUbCTthbBVntme3fVMXHuA` em estado `READY`,
+  atendendo o alias canônico.
+- Smoke no ar: health `200`; login inválido `401`; conflito de cadastro existente
+  `409`; recuperação `202`/`no-store`; sessão e histórico autenticados `200`.
+- Entrega controlada: mensagem localizada na caixa de homologação, código consumido
+  uma vez, replay `400`, PIN anterior `401` e PIN novo `200`.
+- Identidade reportada: resolvedor de produção seleciona o cadastro original com
+  pedido de Abril e preserva o duplicado sem histórico; nenhum dado foi mesclado.
+- Higiene do smoke: compradores e auditorias sintéticos remanescentes = zero.
+- Backup pré-release: dump lógico validado, 414.980 bytes e 172 entradas.
 - Rollback: desativar recuperação e promover `6298c50`; nenhum rollback de dados previsto.
