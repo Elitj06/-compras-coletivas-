@@ -19,12 +19,12 @@ import {
 export async function handleBuyerAuthPost(context) {
   const { path } = context;
   try {
-    if (path === 'comprador/registro') return registerRoute(context);
-    if (path === 'comprador/login') return loginRoute(context);
-    if (path === 'comprador/pin-recovery/complete') return completeRecoveryRoute(context);
-    if (path === 'comprador/logout') return logoutRoute(context);
+    if (path === 'comprador/registro') return await registerRoute(context);
+    if (path === 'comprador/login') return await loginRoute(context);
+    if (path === 'comprador/pin-recovery/complete') return await completeRecoveryRoute(context);
+    if (path === 'comprador/logout') return await logoutRoute(context);
     const adminMatch = path.match(/^admin\/compradores\/(\d+)\/pin-recovery$/);
-    if (adminMatch) return adminRecoveryRoute(context, Number(adminMatch[1]));
+    if (adminMatch) return await adminRecoveryRoute(context, Number(adminMatch[1]));
     return null;
   } catch (error) {
     return expectedError(error);
