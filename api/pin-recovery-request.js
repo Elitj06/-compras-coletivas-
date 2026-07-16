@@ -4,27 +4,69 @@
  */
 
 import { createClient } from '@vercel/postgres';
+import { waitUntil } from '@vercel/functions';
 import { randomBytes } from 'node:crypto';
-import { requestPinRecovery } from '../server/services/buyer-email-recovery-service.js';
+import {
+  deliverPreparedPinRecovery,
+  preparePinRecovery,
+} from '../server/services/buyer-email-recovery-service.js';
 
 const MAX_BODY_BYTES = 8 * 1024;
+const RESPONSE_FLOOR_MS = 450;
 
 /** Handles the only SMTP-dependent operation outside the Edge API bundle. */
-export default async function handler(req, res) {
-  setHeaders(res);
-  if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Método não permitido' });
-  let client;
+export function createPinRecoveryHandler(dependencies = {}) {
+  const getClientImpl = dependencies.getClientImpl || getClient;
+  const prepareImpl = dependencies.prepareImpl || preparePinRecovery;
+  const deliverImpl = dependencies.deliverImpl || deliverPreparedPinRecovery;
+  const waitUntilImpl = dependencies.waitUntilImpl || waitUntil;
+  const responseFloorMs = dependencies.responseFloorMs ?? RESPONSE_FLOOR_MS;
+  return async function handler(req, res) {
+    const startedAt = Date.now();
+    setHeaders(res);
+    if (req.method === 'OPTIONS') return res.status(204).end();
+    if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Método não permitido' });
+    let client;
+    try {
+      const input = await readJson(req);
+      client = await getClientImpl();
+      const webRequest = toWebRequest(req);
+      const prepared = await prepareImpl({ client, req: webRequest, input, env: process.env });
+      waitUntilImpl(runPreparedDelivery({
+        client, req: webRequest, prepared, deliverImpl, env: process.env,
+      }));
+      client = null;
+      await waitForResponseFloor(startedAt, responseFloorMs);
+      return res.status(202).json(prepared.response);
+    } catch {
+      if (client) waitUntilImpl(closeClient(client));
+      await waitForResponseFloor(startedAt, responseFloorMs);
+      return res.status(202).json(neutral());
+    }
+  };
+}
+
+const handler = createPinRecoveryHandler();
+export default handler;
+
+/** Executa entrega e fechamento fora do caminho da resposta pública. */
+export async function runPreparedDelivery({ client, req, prepared, deliverImpl, env }) {
   try {
-    const input = await readJson(req);
-    client = await getClient();
-    const result = await requestPinRecovery({ client, req: toWebRequest(req), input, env: process.env });
-    await client.end();
-    return res.status(202).json(result);
-  } catch (error) {
-    if (client) try { await client.end(); } catch { /* connection already closed */ }
-    return res.status(202).json(neutral());
+    if (prepared.delivery) await deliverImpl({ client, req, prepared, env });
+  } catch {
+    // A fronteira de entrega registra/revoga quando o banco esta disponivel; nunca logar PII.
+  } finally {
+    await closeClient(client);
   }
+}
+
+async function closeClient(client) {
+  try { await client?.end(); } catch { /* conexao ja encerrada */ }
+}
+
+async function waitForResponseFloor(startedAt, floorMs) {
+  const remaining = Math.max(0, floorMs - (Date.now() - startedAt));
+  if (remaining) await new Promise((resolve) => setTimeout(resolve, remaining));
 }
 
 function setHeaders(res) {

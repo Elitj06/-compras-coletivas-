@@ -21,6 +21,7 @@ import {
   makeRequest,
   openTestClient,
   seedBuyer,
+  seedOrder,
 } from './helpers/buyer-auth-test-db.js';
 
 const DATABASE_URL = process.env.TEST_DATABASE_URL;
@@ -50,7 +51,7 @@ suite('buyer auth integration', () => {
 
   beforeEach(async () => {
     await client.query(`TRUNCATE pin_recovery_audit, pin_recovery_rate_limits,
-      pin_recovery_challenges, buyer_sessions, admin_sessions, compradores
+      pin_recovery_challenges, buyer_sessions, admin_sessions, pedidos, compradores
       RESTART IDENTITY CASCADE`);
   });
 
@@ -105,6 +106,93 @@ suite('buyer auth integration', () => {
       sendMailImpl: async () => { sends += 1; return { accepted: [], rejected: [] }; },
     });
     assert.equal(result.success, true);
+    assert.equal(sends, 0);
+  });
+
+  it('recovers and logs in through the equivalent record that owns the order history', async () => {
+    const historical = await seedBuyer(
+      client, 'Pessoa de Andrade', '21999990101', 'historico@example.com', '1234',
+    );
+    const duplicate = await seedBuyer(
+      client, 'Pessoa Andrade', '21988880101', 'HISTORICO@example.com', '9876',
+    );
+    await seedOrder(client, historical.id);
+    await assert.rejects(() => loginBuyer({
+      client,
+      req: makeRequest('30'),
+      input: { identificador: '21988880101', pin: '9876' },
+      createBuyerSession,
+      env: ENV,
+    }), /Credenciais inválidas/);
+    let email;
+    const recovery = await requestPinRecovery({
+      client,
+      req: makeRequest('31'),
+      input: { identificador: 'historico@example.com' },
+      env: ENV,
+      sendMailImpl: async (message) => {
+        email = message;
+        return { accepted: [message.to], rejected: [] };
+      },
+    });
+
+    assert.ok(email);
+    const challenge = await client.query(
+      'SELECT comprador_id FROM pin_recovery_challenges WHERE challenge_id = $1',
+      [recovery.challenge_id],
+    );
+    assert.equal(challenge.rows[0].comprador_id, historical.id);
+    const code = email.text.match(/Codigo: (\d{6})/)[1];
+    await completePinRecovery({
+      client,
+      req: makeRequest('32'),
+      input: { challenge_id: recovery.challenge_id, code, new_pin: '5678' },
+      env: ENV,
+    });
+    const login = await loginBuyer({
+      client,
+      req: makeRequest('33'),
+      input: { identificador: 'historico@example.com', pin: '5678' },
+      createBuyerSession,
+      env: ENV,
+    });
+    assert.equal(login.buyer.id, historical.id);
+    assert.equal(await verifyPinHash('9876', (await buyerState(client, duplicate.id)).pin_hash, ''), true);
+    const counts = await client.query(
+      `SELECT COUNT(*)::int AS buyers,
+              (SELECT COUNT(*)::int FROM pedidos WHERE comprador_id = $1) AS orders
+       FROM compradores WHERE LOWER(email) = 'historico@example.com'`,
+      [historical.id],
+    );
+    assert.deepEqual(counts.rows[0], { buyers: 2, orders: 1 });
+  });
+
+  it('keeps shared emails ambiguous when names differ or multiple records own history', async () => {
+    const distinct = await seedBuyer(
+      client, 'Primeira Pessoa', '21999990111', 'nomes@example.com', '1234',
+    );
+    await seedBuyer(client, 'Segunda Pessoa', '21999990112', 'nomes@example.com', '1234');
+    await seedOrder(client, distinct.id);
+    const firstHistory = await seedBuyer(
+      client, 'Mesmo Nome', '21999990113', 'multiplos@example.com', '1234',
+    );
+    const secondHistory = await seedBuyer(
+      client, 'Mesmo de Nome', '21999990114', 'multiplos@example.com', '1234',
+    );
+    await seedOrder(client, firstHistory.id);
+    await seedOrder(client, secondHistory.id);
+    let sends = 0;
+    const sendMailImpl = async () => {
+      sends += 1;
+      return { accepted: [], rejected: [] };
+    };
+
+    await requestPinRecovery({
+      client, req: makeRequest('34'), input: { identificador: 'nomes@example.com' }, env: ENV, sendMailImpl,
+    });
+    await requestPinRecovery({
+      client, req: makeRequest('35'), input: { identificador: 'multiplos@example.com' }, env: ENV, sendMailImpl,
+    });
     assert.equal(sends, 0);
   });
 
@@ -169,6 +257,42 @@ suite('buyer auth integration', () => {
     );
     assert.ok(result.rows[0].revoked_at);
     assert.equal(result.rows[0].details.reason, 'not_configured');
+  });
+
+  it('keeps the public response neutral and audits missing recovery security configuration', async () => {
+    const results = [];
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      results.push(await requestPinRecovery({
+        client,
+        req: makeRequest('28'),
+        input: { identificador: 'config-incompleta@example.com' },
+        env: { ...ENV, RECOVERY_HMAC_KEY: '' },
+      }));
+    }
+    assert.equal(results.every((result) => result.success), true);
+    const audit = await client.query(
+      `SELECT event_type, details FROM pin_recovery_audit
+       WHERE event_type = 'pin_recovery_unavailable' ORDER BY id ASC`,
+    );
+    assert.equal(audit.rowCount, 3);
+    assert.equal(audit.rows.every((row) =>
+      row.event_type === 'pin_recovery_unavailable'
+        && row.details.reason === 'missing_security_config'), true);
+  });
+
+  it('stays neutral and writes no availability audit when rate limiting is unconfigured', async () => {
+    const result = await requestPinRecovery({
+      client,
+      req: makeRequest('29'),
+      input: { identificador: 'sem-limite@example.com' },
+      env: { ...ENV, RECOVERY_HMAC_KEY: '', RATE_LIMIT_HMAC_KEY: '' },
+    });
+    assert.equal(result.success, true);
+    const audit = await client.query(
+      `SELECT COUNT(*)::int AS count FROM pin_recovery_audit
+       WHERE event_type = 'pin_recovery_unavailable'`,
+    );
+    assert.equal(audit.rows[0].count, 0);
   });
 
   it('blocks after five wrong codes and rejects expired challenges', async () => {
@@ -248,6 +372,69 @@ suite('buyer auth integration', () => {
     }
   });
 
+  it('serializes old-PIN login before reset and removes the session it created', async () => {
+    const buyer = await seedBuyer(client, 'Login Concorrente', '21999990201', 'login-race@example.com', '1234');
+    let email;
+    const recovery = await requestPinRecovery({
+      client,
+      req: makeRequest('41'),
+      input: { identificador: 'login-race@example.com' },
+      env: ENV,
+      sendMailImpl: async (message) => {
+        email = message;
+        return { accepted: [message.to], rejected: [] };
+      },
+    });
+    const code = email.text.match(/Codigo: (\d{6})/)[1];
+    const loginClient = await openTestClient(DATABASE_URL);
+    const recoveryClient = await openTestClient(DATABASE_URL);
+    let releaseLogin;
+    let signalSessionInserted;
+    const sessionInserted = new Promise((resolve) => { signalSessionInserted = resolve; });
+    const holdLogin = new Promise((resolve) => { releaseLogin = resolve; });
+    try {
+      const recoveryPid = (await recoveryClient.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+      const loginPromise = loginBuyer({
+        client: loginClient,
+        req: makeRequest('42'),
+        input: { identificador: 'login-race@example.com', pin: '1234' },
+        createBuyerSession: async (db, buyerId) => {
+          const session = await createBuyerSession(db, buyerId);
+          signalSessionInserted();
+          await holdLogin;
+          return session;
+        },
+        env: ENV,
+      });
+      await sessionInserted;
+      const resetPromise = completePinRecovery({
+        client: recoveryClient,
+        req: makeRequest('43'),
+        input: { challenge_id: recovery.challenge_id, code, new_pin: '5678' },
+        env: ENV,
+      });
+      await waitForDatabaseLock(client, recoveryPid);
+      releaseLogin();
+
+      const [login, reset] = await Promise.all([loginPromise, resetPromise]);
+      assert.ok(login.token);
+      assert.equal(reset.success, true);
+      const state = await buyerState(client, buyer.id, recovery.challenge_id);
+      assert.equal(state.session_count, 0);
+      await assert.rejects(() => loginBuyer({
+        client,
+        req: makeRequest('44'),
+        input: { identificador: 'login-race@example.com', pin: '1234' },
+        createBuyerSession,
+        env: ENV,
+      }), /Credenciais inválidas/);
+    } finally {
+      releaseLogin();
+      await loginClient.end();
+      await recoveryClient.end();
+    }
+  });
+
   it('creates an audited admin code and rotates sessions on authenticated change', async () => {
     const buyer = await seedBuyer(client, 'Bruno Seguro', '21999990021', 'bruno@example.com', '2345');
     const first = await createBuyerSession(client, buyer.id);
@@ -296,3 +483,15 @@ suite('buyer auth integration', () => {
     assert.equal(login.buyer.id, registered.buyer.id);
   });
 });
+
+async function waitForDatabaseLock(db, backendPid) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const activity = await db.query(
+      'SELECT wait_event_type FROM pg_stat_activity WHERE pid = $1',
+      [backendPid],
+    );
+    if (activity.rows[0]?.wait_event_type === 'Lock') return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error('Recovery transaction did not wait for the login lock');
+}

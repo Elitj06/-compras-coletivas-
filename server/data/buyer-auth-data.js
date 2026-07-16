@@ -7,20 +7,22 @@
 export async function findBuyersByIdentifier(client, identity) {
   if (identity.kind === 'email') {
     const result = await client.query(
-      `SELECT id, nome, telefone, email, pin_hash
-       FROM compradores
-       WHERE LOWER(BTRIM(COALESCE(email, ''))) = $1
-       ORDER BY id ASC LIMIT 5`,
+      `SELECT c.id, c.nome, c.telefone, c.email, c.pin_hash,
+              (SELECT COUNT(*)::int FROM pedidos p WHERE p.comprador_id = c.id) AS order_count
+       FROM compradores c
+       WHERE LOWER(BTRIM(COALESCE(c.email, ''))) = $1
+       ORDER BY c.id ASC`,
       [identity.value]
     );
     return result.rows;
   }
   if (!identity.candidates.length) return [];
   const result = await client.query(
-    `SELECT id, nome, telefone, email, pin_hash
-     FROM compradores
-     WHERE regexp_replace(COALESCE(telefone, ''), '\\D', '', 'g') = ANY($1::text[])
-     ORDER BY id ASC LIMIT 5`,
+    `SELECT c.id, c.nome, c.telefone, c.email, c.pin_hash,
+            (SELECT COUNT(*)::int FROM pedidos p WHERE p.comprador_id = c.id) AS order_count
+     FROM compradores c
+     WHERE regexp_replace(COALESCE(c.telefone, ''), '\\D', '', 'g') = ANY($1::text[])
+     ORDER BY c.id ASC`,
     [identity.candidates]
   );
   return result.rows;

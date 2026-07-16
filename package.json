@@ -8,9 +8,12 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.0",
+    "@vercel/functions": "^3.7.5",
     "@vercel/postgres": "^0.10.0",
-    "nodemailer": "^7.0.13",
-    "postgres": "^3.4.9",
-    "xlsx": "^0.18.5"
+    "nodemailer": "9.0.3",
+    "postgres": "^3.4.9"
+  },
+  "overrides": {
+    "ws": "8.21.0"
   }
 }

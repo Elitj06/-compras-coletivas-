@@ -6,7 +6,6 @@
 import {
   deleteBuyerSession,
   deleteBuyerSessions,
-  findBuyersByIdentifier,
   findRegistrationConflicts,
   getBuyerByIdForUpdate,
   insertBuyer,
@@ -16,7 +15,6 @@ import {
 } from '../data/buyer-auth-data.js';
 import {
   getPhoneLookupCandidates,
-  namesEquivalent,
   normalizeEmail,
   normalizeIdentifier,
   normalizeNomeTel,
@@ -29,6 +27,7 @@ import {
   verifyPinHash,
 } from '../lib/pin-crypto.js';
 import { consumeAuthRateLimit, getAuditIpHash } from './auth-rate-limit-service.js';
+import { findCanonicalBuyerByIdentifier } from './buyer-identity-resolution-service.js';
 
 /** Erro esperado que a camada HTTP pode expor de forma controlada. */
 export class BuyerAuthError extends Error {
@@ -85,17 +84,19 @@ export async function loginBuyer({ client, req, input, createBuyerSession, env =
     await fakePinWork(input.pin);
     throw new BuyerAuthError('LOGIN_RATE_LIMITED', 429, 'Muitas tentativas. Aguarde e tente novamente.');
   }
-  const candidates = await findBuyersByIdentifier(client, identity);
-  const matches = input.identificador
-    ? candidates
-    : candidates.filter((candidate) => namesEquivalent(input.nome, candidate.nome));
-  if (matches.length !== 1 || !matches[0].pin_hash) return invalidCredentials(input.pin, true);
-  const buyer = matches[0];
-  const legacySalt = `${buyer.nome}:${String(buyer.telefone || '').replace(/\D/g, '')}`;
-  if (!(await verifyPinHash(input.pin, buyer.pin_hash, legacySalt))) {
-    return invalidCredentials(input.pin, isLegacyPinHash(buyer.pin_hash));
-  }
   return withTransaction(client, async () => {
+    const selected = await findCanonicalBuyerByIdentifier(client, identity, {
+      expectedName: input.identificador ? null : input.nome,
+    });
+    if (!selected?.pin_hash) return invalidCredentials(input.pin, true);
+
+    // SECTION: Serializa login e recuperacao sobre o mesmo cadastro canonico.
+    const buyer = await getBuyerByIdForUpdate(client, selected.id);
+    if (!buyer?.pin_hash) return invalidCredentials(input.pin, true);
+    const legacySalt = `${buyer.nome}:${String(buyer.telefone || '').replace(/\D/g, '')}`;
+    if (!(await verifyPinHash(input.pin, buyer.pin_hash, legacySalt))) {
+      return invalidCredentials(input.pin, isLegacyPinHash(buyer.pin_hash));
+    }
     if (isLegacyPinHash(buyer.pin_hash) && isPinHashMigrationEnabled(env)) {
       await updateBuyerPin(client, buyer.id, await hashPbkdf2Pin(input.pin));
     }

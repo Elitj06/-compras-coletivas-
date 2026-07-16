@@ -12,7 +12,7 @@ Object.assign(app, {
       </div></div>
       <div class="modal-footer auth-actions">
         <button class="btn btn-ghost" onclick="app.returnToLogin(${blocking})">Voltar</button>
-        <button class="btn btn-primary" onclick="app.submitPinRecoveryRequest(${blocking})">Enviar código</button>
+        <button class="btn btn-primary" onclick="app.submitPinRecoveryRequest(${blocking}, this)">Enviar código</button>
       </div>
       <button class="btn btn-link btn-block" onclick="app.openPinRecoveryComplete('',${blocking})">Tenho um código do administrador</button>`, blocking);
   },
@@ -23,19 +23,44 @@ Object.assign(app, {
     this.showRegistrationModal(blocking, "login");
   },
 
-  async submitPinRecoveryRequest(blocking = false) {
+  async submitPinRecoveryRequest(blocking = false, submitButton = null) {
     const identifier = document.getElementById("recoveryIdentifier")?.value?.trim() || "";
     if (!identifier) return this.toast("Informe telefone ou e-mail", "error");
-    const response = await fetch("/api/pin-recovery-request", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identificador: identifier }),
+    return this.runAuthSubmission(submitButton, "Enviando...", async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      try {
+        const response = await fetch("/api/pin-recovery-request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ identificador: identifier }),
+          signal: controller.signal,
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok || !result?.challenge_id) {
+          this.toast("Não foi possível iniciar a recuperação agora. Tente novamente.", "error");
+          return;
+        }
+        sessionStorage.setItem("pinRecoveryChallenge", result.challenge_id);
+        this.showPinRecoveryInstructions(result.challenge_id, blocking);
+      } catch {
+        this.toast("Não foi possível solicitar o código. Verifique sua conexão e tente novamente.", "error");
+      } finally {
+        clearTimeout(timeout);
+      }
     });
-    const result = await response.json().catch(() => null);
-    if (!result?.challenge_id) return this.toast("Não foi possível iniciar a recuperação", "error");
-    sessionStorage.setItem("pinRecoveryChallenge", result.challenge_id);
-    this.toast(result.message, "success");
-    this.openPinRecoveryComplete(result.challenge_id, blocking);
+  },
+
+  /** Explica os próximos passos sem transformar uma resposta neutra em confirmação de entrega. */
+  showPinRecoveryInstructions(challengeId, blocking = false) {
+    showAuthModal(`
+      <div class="modal-header"><h2>Confira seu e-mail</h2>
+        <p>Se houver um cadastro compatível, as instruções chegam em instantes. Confira também a caixa de spam.</p></div>
+      <div class="modal-body"><p class="auth-help">É seu primeiro acesso? Crie seu cadastro. Se já tem cadastro e não receber o código, peça ajuda ao administrador para validação.</p></div>
+      <div class="modal-footer auth-actions">
+        <button class="btn btn-ghost" onclick="app.showRegistrationModal(${blocking}, 'signup')">Criar cadastro</button>
+        <button class="btn btn-primary" onclick="app.openPinRecoveryComplete('${challengeId}',${blocking})">Já tenho o código</button>
+      </div>`, blocking);
   },
 
   openPinRecoveryComplete(challengeId = "", blocking = false) {

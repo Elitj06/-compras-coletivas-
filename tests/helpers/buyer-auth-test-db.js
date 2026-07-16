@@ -28,6 +28,15 @@ export async function seedBuyer(db, nome, telefone, email, pin) {
   return result.rows[0];
 }
 
+/** Vincula um pedido minimo ao comprador para representar historico real. */
+export async function seedOrder(db, buyerId) {
+  const result = await db.query(
+    'INSERT INTO pedidos (comprador_id) VALUES ($1) RETURNING id',
+    [buyerId]
+  );
+  return result.rows[0];
+}
+
 /** Cria sessao descartavel e retorna token e ID. */
 export async function createBuyerSession(db, buyerId) {
   const token = `token-${crypto.randomUUID()}`;
@@ -63,6 +72,9 @@ export function baseSchema() {
   return `SET search_path TO compras_coletivas, public;
     CREATE TABLE compradores (
       id SERIAL PRIMARY KEY, nome TEXT NOT NULL, telefone TEXT, email TEXT, pin_hash TEXT
+    );
+    CREATE TABLE pedidos (
+      id SERIAL PRIMARY KEY, comprador_id INTEGER REFERENCES compradores(id) ON DELETE CASCADE
     );
     CREATE TABLE admin_sessions (
       id BIGSERIAL PRIMARY KEY, token_hash TEXT NOT NULL UNIQUE, expires_at TIMESTAMPTZ NOT NULL

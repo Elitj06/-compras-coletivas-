@@ -18,6 +18,7 @@ function loadRecoveryFlow() {
   const calls = { clear: 0, login: 0, toast: [] };
   const app = {
     api: async () => ({ success: true }),
+    runAuthSubmission: async (_button, _label, operation) => operation(),
     clearBuyerSession: () => { calls.clear += 1; },
     showRegistrationModal: (blocking, mode) => {
       calls.login += 1;
@@ -30,6 +31,7 @@ function loadRecoveryFlow() {
     app,
     document: {
       getElementById: (id) => elements.get(id) || null,
+      querySelector: () => null,
       addEventListener: () => {},
       createElement: () => ({}),
       body: { appendChild: () => {} },
@@ -38,6 +40,9 @@ function loadRecoveryFlow() {
     history: { replaceState: () => {} },
     location: { pathname: '/', search: '' },
     URLSearchParams,
+    AbortController,
+    clearTimeout,
+    setTimeout,
   };
   vm.runInNewContext(source, context);
   return { app, calls, elements };
@@ -64,5 +69,20 @@ test('a redefinição troca o modal de recuperação pelo login, sem autoautenti
   assert.deepEqual(calls.toast, [{
     message: 'PIN redefinido. Entre agora com seu telefone ou e-mail e o novo PIN.',
     kind: 'success',
+  }]);
+});
+
+test('falha de rede ao solicitar recuperação mostra uma mensagem acionável', async () => {
+  const { app, calls, elements } = loadRecoveryFlow();
+  elements.set('recoveryIdentifier', { value: 'ana@example.com' });
+  globalThis.fetch = async () => { throw new Error('offline'); };
+  try {
+    await app.submitPinRecoveryRequest(false);
+  } finally {
+    delete globalThis.fetch;
+  }
+  assert.deepEqual(calls.toast, [{
+    message: 'Não foi possível solicitar o código. Verifique sua conexão e tente novamente.',
+    kind: 'error',
   }]);
 });

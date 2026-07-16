@@ -4,32 +4,66 @@
  */
 
 import {
-  findBuyersByIdentifier, getBuyerByIdForUpdate, insertChallenge, insertSecurityAudit,
+  getBuyerByIdForUpdate, insertChallenge, insertSecurityAudit,
   markChallengeDelivered, revokeActiveChallenges, revokeChallenge,
 } from '../data/buyer-auth-data.js';
 import { normalizeIdentifier } from '../lib/buyer-identity.js';
 import { generateRecoveryCode, hmacSha256Hex, randomHex } from '../lib/pin-crypto.js';
 import { sendRecoveryEmail } from '../lib/recovery-email.js';
 import { consumeAuthRateLimit, getAuditIpHash } from './auth-rate-limit-service.js';
+import {
+  findCanonicalBuyerByEmail,
+  findCanonicalBuyerByIdentifier,
+} from './buyer-identity-resolution-service.js';
 
 const EMAIL_TTL_SECONDS = 600;
 const NEUTRAL_MESSAGE = 'Se os dados estiverem aptos, você receberá as instruções em instantes.';
 
-/** Solicita código sem revelar existência, duplicidade ou falha de entrega. */
-export async function requestPinRecovery({ client, req, input, env = process.env, sendMailImpl }) {
+/** Prepara desafio sem aguardar o provedor e sem revelar elegibilidade. */
+export async function preparePinRecovery({ client, req, input, env = process.env }) {
   const fakeChallengeId = randomHex(32);
-  if (!isEnabled(env) || !hasSecrets(env)) return neutral(fakeChallengeId);
   const identity = normalizeIdentifier(input.identificador);
-  if (!identity.value || await isBlocked(client, req, identity, env)) return neutral(fakeChallengeId);
-  const buyers = await findBuyersByIdentifier(client, identity);
-  if (buyers.length !== 1 || !(await hasUniqueEmail(client, buyers[0]))) return neutral(fakeChallengeId);
-  const buyer = buyers[0];
+  if (!identity.value || await isBlocked(client, req, identity, env)) return unavailable(fakeChallengeId);
+  if (!isEnabled(env) || !hasSecrets(env)) {
+    await audit(client, req, env, {
+      type: 'pin_recovery_unavailable',
+      details: { reason: !isEnabled(env) ? 'disabled' : 'missing_security_config' },
+    });
+    return unavailable(fakeChallengeId);
+  }
+  const buyer = await findCanonicalBuyerByIdentifier(client, identity);
+  if (!buyer || !(await hasUniqueEmail(client, buyer))) return unavailable(fakeChallengeId);
   const challengeId = randomHex(32);
   const code = generateRecoveryCode();
   await createChallenge(client, req, buyer.id, challengeId, await codeHash(env, challengeId, code), env);
-  const delivery = await sendRecoveryEmail({ to: buyer.email, code, challengeId, env, sendMailImpl });
-  await finishDelivery(client, req, buyer.id, challengeId, delivery, env);
-  return neutral(delivery.delivered ? challengeId : fakeChallengeId);
+  return {
+    response: neutral(challengeId),
+    fakeChallengeId,
+    delivery: { buyerId: buyer.id, challengeId, to: buyer.email, code },
+  };
+}
+
+/** Entrega um desafio preparado e registra sucesso ou revogacao. */
+export async function deliverPreparedPinRecovery({
+  client, req, prepared, env = process.env, sendMailImpl,
+}) {
+  if (!prepared?.delivery) return { delivered: false, reason: 'not_eligible' };
+  const { buyerId, challengeId, to, code } = prepared.delivery;
+  const delivery = await sendRecoveryEmail({ to, code, challengeId, env, sendMailImpl });
+  await finishDelivery(client, req, buyerId, challengeId, delivery, env);
+  return delivery;
+}
+
+/** Wrapper síncrono para testes e consumidores fora do handler público. */
+export async function requestPinRecovery({ client, req, input, env = process.env, sendMailImpl }) {
+  const prepared = await preparePinRecovery({ client, req, input, env });
+  if (!prepared.delivery) return prepared.response;
+  const delivery = await deliverPreparedPinRecovery({
+    client, req, prepared, env, sendMailImpl,
+  });
+  return neutral(delivery.delivered
+    ? prepared.delivery.challengeId
+    : prepared.fakeChallengeId);
 }
 
 async function createChallenge(client, req, buyerId, challengeId, hash, env) {
@@ -53,10 +87,8 @@ async function finishDelivery(client, req, buyerId, challengeId, delivery, env) 
 }
 
 async function hasUniqueEmail(client, buyer) {
-  const identity = normalizeIdentifier(buyer.email);
-  if (identity.kind !== 'email') return false;
-  const matches = await findBuyersByIdentifier(client, identity);
-  return matches.length === 1 && matches[0].id === buyer.id;
+  const canonical = await findCanonicalBuyerByEmail(client, buyer.email);
+  return canonical?.id === buyer.id;
 }
 
 async function isBlocked(client, req, identity, env) {
@@ -67,7 +99,7 @@ async function isBlocked(client, req, identity, env) {
   ];
   const results = await Promise.all(rules.map(([scope, key, limit, windowSeconds, blockSeconds]) =>
     consumeAuthRateLimit(client, req, { scope, key, limit, windowSeconds, blockSeconds }, env)));
-  return results.some((result) => result.blocked);
+  return results.some((result) => !result.configured || result.blocked);
 }
 
 async function audit(client, req, env, event) {
@@ -78,4 +110,5 @@ async function codeHash(env, challengeId, code) { return hmacSha256Hex(env.RECOV
 function isEnabled(env) { return String(env.PIN_RECOVERY_ENABLED || '').toLowerCase() === 'true'; }
 function hasSecrets(env) { return [env.RECOVERY_HMAC_KEY, env.RATE_LIMIT_HMAC_KEY].every((secret) => new TextEncoder().encode(String(secret || '')).length >= 32); }
 function neutral(challengeId) { return { success: true, message: NEUTRAL_MESSAGE, challenge_id: challengeId }; }
+function unavailable(fakeChallengeId) { return { response: neutral(fakeChallengeId), fakeChallengeId, delivery: null }; }
 async function transaction(client, operation) { await client.query('BEGIN'); try { const result = await operation(); await client.query('COMMIT'); return result; } catch (error) { await client.query('ROLLBACK'); throw error; } }

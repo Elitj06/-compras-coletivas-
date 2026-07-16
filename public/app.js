@@ -464,7 +464,7 @@ const app = {
             </div>
           </div>
           <div class="modal-footer" style="display:flex;gap:10px;flex-direction:column">
-            <button class="btn btn-primary btn-block" onclick="app.submitRegistration('${mode}')">${isLogin ? "Entrar" : "Cadastrar e entrar"}</button>
+            <button class="btn btn-primary btn-block" onclick="app.submitRegistration('${mode}', this)">${isLogin ? "Entrar" : "Cadastrar e entrar"}</button>
             ${isLogin ? `<button class="btn btn-link btn-block" onclick="app.openPinRecoveryRequest(${blocking})">Esqueci meu PIN</button>` : ""}
             <button class="btn btn-ghost btn-block" onclick="app.showRegistrationModal(${blocking}, '${isLogin ? "signup" : "login"}')">
               ${isLogin ? "Criar cadastro (primeiro acesso)" : "Já tenho cadastro — entrar"}
@@ -490,7 +490,7 @@ const app = {
     });
   },
 
-  async submitRegistration(mode = "login") {
+  async submitRegistration(mode = "login", submitButton = null) {
     const pinEl = document.getElementById("regPin");
     const pin = (pinEl?.value || "").replace(/\D/g, "");
     const identifierEl = document.getElementById("regIdentifier");
@@ -518,19 +518,25 @@ const app = {
         this.toast("PIN deve ter de 4 a 6 dígitos", "error");
         return;
       }
-      const res = await this.api("comprador/registro", "POST", {
-        nome: name, telefone: identifier, email, pin,
+      return this.runAuthSubmission(submitButton, "Cadastrando...", async () => {
+        const res = await this.api("comprador/registro", "POST", {
+          nome: name, telefone: identifier, email, pin,
+        });
+        if (!res?.success) {
+          if (res?.code === "IDENTITY_ALREADY_REGISTERED") {
+            this.openExistingBuyerLogin(identifier);
+            return;
+          }
+          this.toast(res?.error || "Não foi possível concluir o cadastro. Tente novamente.", "error");
+          return;
+        }
+        this._saveUserSession(
+          res?.data?.nome || name,
+          res?.data?.telefone || identifier,
+          res?.data?.email || email,
+          res?.token || res?.data?.token || ""
+        );
       });
-      if (!res?.success) {
-        this.toast(res?.error || "Falha no cadastro", "error");
-        return;
-      }
-      this._saveUserSession(
-        res?.data?.nome || name,
-        res?.data?.telefone || identifier,
-        res?.data?.email || email,
-        res?.token || res?.data?.token || ""
-      );
       return;
     }
 
@@ -543,20 +549,54 @@ const app = {
       this.toast("Informe seu PIN (4 a 6 dígitos)", "error");
       return;
     }
-    const res = await this.api("comprador/login", "POST", {
-      identificador: identifier, pin,
+    return this.runAuthSubmission(submitButton, "Entrando...", async () => {
+      const res = await this.api("comprador/login", "POST", {
+        identificador: identifier, pin,
+      });
+      if (!res?.success) {
+        this.toast(res?.error || "Não foi possível entrar agora. Confira os dados e tente novamente.", "error");
+        return;
+      }
+      const comprador = res.comprador || res.data || {};
+      this._saveUserSession(
+        comprador.nome,
+        comprador.telefone || "",
+        comprador.email || "",
+        res?.token || comprador.token || ""
+      );
     });
-    if (!res?.success) {
-      this.toast(res?.error || "Credenciais inválidas", "error");
-      return;
+  },
+
+  /** Executa uma submissão de autenticação com feedback visual e sem clique duplicado. */
+  async runAuthSubmission(button, loadingLabel, operation) {
+    const action = button || document.querySelector("#registrationModal .btn-primary");
+    if (action?.disabled) return;
+    const originalLabel = action?.textContent;
+    if (action) {
+      action.disabled = true;
+      action.textContent = loadingLabel;
+      action.setAttribute("aria-busy", "true");
     }
-    const comprador = res.comprador || res.data || {};
-    this._saveUserSession(
-      comprador.nome,
-      comprador.telefone || "",
-      comprador.email || "",
-      res?.token || comprador.token || ""
-    );
+    try {
+      return await operation();
+    } catch {
+      this.toast("Não foi possível concluir agora. Verifique sua conexão e tente novamente.", "error");
+      return null;
+    } finally {
+      if (action && action.isConnected !== false) {
+        action.disabled = false;
+        action.textContent = originalLabel || "Continuar";
+        action.removeAttribute("aria-busy");
+      }
+    }
+  },
+
+  /** Direciona um cadastro já existente para a jornada correta sem aparência de falha inerte. */
+  openExistingBuyerLogin(identifier) {
+    this.showRegistrationModal(true, "login");
+    const input = document.getElementById("regIdentifier");
+    if (input) input.value = identifier;
+    this.toast("Este telefone ou e-mail já possui cadastro. Entre com seu PIN ou use “Esqueci meu PIN”.", "error");
   },
 
   _saveUserSession(name, phone, email, token) {
