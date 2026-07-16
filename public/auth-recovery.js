@@ -81,11 +81,11 @@ Object.assign(app, {
       </div>
       <div class="modal-footer auth-actions">
         <button class="btn btn-ghost" onclick="app.openPinRecoveryRequest(${blocking})">Voltar</button>
-        <button class="btn btn-primary" onclick="app.submitPinRecoveryComplete(${blocking})">Redefinir PIN</button>
+        <button class="btn btn-primary" onclick="app.submitPinRecoveryComplete(${blocking}, this)">Redefinir PIN</button>
       </div>`, blocking);
   },
 
-  async submitPinRecoveryComplete(blocking = false) {
+  async submitPinRecoveryComplete(blocking = false, submitButton = null) {
     const challenge_id = document.getElementById("recoveryChallenge")?.value?.trim() || "";
     const code = digits("recoveryCode");
     const new_pin = digits("recoveryNewPin");
@@ -93,13 +93,15 @@ Object.assign(app, {
     if (code.length !== 6 || !/^\d{4,6}$/.test(new_pin) || new_pin !== confirmation) {
       return this.toast("Confira o código e a confirmação do novo PIN", "error");
     }
-    const result = await this.api("comprador/pin-recovery/complete", "POST", { challenge_id, code, new_pin });
-    if (!result?.success) return this.toast(result?.error || "Código inválido ou expirado", "error");
-    sessionStorage.removeItem("pinRecoveryChallenge");
-    history.replaceState({}, "", location.pathname);
-    this.clearBuyerSession(false);
-    this.returnToLogin(blocking);
-    this.toast("PIN redefinido. Entre agora com seu telefone ou e-mail e o novo PIN.", "success");
+    return this.runAuthSubmission(submitButton, "Redefinindo...", async () => {
+      const result = await this.api("comprador/pin-recovery/complete", "POST", { challenge_id, code, new_pin });
+      if (!result?.success) return this.toast(result?.error || "Código inválido ou expirado", "error");
+      sessionStorage.removeItem("pinRecoveryChallenge");
+      history.replaceState({}, "", location.pathname);
+      this.clearBuyerSession(false);
+      this.returnToLogin(blocking);
+      this.toast("PIN redefinido. Entre agora com seu telefone ou e-mail e o novo PIN.", "success");
+    });
   },
 
   renderAuthSecurityAction() {
@@ -155,18 +157,19 @@ Object.assign(app, {
         <div class="form-group"><label for="verificationNote">Nota de validação</label><textarea id="verificationNote" maxlength="500" placeholder="Descreva como a identidade foi confirmada"></textarea></div>
       </div>
       <div class="modal-footer auth-actions"><button class="btn btn-ghost" onclick="closeAuthModal()">Cancelar</button>
-        <button class="btn btn-primary" onclick="app.submitAdminPinRecovery()">Gerar código</button></div>`);
+        <button class="btn btn-primary" onclick="app.submitAdminPinRecovery(this)">Gerar código</button></div>`);
   },
 
-  async submitAdminPinRecovery() {
+  async submitAdminPinRecovery(submitButton = null) {
     const buyerId = document.getElementById("adminRecoveryBuyer")?.value;
     const verification_method = document.getElementById("verificationMethod")?.value;
     const verification_note = document.getElementById("verificationNote")?.value?.trim() || "";
     if (verification_note.length < 10) return this.toast("Registre uma nota de validação", "error");
-    const result = await this.api(`admin/compradores/${buyerId}/pin-recovery`, "POST", {
-      verification_method, verification_note,
-    });
-    if (!result?.success) return this.toast(result?.error || "Falha ao gerar código", "error");
+    return this.runAuthSubmission(submitButton, "Gerando...", async () => {
+      const result = await this.api(`admin/compradores/${buyerId}/pin-recovery`, "POST", {
+        verification_method, verification_note,
+      });
+      if (!result?.success) return this.toast(result?.error || "Falha ao gerar código", "error");
     const packageText = `${result.challenge_id}\n${result.code}`;
     this._adminRecoveryPackage = packageText;
     showAuthModal(`
@@ -176,6 +179,7 @@ Object.assign(app, {
         <small>Expira em ${new Date(result.expires_at).toLocaleString("pt-BR")}</small></div>
       <div class="modal-footer auth-actions"><button class="btn btn-ghost" onclick="closeAuthModal()">Fechar</button>
         <button class="btn btn-primary" onclick="app.copyAdminRecoveryPackage()">Copiar dados</button></div>`);
+    });
   },
 
   async copyAdminRecoveryPackage() {
