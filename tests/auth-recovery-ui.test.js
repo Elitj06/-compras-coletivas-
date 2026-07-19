@@ -84,3 +84,10 @@ test('falha na recuperação simples mostra uma mensagem acionável', async () =
     kind: 'error',
   }]);
 });
+
+test('painel admin usa um único passo para gerar acesso e explica o login normal', () => {
+  assert.match(source, /Gerar novo acesso/);
+  assert.match(source, /pin-reset`, "POST", \{\}\)/);
+  assert.match(source, /clicar em <strong>Entrar<\/strong>/);
+  assert.doesNotMatch(source, /adminRecoveryPin/);
+});

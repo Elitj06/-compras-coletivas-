@@ -969,6 +969,10 @@ Para administrador, aceitam `?ciclo_id=<id>`. Sem o parâmetro, retornam o ciclo
 
 Quando a conta administrativa estiver vinculada explicitamente a um comprador, a resposta também contém `buyer_token` e `comprador`. O cliente usa essa sessão limitada para abrir o painel de comprador e o histórico sem um segundo login; ela não concede permissões administrativas.
 
+### GET /api/db/admin/session
+
+Valida a sessão administrativa e, quando existe vínculo, renova automaticamente uma sessão limitada do comprador. Assim, ao reabrir o app, a senha administrativa continua dando acesso ao painel e ao histórico do próprio comprador sem pedir um segundo PIN.
+
 ---
 
 ### POST /api/upload-planilha

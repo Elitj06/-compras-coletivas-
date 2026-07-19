@@ -152,6 +152,19 @@ async function getAdminBuyer(client) {
   return buyer.rows[0] || null;
 }
 
+/**
+ * Cria a sessão limitada do comprador vinculado ao admin.
+ * A senha administrativa continua sendo a única credencial digitada pelo gestor;
+ * o token de comprador é apenas interno para carregar o histórico próprio.
+ */
+async function getAdminBuyerAccess(client) {
+  const buyer = await getAdminBuyer(client);
+  return {
+    buyer,
+    buyerToken: buyer ? await createBuyerSession(client, buyer.id) : null,
+  };
+}
+
 async function requireAdmin(req, client) {
   const token = getTokenFromRequest(req, 'x-admin-token');
   if (!token) return null;
@@ -646,9 +659,20 @@ export default async function handler(req) {
       }
 
       if (path === 'admin/session') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
+        const buyerAccess = await getAdminBuyerAccess(client);
         await client.end();
-        if (!adminSession) return unauthorized();
-        return json({ success: true, data: adminSession });
+        return json({
+          success: true,
+          data: {
+            ...adminSession,
+            buyer_token: buyerAccess.buyerToken,
+            comprador: buyerAccess.buyer,
+          },
+        });
       }
 
       if (path === 'comprador/session') {
@@ -830,16 +854,19 @@ export default async function handler(req) {
         const isValid = await verifyAdminPassword(client, senha);
         if (isValid) {
           const token = await createAdminSession(client);
-          const buyer = await getAdminBuyer(client);
-          const buyerToken = buyer ? await createBuyerSession(client, buyer.id) : null;
+          const buyerAccess = await getAdminBuyerAccess(client);
           await client.end();
           return json({
             success: true,
             message: 'Login autorizado',
             token,
-            buyer_token: buyerToken,
-            comprador: buyer || null,
-            data: { token, buyer_token: buyerToken, comprador: buyer || null }
+            buyer_token: buyerAccess.buyerToken,
+            comprador: buyerAccess.buyer,
+            data: {
+              token,
+              buyer_token: buyerAccess.buyerToken,
+              comprador: buyerAccess.buyer,
+            }
           });
         }
         await client.end();

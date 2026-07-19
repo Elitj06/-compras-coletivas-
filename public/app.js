@@ -335,6 +335,19 @@ const app = {
       const adminSession = await this.api("admin/session");
       if (adminSession?.success) {
         this.state.isAdminLoggedIn = true;
+        const linkedBuyer = adminSession.data?.comprador;
+        const linkedBuyerToken = adminSession.data?.buyer_token;
+        if (linkedBuyer && linkedBuyerToken) {
+          this._saveUserSession(
+            linkedBuyer.nome,
+            linkedBuyer.telefone || "",
+            linkedBuyer.email || "",
+            linkedBuyerToken,
+            { announce: false, refreshHistory: false },
+          );
+        } else {
+          this.clearBuyerSession(false);
+        }
       } else {
         this.clearAdminSession();
       }
@@ -599,7 +612,7 @@ const app = {
     this.toast("Este telefone ou e-mail já possui cadastro. Entre com seu PIN ou use “Esqueci meu PIN”.", "error");
   },
 
-  _saveUserSession(name, phone, email, token) {
+  _saveUserSession(name, phone, email, token, { announce = true, refreshHistory = true } = {}) {
     this.state.user.name = name;
     this.state.user.phone = phone;
     this.state.user.email = email;
@@ -612,11 +625,11 @@ const app = {
     writePersistedToken(BUYER_TOKEN_KEY, this.state.buyerToken);
     document.getElementById("registrationModal")?.remove();
     this.renderHeaderUser();
-    this.toast(`Olá, ${name.split(" ")[0]}!`, "success");
+    if (announce) this.toast(`Olá, ${name.split(" ")[0]}!`, "success");
     this.updateCartBar();
     this.saveLocal();
     // Opcional: atualizar aba histórico se estiver aberta
-    if (typeof this.renderHistorico === "function") this.renderHistorico();
+    if (refreshHistory && typeof this.renderHistorico === "function") this.renderHistorico();
   },
 
   async logoutUser() {
@@ -639,6 +652,8 @@ const app = {
     );
     document.getElementById("headerUserName").textContent =
       this.state.user.name;
+    const roleLabel = wrap.querySelector(".header-user-info small");
+    if (roleLabel) roleLabel.textContent = this.state.isAdminLoggedIn ? "Comprador + Admin" : "Comprador";
     this.renderAuthSecurityAction?.();
   },
 
@@ -1746,7 +1761,8 @@ const app = {
           adminBuyer.nome,
           adminBuyer.telefone || "",
           adminBuyer.email || "",
-          adminBuyerToken
+          adminBuyerToken,
+          { refreshHistory: false },
         );
       }
       writePersistedToken(ADMIN_TOKEN_KEY, this.state.adminToken);
@@ -1804,7 +1820,20 @@ const app = {
     const economia = parseFloat(stats.economia_geral || 0);
     const totalComDesconto = valorBruto - economia;
 
+    const linkedBuyerNotice = this.state.isRegistered
+      ? `<div class="card admin-access-banner" style="margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:220px"><strong>Acesso unificado</strong><br>
+            <small>Você está conectado como administrador e como comprador <strong>${fmt.escape(this.state.user.name)}</strong>. A aba <strong>Histórico</strong> mostra os seus pedidos.</small>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="app.switchTab('historico')">Ver meus pedidos</button>
+        </div>`
+      : `<div class="card admin-access-banner" style="margin-bottom:16px">
+          <strong>Acesso administrativo ativo.</strong><br>
+          <small>O cadastro de comprador deste administrador não está vinculado.</small>
+        </div>`;
+
     let html = `
+      ${linkedBuyerNotice}
       <div class="card" style="margin-bottom:16px;padding:14px 20px;display:flex;align-items:center;gap:10px">
         ${icon("calendar")} <div style="flex:1"><strong>Ciclo em exibição: ${fmt.escape(selectedCycle?.nome || "não configurado")}</strong><br><small style="color:var(--c-text-muted)">${isHistoricalCycle ? "Consulta histórica: este ciclo é somente leitura." : "Ciclo ativo: novos pedidos, pagamentos e exportações usam este período."}</small></div>
         <label style="display:flex;align-items:center;gap:8px;font-size:.85rem">Ciclo
@@ -1863,7 +1892,7 @@ const app = {
         )} Exportar CSV</button>
         <button class="btn btn-secondary" onclick="app.openAdminPinRecovery()">${icon(
           "user"
-        )} Recuperar PIN</button>
+        )} Definir acesso</button>
         <button class="btn btn-danger" onclick="app.clearAllOrders()">${icon(
           "trash"
         )} Apagar pedidos</button>

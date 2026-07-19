@@ -152,37 +152,45 @@ Object.assign(app, {
     const buyers = result?.data || [];
     if (!buyers.length) return this.toast("Nenhum comprador disponível", "error");
     const options = buyers.map((buyer) =>
-      `<option value="${buyer.id}">${fmt.escape(buyer.nome)} · ${fmt.escape(buyer.telefone || buyer.email || "")}</option>`
+      `<option value="${buyer.id}">${fmt.escape(buyer.nome)} · ${fmt.escape(buyer.telefone || buyer.email || "")} · ${buyer.total_pedidos || 0} pedido(s)</option>`
     ).join("");
     showAuthModal(`
-      <div class="modal-header"><h2>Redefinir acesso</h2><p>Escolha o comprador. O novo PIN passa a funcionar imediatamente.</p></div>
+      <div class="modal-header"><h2>Dar acesso ao comprador</h2><p>Use esta opção quando alguém não consegue entrar.</p></div>
       <div class="modal-body">
-        <div class="form-group"><label for="adminRecoveryBuyer">Comprador</label><select id="adminRecoveryBuyer">${options}</select></div>
-        <div class="form-group"><label for="adminRecoveryPin">Novo PIN (opcional)</label><input id="adminRecoveryPin" type="text" inputmode="numeric" maxlength="6" placeholder="Deixe vazio para gerar automaticamente" /></div>
-        <p class="auth-help">O comprador deverá entrar usando telefone ou e-mail e este PIN. As sessões antigas serão encerradas.</p>
+        <ol class="auth-steps">
+          <li>Escolha o comprador.</li>
+          <li>Clique em <strong>Gerar novo acesso</strong>.</li>
+          <li>Envie o telefone/e-mail e o PIN exibidos na tela.</li>
+        </ol>
+        <div class="form-group"><label for="adminRecoveryBuyer">1. Comprador</label><select id="adminRecoveryBuyer">${options}</select></div>
+        <p class="auth-help">O PIN é gerado automaticamente e funciona na tela normal de <strong>Entrar</strong>. Não é necessário código por e-mail.</p>
       </div>
       <div class="modal-footer auth-actions"><button class="btn btn-ghost" onclick="closeAuthModal()">Cancelar</button>
-        <button class="btn btn-primary" onclick="app.submitAdminPinRecovery(this)">Definir novo PIN</button></div>`);
+        <button class="btn btn-primary" onclick="app.submitAdminPinRecovery(this)">Gerar novo acesso</button></div>`);
   },
 
   async submitAdminPinRecovery(submitButton = null) {
     const buyerId = document.getElementById("adminRecoveryBuyer")?.value;
-    const pin = digits("adminRecoveryPin");
-    if (pin && !/^\d{4,6}$/.test(pin)) return this.toast("O PIN deve ter de 4 a 6 dígitos", "error");
-    return this.runAuthSubmission(submitButton, "Gerando...", async () => {
-      const result = await this.api(`admin/compradores/${buyerId}/pin-reset`, "POST", pin ? { pin } : {});
+    return this.runAuthSubmission(submitButton, "Gerando acesso...", async () => {
+      const result = await this.api(`admin/compradores/${buyerId}/pin-reset`, "POST", {});
       if (!result?.success) return this.toast(result?.error || "Falha ao definir PIN", "error");
       const buyer = result.buyer || {};
       const identifier = buyer.telefone || buyer.email || "";
-      const packageText = `${identifier}\n${result.pin}`;
+      const packageText = [
+        `Acesso de ${buyer.nome || "comprador"}`,
+        `Telefone ou e-mail: ${identifier}`,
+        `PIN: ${result.pin}`,
+        "",
+        "Na tela inicial, clique em Entrar e use esses dados.",
+      ].join("\n");
       this._adminRecoveryPackage = packageText;
       showAuthModal(`
-        <div class="modal-header"><h2>Acesso redefinido</h2><p>O comprador já pode entrar no app com os dados abaixo.</p></div>
+        <div class="modal-header"><h2>Acesso criado</h2><p>Pronto. O comprador já pode entrar normalmente.</p></div>
         <div class="modal-body auth-code-result"><small>Telefone ou e-mail</small><code>${fmt.escape(identifier)}</code>
-          <small>Novo PIN</small><strong>${fmt.escape(result.pin)}</strong>
-          <p class="auth-help">O PIN anterior e as sessões anteriores foram invalidados.</p></div>
+          <small>PIN para entrar</small><strong>${fmt.escape(result.pin)}</strong>
+          <p class="auth-help"><strong>O que fazer agora:</strong> envie esses dados ao comprador. Ele deve abrir a tela inicial, clicar em <strong>Entrar</strong> e informar telefone/e-mail + PIN. O PIN anterior deixa de funcionar.</p></div>
         <div class="modal-footer auth-actions"><button class="btn btn-ghost" onclick="closeAuthModal()">Fechar</button>
-          <button class="btn btn-primary" onclick="app.copyAdminRecoveryPackage()">Copiar acesso</button></div>`);
+          <button class="btn btn-primary" onclick="app.copyAdminRecoveryPackage()">Copiar para WhatsApp</button></div>`);
     });
   },
 
@@ -191,8 +199,7 @@ Object.assign(app, {
     if (!packageText) return this.toast("O código já foi limpo", "error");
     try {
       await navigator.clipboard.writeText(packageText);
-      this._adminRecoveryPackage = null;
-      this.toast("Dados copiados e memória limpa", "success");
+      this.toast("Instruções copiadas", "success");
     } catch {
       this.toast("Não foi possível copiar. Selecione os dados manualmente.", "error");
     }

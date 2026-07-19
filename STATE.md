@@ -1,5 +1,22 @@
 # Compras Coletivas Vitafor — STATE
 
+## Atualização 19/07/2026 20:24 BRT — acesso admin/comprador simplificado
+
+**Status:** implementação concluída localmente; publicação pendente.
+
+- O painel administrativo agora chama a ação de **Definir acesso** e gera um
+  único PIN novo, sem campo opcional nem fluxo de código intermediário.
+- A tela final explica exatamente o que enviar ao comprador: telefone/e-mail +
+  PIN; o comprador entra pela tela normal **Entrar**. Também há cópia pronta
+  para WhatsApp.
+- A sessão administrativa renovará automaticamente a sessão limitada do
+  comprador vinculado ao reabrir o app. A senha de admin passa a restaurar os
+  dois acessos sem pedir um segundo login; o painel mostra o botão para abrir o
+  próprio histórico.
+- Nenhum pedido, item, pagamento ou cadastro foi apagado ou alterado.
+- Gates locais: 31 testes aprovados, sintaxe validada, `git diff --check` e
+  `vercel build` aprovados.
+
 ## Atualização 19/07/2026 19:59 BRT — recuperação e login simplificados
 
 **Status:** correção implementada, publicada e validada em produção.
