@@ -1,5 +1,19 @@
 # Runbook — recuperação de PIN
 
+## Fluxo atual recomendado
+
+O painel admin usa **Redefinir acesso**. Selecione o comprador, informe um PIN
+opcional (ou deixe vazio para gerar um) e entregue ao usuário o telefone/e-mail
+e o PIN exibidos. O novo PIN funciona imediatamente e as sessões antigas são
+encerradas.
+
+O usuário também pode clicar em **Esqueci meu PIN**, informar telefone/e-mail e
+definir um novo PIN diretamente. Este fluxo foi escolhido para o grupo pequeno
+do app e não depende de SMTP ou de códigos intermediários.
+
+As rotas de e-mail e desafio abaixo permanecem somente para compatibilidade com
+links antigos.
+
 ## Configuração
 
 - `PIN_RECOVERY_ENABLED`: habilita solicitação, conclusão e fallback admin.
