@@ -2,7 +2,7 @@
 
 ## Atualização 19/07/2026 20:24 BRT — acesso admin/comprador simplificado
 
-**Status:** implementação concluída localmente; publicação pendente.
+**Status:** correção publicada e validada em produção.
 
 - O painel administrativo agora chama a ação de **Definir acesso** e gera um
   único PIN novo, sem campo opcional nem fluxo de código intermediário.
@@ -16,6 +16,14 @@
 - Nenhum pedido, item, pagamento ou cadastro foi apagado ou alterado.
 - Gates locais: 31 testes aprovados, sintaxe validada, `git diff --check` e
   `vercel build` aprovados.
+- Commit: `52c5050` no GitHub; deployment Vercel `dpl_9NECNWNtR1F1ASrHW9S4QQ17mtfQ`
+  em `READY`, alias canônico `https://compras-coletivas-phi.vercel.app`.
+- Smoke em produção: login admin `200` retornando Eliandro como comprador
+  vinculado; `GET admin/session` `200` renovando o acesso de comprador;
+  sessão de comprador `200`; histórico próprio `200` com 1 pedido; reset sem
+  autenticação `401`; home e scripts atualizados `200`.
+- Conferência de preservação: banco permaneceu com 26 pedidos, 119 itens e 17
+  pagamentos após a publicação e os testes de acesso.
 
 ## Atualização 19/07/2026 19:59 BRT — recuperação e login simplificados
 
