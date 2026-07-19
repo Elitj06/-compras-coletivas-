@@ -1,5 +1,33 @@
 # Compras Coletivas Vitafor — STATE
 
+## Atualização 19/07/2026 19:59 BRT — recuperação e login simplificados
+
+**Status:** correção implementada, publicada e validada em produção.
+
+- O painel admin agora usa **Redefinir acesso**: escolhe o comprador, aceita um
+  PIN definido pelo admin ou gera um PIN novo automaticamente, e o PIN passa a
+  funcionar imediatamente. Não há mais desafio, expiração, nota ou código que
+  o usuário precise converter em outro fluxo.
+- O comprador pode clicar em **Esqueci meu PIN**, informar telefone/e-mail e
+  escolher o novo PIN diretamente. O fluxo não depende de SMTP, e-mail ou
+  variáveis de recuperação.
+- Login continua aceitando telefone ou e-mail, com ou sem variações brasileiras
+  de DDI; quando há cadastros legados duplicados, o PIN informado seleciona a
+  conta correta e prioriza a conta com histórico.
+- Todo reset invalida as sessões antigas e exige novo login.
+- Commits publicados: `e66ebe1` e `b124655`.
+- GitHub: `main` sincronizada.
+- Vercel: deployment `dpl_9Ls2LeJ4MB5yhdhcLZdrDbkzJRx1`, `READY`, alias
+  canônico `https://compras-coletivas-phi.vercel.app`.
+- Gates locais: 29 testes aprovados, 1 suíte PostgreSQL opcional pulada por
+  ausência de `TEST_DATABASE_URL`, sintaxe validada, `vercel build` aprovado.
+- Smoke em produção: health `200`; login inválido `401`; recuperação simples
+  para cadastro inexistente `404`; reset admin sem sessão `401`; JS publicado
+  contém os novos fluxos de recuperação e reset.
+- Trade-off explícito: a recuperação simples permite redefinir o PIN conhecendo
+  telefone/e-mail. Isso foi adotado conforme o escopo de grupo pequeno e baixa
+  exigência de segurança solicitado pelo Eliandro.
+
 **Projeto iniciado:** 2026-04-06
 **Responsável:** TJ (agente guia-compras)
 **Grupo WhatsApp:** 120363405060387448@g.us (23 participantes) — agente: guia-compras
