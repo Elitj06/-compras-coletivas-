@@ -6,6 +6,7 @@
 import {
   deleteBuyerSession,
   deleteBuyerSessions,
+  findBuyersByIdentifier,
   findRegistrationConflicts,
   getBuyerByIdForUpdate,
   insertBuyer,
@@ -27,7 +28,6 @@ import {
   verifyPinHash,
 } from '../lib/pin-crypto.js';
 import { consumeAuthRateLimit, getAuditIpHash } from './auth-rate-limit-service.js';
-import { findCanonicalBuyerByIdentifier } from './buyer-identity-resolution-service.js';
 
 /** Erro esperado que a camada HTTP pode expor de forma controlada. */
 export class BuyerAuthError extends Error {
@@ -85,7 +85,9 @@ export async function loginBuyer({ client, req, input, createBuyerSession, env =
     throw new BuyerAuthError('LOGIN_RATE_LIMITED', 429, 'Muitas tentativas. Aguarde e tente novamente.');
   }
   return withTransaction(client, async () => {
-    const selected = await findCanonicalBuyerByIdentifier(client, identity, {
+    // SECTION: O PIN resolve duplicidades legadas sem bloquear compradores
+    // que possuem telefone/e-mail repetido no cadastro histórico.
+    const selected = await findBuyerForLogin(client, identity, input.pin, {
       expectedName: input.identificador ? null : input.nome,
     });
     if (!selected?.pin_hash) return invalidCredentials(input.pin, true);
@@ -103,6 +105,21 @@ export async function loginBuyer({ client, req, input, createBuyerSession, env =
     const token = await createBuyerSession(client, buyer.id);
     return { buyer: publicBuyer(buyer), token };
   });
+}
+
+/** Seleciona o cadastro cujo PIN realmente confere, priorizando histórico. */
+async function findBuyerForLogin(client, identity, pin, options = {}) {
+  const candidates = await findBuyersByIdentifier(client, identity);
+  const filtered = options.expectedName
+    ? candidates.filter((candidate) => namesEquivalent(options.expectedName, candidate.nome))
+    : candidates;
+  const matches = [];
+  for (const candidate of filtered) {
+    if (!candidate.pin_hash) continue;
+    const legacySalt = `${candidate.nome}:${String(candidate.telefone || '').replace(/\D/g, '')}`;
+    if (await verifyPinHash(pin, candidate.pin_hash, legacySalt)) matches.push(candidate);
+  }
+  return matches.sort((left, right) => Number(right.order_count || 0) - Number(left.order_count || 0))[0] || null;
 }
 
 /** Troca PIN autenticado e deixa apenas uma nova sessao valida. */

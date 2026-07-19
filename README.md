@@ -65,7 +65,8 @@ compras-coletivas/
 - Carrinho persistido no localStorage
 - Cadastro com nome, telefone, e-mail e PIN (4-6 dígitos)
 - Login via PIN para acessar histórico
-- Recuperação por código de e-mail e troca autenticada de PIN
+- Login simplificado por telefone ou e-mail e PIN
+- Recuperação direta de PIN no app ou pelo painel admin, sem depender de e-mail
 - Finalização de pedido com desconto automático
 - Visualização de pedido enviado (editar ou cancelar)
 - Histórico de pedidos com detalhes
@@ -78,7 +79,7 @@ compras-coletivas/
 - Liberar pedido para edição pelo comprador
 - Mesclar pedidos duplicados de um comprador
 - Adicionar item a pedido existente
-- Gerar código temporário após validação humana auditada
+- Redefinir o PIN de qualquer comprador e gerar um novo acesso imediatamente
 - Remover produto de todos os pedidos (fornecedor em falta)
 - Exportar pedido consolidado (Excel `.xlsx` ou CSV)
 - Apagar pedidos (individual ou em massa)
@@ -132,7 +133,7 @@ vercel --prod
 |---|---|---|
 | `POSTGRES_URL` | Sim | URL de conexão PostgreSQL com search_path=compras_coletivas |
 | `DATABASE_URL` | Alternativa | Usada pelo upload-planilha.js (Neon) |
-| `PIN_RECOVERY_ENABLED` | Sim | Feature flag das rotas de recuperação |
+| `PIN_RECOVERY_ENABLED` | Legado | Feature flag do fluxo antigo por e-mail/código |
 | `PIN_HASH_MIGRATION_ENABLED` | Sim | Migra SHA-256 legado para PBKDF2 após login válido |
 | `RECOVERY_HMAC_KEY` | Sim | HMAC dos códigos; segredo exclusivo |
 | `RATE_LIMIT_HMAC_KEY` | Sim | HMAC de IP/identificador para rate limit |
@@ -157,7 +158,7 @@ O schema `compras_coletivas` é isolado dentro do Supabase do FitFlow. Tabelas p
 - **descontos** — descontos por categoria ou global
 - **faixas_desconto** — faixas de desconto progressivo
 - **configuracoes** — chave-valor (admin_senha, prazo, etc.)
-- **pin_recovery_challenges**, **pin_recovery_rate_limits** e **pin_recovery_audit** — desafios de uso único, limites persistentes e auditoria sanitizada
+- **pin_recovery_challenges**, **pin_recovery_rate_limits** e **pin_recovery_audit** — compatibilidade do fluxo antigo e auditoria sanitizada
 
 Views: `vw_dashboard_stats`, `vw_relatorio_produtos`, `vw_relatorio_compradores`
 
@@ -170,7 +171,7 @@ Funções: `aplicar_desconto()`, `calcular_desconto_progressivo()`, `recalcular_
 - Senha admin aceita envelope PBKDF2-SHA256; valores legados são migrados após autenticação válida
 - Login de comprador aceita PIN legado SHA-256 e envelope PBKDF2-SHA256
 - Novos cadastros e alterações geram PBKDF2-SHA256 com salt aleatório
-- Recuperação usa código CSPRNG, HMAC, expiração, cinco tentativas e consumo transacional
+- Recuperação simples redefine o PIN imediatamente; o admin pode gerar um PIN novo
 - Tabelas de recuperação ficam sem acesso para `PUBLIC`, `anon`, `authenticated` e `service_role`
 - Rate limiting persistente não armazena IP, telefone ou e-mail em claro
 - Proteção contra pedidos duplicados (60s de janela)

@@ -35,6 +35,7 @@ Access-Control-Allow-Origin: *
 - [Aplicar Desconto](#post-descontos)
 - [Registrar Comprador](#post-compradorregistro)
 - [Login Comprador](#post-compradorlogin)
+- [Recuperação simples de PIN](#post-compradorpin-recovery-simple)
 - [Login Admin](#post-adminlogin)
 
 ### PUT
@@ -577,6 +578,35 @@ ambíguo, limitado ou com falha de entrega.
 
 O código expira em 10 minutos, aceita cinco tentativas e funciona uma vez.
 
+> A interface principal usa agora a recuperação simples abaixo. Esta rota de
+> e-mail permanece disponível para links antigos e compatibilidade.
+
+---
+
+### POST /comprador/pin-recovery/simple
+
+Redefine diretamente o PIN usando telefone ou e-mail. É o fluxo recomendado
+para este app pequeno e de acesso restrito: não depende de SMTP, código ou
+variáveis de recuperação. O PIN anterior e todas as sessões do comprador são
+invalidados.
+
+**Body:**
+```json
+{ "identificador": "21998887766", "new_pin": "5678" }
+```
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "pin": "5678",
+  "sessions_revoked": true,
+  "buyer": { "id": 12, "nome": "João Silva", "telefone": "21998887766", "email": "joao@email.com" }
+}
+```
+
+O usuário deve voltar ao login e entrar com o identificador e o novo PIN.
+
 ---
 
 ### POST /comprador/pin-recovery/complete
@@ -609,6 +639,29 @@ Exige Bearer administrativo e validação humana registrada.
 
 Retorna uma única vez `challenge_id`, código temporário de seis dígitos e
 expiração. O administrador nunca define nem visualiza o novo PIN.
+
+---
+
+### POST /admin/compradores/:id/pin-reset
+
+Exige Bearer administrativo e redefine o PIN imediatamente. Esta é a opção
+recomendada no painel: não há atendimento, desafio ou expiração. Se `pin` for
+omitido, a API gera um PIN de seis dígitos e o retorna uma única vez.
+
+```json
+{ "pin": "5678" }
+```
+
+```json
+{
+  "success": true,
+  "pin": "5678",
+  "sessions_revoked": true,
+  "buyer": { "id": 12, "nome": "João Silva", "telefone": "21998887766", "email": "joao@email.com" }
+}
+```
+
+O comprador entra usando telefone ou e-mail e o PIN retornado.
 
 ---
 

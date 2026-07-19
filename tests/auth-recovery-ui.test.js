@@ -14,6 +14,8 @@ function loadRecoveryFlow() {
     ['recoveryCode', { value: '123456' }],
     ['recoveryNewPin', { value: '5678' }],
     ['recoveryConfirmPin', { value: '5678' }],
+    ['simpleRecoveryPin', { value: '5678' }],
+    ['simpleRecoveryConfirmPin', { value: '5678' }],
   ]);
   const calls = { clear: 0, login: 0, toast: [] };
   const app = {
@@ -72,17 +74,13 @@ test('a redefinição troca o modal de recuperação pelo login, sem autoautenti
   }]);
 });
 
-test('falha de rede ao solicitar recuperação mostra uma mensagem acionável', async () => {
+test('falha na recuperação simples mostra uma mensagem acionável', async () => {
   const { app, calls, elements } = loadRecoveryFlow();
   elements.set('recoveryIdentifier', { value: 'ana@example.com' });
-  globalThis.fetch = async () => { throw new Error('offline'); };
-  try {
-    await app.submitPinRecoveryRequest(false);
-  } finally {
-    delete globalThis.fetch;
-  }
+  app.api = async () => ({ success: false, error: 'Cadastro não encontrado' });
+  await app.submitPinRecoveryRequest(false);
   assert.deepEqual(calls.toast, [{
-    message: 'Não foi possível solicitar o código. Verifique sua conexão e tente novamente.',
+    message: 'Cadastro não encontrado',
     kind: 'error',
   }]);
 });

@@ -25,10 +25,62 @@ import {
   randomHex,
   timingSafeEqual,
 } from '../lib/pin-crypto.js';
+import { normalizeIdentifier } from '../lib/buyer-identity.js';
 import { BuyerAuthError } from './buyer-auth-service.js';
 import { consumeAuthRateLimit, getAuditIpHash } from './auth-rate-limit-service.js';
 
 const ADMIN_TTL_SECONDS = 1800;
+
+/**
+ * Redefine diretamente o PIN de um comprador para os fluxos simples do app.
+ * O modo publico exige que o comprador informe o novo PIN; o admin pode
+ * deixar vazio para receber um PIN temporario gerado pelo servidor.
+ */
+export async function resetBuyerPinDirect({
+  client, req, input = {}, buyerId = null, adminSession = null, env = process.env,
+}) {
+  const isAdmin = Boolean(adminSession);
+  if (isAdmin && !buyerId) throw new BuyerAuthError('BUYER_NOT_FOUND', 404, 'Comprador não encontrado');
+  if (!isAdmin && buyerId) throw new BuyerAuthError('UNAUTHORIZED', 401, 'Não autorizado');
+
+  const requestedPin = String(input.new_pin || input.pin || '').replace(/\D/g, '');
+  if (!isAdmin && !isValidPin(requestedPin)) {
+    throw new BuyerAuthError('INVALID_PIN_RECOVERY', 400, 'Escolha um PIN de 4 a 6 dígitos');
+  }
+  if (requestedPin && !isValidPin(requestedPin)) {
+    throw new BuyerAuthError('INVALID_PIN_RECOVERY', 400, 'PIN deve ter de 4 a 6 dígitos');
+  }
+
+  let selectedBuyerId = buyerId;
+  if (!isAdmin) {
+    const identity = normalizeIdentifier(input.identificador);
+    if (!identity.value) {
+      throw new BuyerAuthError('INVALID_RECOVERY_IDENTIFIER', 400, 'Informe telefone ou e-mail');
+    }
+    const candidates = await findBuyersByIdentifier(client, identity);
+    const buyer = selectDirectRecoveryBuyer(candidates);
+    if (!buyer) throw new BuyerAuthError('BUYER_NOT_FOUND', 404, 'Cadastro não encontrado');
+    selectedBuyerId = buyer.id;
+  }
+
+  const pin = requestedPin || generateRecoveryCode();
+  const result = await withTransaction(client, async () => {
+    const buyer = await getBuyerByIdForUpdate(client, selectedBuyerId);
+    if (!buyer) throw new BuyerAuthError('BUYER_NOT_FOUND', 404, 'Comprador não encontrado');
+    await updateBuyerPin(client, buyer.id, await hashPbkdf2Pin(pin));
+    await deleteBuyerSessions(client, buyer.id);
+    await audit(client, req, env, {
+      type: isAdmin ? 'pin_recovery_admin_reset' : 'pin_recovery_direct',
+      buyerId: buyer.id,
+      channel: isAdmin ? 'admin' : 'email',
+      adminSessionId: adminSession?.id || null,
+      details: { direct: true },
+    });
+    return { buyer: publicBuyer(buyer), pin };
+  });
+
+  return { success: true, ...result, sessions_revoked: true };
+}
 
 /** Consome codigo uma unica vez, troca PIN e revoga sessoes. */
 export async function completePinRecovery({ client, req, input, env = process.env }) {
@@ -120,6 +172,17 @@ async function isAdminRecoveryBlocked(client, req, buyerId, adminId, env) {
 
 async function audit(client, req, env, event) {
   await insertSecurityAudit(client, { ...event, ipHash: await getAuditIpHash(req, env) });
+}
+
+function publicBuyer(buyer) {
+  return { id: buyer.id, nome: buyer.nome, telefone: buyer.telefone, email: buyer.email };
+}
+
+/** Mantém a recuperação determinística quando há cadastros duplicados. */
+function selectDirectRecoveryBuyer(candidates) {
+  if (candidates.length === 1) return candidates[0];
+  const withHistory = candidates.filter((candidate) => Number(candidate.order_count || 0) > 0);
+  return withHistory.length === 1 ? withHistory[0] : null;
 }
 
 function isUsableChallenge(challenge) {

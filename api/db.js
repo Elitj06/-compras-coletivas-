@@ -299,6 +299,8 @@ async function getClient() {
  *   - `/descontos` — Aplicar desconto
  *   - `/comprador/registro` — Registrar/atualizar comprador com PIN
  *   - `/comprador/login` — Login via PIN
+ *   - `/comprador/pin-recovery/simple` — Redefinir PIN diretamente por telefone/e-mail
+ *   - `/admin/compradores/:id/pin-reset` — Redefinir PIN direto pelo admin
  *   - `/admin/login` — Login admin
  *
  * Rotas PUT:

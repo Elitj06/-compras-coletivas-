@@ -1,20 +1,31 @@
-/* Recuperacao, troca autenticada e fallback administrativo de PIN. */
+/* Recuperacao simples de PIN, troca autenticada e fallback administrativo. */
 
 Object.assign(app, {
   openPinRecoveryRequest(blocking = false) {
     document.getElementById("registrationModal")?.remove();
     showAuthModal(`
-      <div class="modal-header"><h2>Recuperar PIN</h2>
-        <p>Informe seu telefone ou e-mail. A resposta é sempre a mesma para proteger sua conta.</p></div>
-      <div class="modal-body"><div class="form-group">
+      <div class="modal-header"><h2>Recuperar acesso</h2>
+        <p>Informe seus dados e escolha um novo PIN. Depois, entre normalmente no app.</p></div>
+      <div class="modal-body">
+      <div class="form-group">
         <label for="recoveryIdentifier">Telefone ou e-mail</label>
         <input id="recoveryIdentifier" autocomplete="username" placeholder="(00) 00000-0000 ou seu@email.com" />
-      </div></div>
+      </div>
+      <div class="form-group">
+        <label for="simpleRecoveryPin">Novo PIN</label>
+        <input id="simpleRecoveryPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="4 a 6 dígitos" />
+      </div>
+      <div class="form-group">
+        <label for="simpleRecoveryConfirmPin">Confirmar novo PIN</label>
+        <input id="simpleRecoveryConfirmPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="Repita o PIN" />
+      </div>
+      <p class="auth-help">O PIN antigo deixa de funcionar imediatamente.</p>
+      </div>
       <div class="modal-footer auth-actions">
         <button class="btn btn-ghost" onclick="app.returnToLogin(${blocking})">Voltar</button>
-        <button class="btn btn-primary" onclick="app.submitPinRecoveryRequest(${blocking}, this)">Enviar código</button>
+        <button class="btn btn-primary" onclick="app.submitPinRecoveryRequest(${blocking}, this)">Salvar novo PIN</button>
       </div>
-      <button class="btn btn-link btn-block" onclick="app.openPinRecoveryComplete('',${blocking})">Tenho um código do administrador</button>`, blocking);
+      `, blocking);
   },
 
   // SECTION: Nunca mantenha o modal de recuperação atrás do modal de login.
@@ -25,29 +36,23 @@ Object.assign(app, {
 
   async submitPinRecoveryRequest(blocking = false, submitButton = null) {
     const identifier = document.getElementById("recoveryIdentifier")?.value?.trim() || "";
+    const new_pin = digits("simpleRecoveryPin");
+    const confirmation = digits("simpleRecoveryConfirmPin");
     if (!identifier) return this.toast("Informe telefone ou e-mail", "error");
-    return this.runAuthSubmission(submitButton, "Enviando...", async () => {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
-      try {
-        const response = await fetch("/api/pin-recovery-request", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ identificador: identifier }),
-          signal: controller.signal,
-        });
-        const result = await response.json().catch(() => null);
-        if (!response.ok || !result?.challenge_id) {
-          this.toast("Não foi possível iniciar a recuperação agora. Tente novamente.", "error");
-          return;
-        }
-        sessionStorage.setItem("pinRecoveryChallenge", result.challenge_id);
-        this.showPinRecoveryInstructions(result.challenge_id, blocking);
-      } catch {
-        this.toast("Não foi possível solicitar o código. Verifique sua conexão e tente novamente.", "error");
-      } finally {
-        clearTimeout(timeout);
+    if (!/^\d{4,6}$/.test(new_pin) || new_pin !== confirmation) {
+      return this.toast("Confira o novo PIN e a confirmação", "error");
+    }
+    return this.runAuthSubmission(submitButton, "Salvando...", async () => {
+      const result = await this.api("comprador/pin-recovery/simple", "POST", { identificador: identifier, new_pin });
+      if (!result?.success) {
+        this.toast(result?.error || "Cadastro não encontrado. Confira o telefone ou e-mail.", "error");
+        return;
       }
+      this.clearBuyerSession(false);
+      this.returnToLogin(blocking);
+      const loginIdentifier = document.getElementById("regIdentifier");
+      if (loginIdentifier) loginIdentifier.value = identifier;
+      this.toast("PIN redefinido. Entre agora com o novo PIN.", "success");
     });
   },
 
@@ -150,35 +155,34 @@ Object.assign(app, {
       `<option value="${buyer.id}">${fmt.escape(buyer.nome)} · ${fmt.escape(buyer.telefone || buyer.email || "")}</option>`
     ).join("");
     showAuthModal(`
-      <div class="modal-header"><h2>Recuperação assistida</h2><p>Valide a identidade antes de gerar o código temporário.</p></div>
+      <div class="modal-header"><h2>Redefinir acesso</h2><p>Escolha o comprador. O novo PIN passa a funcionar imediatamente.</p></div>
       <div class="modal-body">
         <div class="form-group"><label for="adminRecoveryBuyer">Comprador</label><select id="adminRecoveryBuyer">${options}</select></div>
-        <div class="form-group"><label for="verificationMethod">Método de validação</label><select id="verificationMethod"><option>WhatsApp</option><option>Telefone</option><option>Presencial</option></select></div>
-        <div class="form-group"><label for="verificationNote">Nota de validação</label><textarea id="verificationNote" maxlength="500" placeholder="Descreva como a identidade foi confirmada"></textarea></div>
+        <div class="form-group"><label for="adminRecoveryPin">Novo PIN (opcional)</label><input id="adminRecoveryPin" type="text" inputmode="numeric" maxlength="6" placeholder="Deixe vazio para gerar automaticamente" /></div>
+        <p class="auth-help">O comprador deverá entrar usando telefone ou e-mail e este PIN. As sessões antigas serão encerradas.</p>
       </div>
       <div class="modal-footer auth-actions"><button class="btn btn-ghost" onclick="closeAuthModal()">Cancelar</button>
-        <button class="btn btn-primary" onclick="app.submitAdminPinRecovery(this)">Gerar código</button></div>`);
+        <button class="btn btn-primary" onclick="app.submitAdminPinRecovery(this)">Definir novo PIN</button></div>`);
   },
 
   async submitAdminPinRecovery(submitButton = null) {
     const buyerId = document.getElementById("adminRecoveryBuyer")?.value;
-    const verification_method = document.getElementById("verificationMethod")?.value;
-    const verification_note = document.getElementById("verificationNote")?.value?.trim() || "";
-    if (verification_note.length < 10) return this.toast("Registre uma nota de validação", "error");
+    const pin = digits("adminRecoveryPin");
+    if (pin && !/^\d{4,6}$/.test(pin)) return this.toast("O PIN deve ter de 4 a 6 dígitos", "error");
     return this.runAuthSubmission(submitButton, "Gerando...", async () => {
-      const result = await this.api(`admin/compradores/${buyerId}/pin-recovery`, "POST", {
-        verification_method, verification_note,
-      });
-      if (!result?.success) return this.toast(result?.error || "Falha ao gerar código", "error");
-    const packageText = `${result.challenge_id}\n${result.code}`;
-    this._adminRecoveryPackage = packageText;
-    showAuthModal(`
-      <div class="modal-header"><h2>Código temporário gerado</h2><p>Compartilhe os dois campos uma única vez com o comprador validado.</p></div>
-      <div class="modal-body auth-code-result"><small>Identificador do atendimento</small><code>${fmt.escape(result.challenge_id)}</code>
-        <small>Código de 6 dígitos</small><strong>${fmt.escape(result.code)}</strong>
-        <small>Expira em ${new Date(result.expires_at).toLocaleString("pt-BR")}</small></div>
-      <div class="modal-footer auth-actions"><button class="btn btn-ghost" onclick="closeAuthModal()">Fechar</button>
-        <button class="btn btn-primary" onclick="app.copyAdminRecoveryPackage()">Copiar dados</button></div>`);
+      const result = await this.api(`admin/compradores/${buyerId}/pin-reset`, "POST", pin ? { pin } : {});
+      if (!result?.success) return this.toast(result?.error || "Falha ao definir PIN", "error");
+      const buyer = result.buyer || {};
+      const identifier = buyer.telefone || buyer.email || "";
+      const packageText = `${identifier}\n${result.pin}`;
+      this._adminRecoveryPackage = packageText;
+      showAuthModal(`
+        <div class="modal-header"><h2>Acesso redefinido</h2><p>O comprador já pode entrar no app com os dados abaixo.</p></div>
+        <div class="modal-body auth-code-result"><small>Telefone ou e-mail</small><code>${fmt.escape(identifier)}</code>
+          <small>Novo PIN</small><strong>${fmt.escape(result.pin)}</strong>
+          <p class="auth-help">O PIN anterior e as sessões anteriores foram invalidados.</p></div>
+        <div class="modal-footer auth-actions"><button class="btn btn-ghost" onclick="closeAuthModal()">Fechar</button>
+          <button class="btn btn-primary" onclick="app.copyAdminRecoveryPackage()">Copiar acesso</button></div>`);
     });
   },
 
