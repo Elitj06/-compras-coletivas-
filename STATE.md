@@ -2,7 +2,7 @@
 
 ## Atualização 20/07/2026 — desconto progressivo coletivo e hardening
 
-**Status:** implementação concluída localmente; publicação e smoke de produção pendentes.
+**Status:** publicado e validado em produção.
 
 - Compradores passam a ver, no topo da página, uma barra pública com o total
   coletivo, percentual atual, próxima faixa e valor faltante. O agregado é
@@ -17,7 +17,17 @@
   invalidação das sessões antigas sem CSRF e alinhamento imediato dos pedidos
   existentes à faixa vigente.
 - Gates locais: 35 testes aprovados, auditoria sem vulnerabilidades de alta
-  severidade, sintaxe validada e `git diff --check` aprovado.
+  severidade, `vercel build`, sintaxe e `git diff --check` aprovados.
+- GitHub: commit `cb37e9f` publicado em `main`.
+- Vercel: deployment de produção `READY`, alias canônico
+  `https://compras-coletivas-phi.vercel.app`.
+- Smoke: health `200`; progresso coletivo `200` com R$ 8.457,00 e 48% ativos;
+  login admin inválido `401` (sem o `503` anterior); login de comprador
+  inválido `401`; home publicada com a barra e JavaScript com cookies/CSRF.
+- Migração executada sem apagar pedidos ou itens: os 9 pedidos ativos e 40
+  itens foram alinhados para 48% (R$ 4.059,36 de economia). As sessões antigas
+  foram invalidadas uma única vez para exigir novo login com CSRF; dois desafios
+  administrativos efêmeros vinculados a essas sessões também foram removidos.
 
 ## Atualização 19/07/2026 20:24 BRT — acesso admin/comprador simplificado
 

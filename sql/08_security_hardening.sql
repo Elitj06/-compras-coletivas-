@@ -1,5 +1,6 @@
 -- Hardening aditivo: preflight fail-closed + hash CSRF por sessão.
 SET search_path TO compras_coletivas, public;
+BEGIN;
 
 DO $$ BEGIN
   IF (SELECT count(*) FROM ciclos_compra WHERE ativo) <> 1 THEN
@@ -57,6 +58,11 @@ ALTER TABLE buyer_sessions ADD COLUMN IF NOT EXISTS csrf_token_hash TEXT;
 ALTER TABLE admin_sessions ADD COLUMN IF NOT EXISTS csrf_token_hash TEXT;
 -- Sessões antigas não têm CSRF verificável e precisam de novo login.
 DELETE FROM buyer_sessions WHERE csrf_token_hash IS NULL;
+-- Desafios administrativos antigos dependem da sessão que será invalidada.
+-- Eles são efêmeros; removê-los evita deixar uma recuperação vinculada a uma
+-- sessão inexistente e respeita o CHECK que exige a autoria administrativa.
+DELETE FROM pin_recovery_challenges
+WHERE channel = 'admin' AND created_by_admin_session_id IS NOT NULL;
 DELETE FROM admin_sessions WHERE csrf_token_hash IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS produtos_active_code_lookup
   ON produtos (lower(btrim(codigo))) WHERE ativo;
@@ -113,3 +119,5 @@ SET total_bruto = totais.total_bruto,
     total_desconto = totais.total_bruto - totais.total_final
 FROM totais
 WHERE p.id = totais.id;
+
+COMMIT;
