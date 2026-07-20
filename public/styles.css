@@ -158,6 +158,92 @@ svg { width: 18px; height: 18px; flex-shrink: 0; }
    ============================================================ */
 .content { padding-top: 28px; padding-bottom: 160px; }
 
+/* ============================================================
+   DESCONTO PROGRESSIVO COLETIVO
+   ============================================================ */
+.discount-progress {
+  background: linear-gradient(135deg, var(--c-brand-softer), var(--c-surface));
+  border: 1.5px solid var(--c-brand-soft);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px 16px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-xs);
+}
+.discount-progress-heading,
+.discount-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.discount-progress-heading strong {
+  display: block;
+  color: var(--c-brand-700);
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+.discount-progress-eyebrow {
+  display: block;
+  color: var(--c-text-muted);
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+.discount-progress-total {
+  color: var(--c-text-muted);
+  font-size: .74rem;
+  white-space: nowrap;
+}
+.discount-progress-track {
+  height: 10px;
+  margin: 16px 0 8px;
+  background: var(--c-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.discount-progress-track span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--c-brand), var(--c-accent));
+  border-radius: inherit;
+  transition: width 350ms ease;
+}
+.discount-progress-meta {
+  color: var(--c-text-muted);
+  font-size: .76rem;
+  line-height: 1.35;
+}
+.discount-progress-meta strong { color: var(--c-brand-700); white-space: nowrap; }
+.discount-progress-tiers {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 13px;
+}
+.discount-progress-tier {
+  color: var(--c-text-soft);
+  font-size: .68rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: var(--c-surface);
+}
+.discount-progress-tier span { font-weight: 800; }
+.discount-progress-tier.is-reached {
+  color: var(--c-brand-700);
+  border-color: var(--c-brand-soft);
+  background: var(--c-brand-soft);
+}
+.discount-progress-note {
+  display: block;
+  color: var(--c-text-soft);
+  font-size: .68rem;
+  margin-top: 9px;
+}
+
 /* Hero */
 .hero {
   background: linear-gradient(135deg, var(--c-brand) 0%, var(--c-brand-700) 100%);
@@ -1286,6 +1372,11 @@ svg { width: 18px; height: 18px; flex-shrink: 0; }
 /* ===== Espaço inferior para não ser coberto pela cart-bar fixa ===== */
 .tab-content { padding-bottom: 140px; }
 @media (max-width: 768px) {
+  .discount-progress { padding: 15px 14px 13px; }
+  .discount-progress-heading,
+  .discount-progress-meta { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .discount-progress-total,
+  .discount-progress-meta strong { white-space: normal; }
   .tab-content { padding-bottom: 220px; }
 }
 

@@ -29,6 +29,17 @@ import {
   handleBuyerAuthPost,
   handleBuyerAuthPut,
 } from '../server/routes/buyer-auth-routes.js';
+import { buildDiscountProgress } from '../server/services/discount-progress-service.js';
+import { priceItems, validateOrderItems } from '../server/services/order-pricing-service.js';
+import { consumeAuthRateLimit } from '../server/services/auth-rate-limit-service.js';
+import {
+  appendCookies,
+  constantTimeEqual,
+  cookie,
+  expiredCookie,
+  parseCookies,
+  parseJsonBody,
+} from '../server/lib/http-security.js';
 
 // @vercel/postgres createClient with explicit connectionString
 // Bypasses POSTGRES_URL_NON_POOLING env var check
@@ -42,7 +53,8 @@ const ALLOWED_ORIGINS = new Set([
 const BASE_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRF-Token, X-Session-Scope',
+  'Access-Control-Allow-Credentials': 'true',
   'Vary': 'Origin',
 };
 
@@ -113,7 +125,9 @@ function getTokenFromRequest(req, headerName) {
   const explicitToken = req.headers.get(headerName);
   if (explicitToken) return explicitToken;
   const authHeader = req.headers.get('authorization') || '';
-  return authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (authHeader.startsWith('Bearer ')) return authHeader.slice(7);
+  const scope = headerName === 'x-admin-token' ? 'admin' : 'buyer';
+  return parseCookies(req)[`__Host-cc-${scope}`] || '';
 }
 
 async function hashToken(token) {
@@ -138,6 +152,19 @@ async function createBuyerSession(client, compradorId) {
     [compradorId, await hashToken(token), BUYER_SESSION_TTL_SECONDS]
   );
   return token;
+}
+
+/** Emite o par de cookies de sessão e CSRF depois do login. */
+async function issueSessionCookies(client, scope, token, csrf, ttl) {
+  const table = scope === 'admin' ? 'admin_sessions' : 'buyer_sessions';
+  await client.query(
+    `UPDATE ${table} SET csrf_token_hash = $1 WHERE token_hash = $2`,
+    [await hashToken(`csrf:${csrf}`), await hashToken(token)],
+  );
+  return [
+    cookie(`__Host-cc-${scope}`, token, ttl, true),
+    cookie(`__Host-cc-${scope}-csrf`, csrf, ttl, false),
+  ];
 }
 
 /** Retorna a conta de comprador explicitamente vinculada ao administrador. */
@@ -165,24 +192,71 @@ async function getAdminBuyerAccess(client) {
   };
 }
 
+/** Aceita somente um IP canônico, sem listas ou valores forjados. */
+export function isCanonicalIp(value) {
+  if (typeof value !== 'string' || !value || value.trim() !== value || value.includes(',')) return false;
+  const ipv4 = value.split('.');
+  if (ipv4.length === 4) {
+    return ipv4.every((part) => /^(0|[1-9]\d{0,2})$/.test(part) && Number(part) <= 255);
+  }
+  if (!value.includes(':') || value.includes(':::') || value.split('::').length > 2) return false;
+  const compressed = value.includes('::');
+  const groups = value.split('::').flatMap((part) => part ? part.split(':') : []);
+  if (groups.some((group) => !/^[0-9a-f]{1,4}$/i.test(group))) return false;
+  return compressed ? groups.length < 8 : groups.length === 8;
+}
+
+/** Obtém o IP confiável do proxy e aplica os dois buckets em uma transação. */
+async function consumeAdminLoginLimit(client, req) {
+  const secret = String(process.env.RATE_LIMIT_HMAC_KEY || '');
+  if (new TextEncoder().encode(secret).byteLength < 32) return { configured: false };
+  const value = process.env.VERCEL === '1'
+    ? (req.headers.get('x-vercel-forwarded-for') || req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '')
+    : (req.headers.get('x-test-client-ip') || req.headers.get('x-forwarded-for') || process.env.DEV_TRUSTED_CLIENT_IP || '127.0.0.1');
+  if (!isCanonicalIp(value)) return { configured: false };
+  const trusted = new Request(req.url, { headers: { 'x-forwarded-for': value } });
+  await client.query('BEGIN');
+  try {
+    const ip = await consumeAuthRateLimit(client, trusted, {
+      scope: 'admin_login_ip', key: 'ip', limit: 5, windowSeconds: 900, blockSeconds: 1800,
+    }, process.env);
+    const global = await consumeAuthRateLimit(client, trusted, {
+      scope: 'admin_login_global', key: 'global', limit: 60, windowSeconds: 60, blockSeconds: 60,
+    }, process.env);
+    await client.query('COMMIT');
+    const until = [ip.blockedUntil, global.blockedUntil]
+      .filter(Boolean)
+      .map((value) => new Date(value).getTime())
+      .reduce((max, value) => Math.max(max, value), 0);
+    return {
+      configured: ip.configured && global.configured,
+      blocked: ip.blocked || global.blocked,
+      retryAfter: until ? Math.max(1, Math.ceil((until - Date.now()) / 1000)) : 0,
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  }
+}
+
 async function requireAdmin(req, client) {
   const token = getTokenFromRequest(req, 'x-admin-token');
   if (!token) return null;
   const session = await client.query(
-    `SELECT id FROM admin_sessions
+    `SELECT id, csrf_token_hash FROM admin_sessions
      WHERE token_hash = $1 AND expires_at > NOW()
      LIMIT 1`,
     [await hashToken(token)]
   );
   if (!session.rows.length) return null;
-  return { id: session.rows[0].id };
+  return session.rows[0];
 }
 
 async function requireBuyer(req, client) {
   const token = getTokenFromRequest(req, 'x-buyer-token');
   if (!token) return null;
   const session = await client.query(
-    `SELECT c.id, c.nome, c.telefone, c.email, bs.id AS session_id
+    `SELECT c.id, c.nome, c.telefone, c.email, bs.id AS session_id, bs.csrf_token_hash
      FROM buyer_sessions bs
      JOIN compradores c ON c.id = bs.comprador_id
      WHERE bs.token_hash = $1 AND bs.expires_at > NOW()
@@ -192,11 +266,142 @@ async function requireBuyer(req, client) {
   return session.rows[0] || null;
 }
 
+/** Valida o par CSRF do escopo e metadados de mesma origem. */
+async function csrfValid(req, session, scope) {
+  if (!session?.csrf_token_hash) return false;
+  const origin = req.headers.get('origin');
+  const fetchSite = req.headers.get('sec-fetch-site');
+  if (origin && !ALLOWED_ORIGINS.has(origin)) return false;
+  if (fetchSite && !['same-origin', 'none'].includes(fetchSite)) return false;
+  const csrf = parseCookies(req)[`__Host-cc-${scope}-csrf`];
+  return constantTimeEqual(csrf, req.headers.get('x-csrf-token'))
+    && constantTimeEqual(await hashToken(`csrf:${csrf}`), session.csrf_token_hash);
+}
+
+/** Converte falhas de origem/CSRF em um contrato HTTP estável. */
+function securityError(code, status, message) {
+  return json({ success: false, code, error: message }, status);
+}
+
+/** Aplica o escopo CSRF central a todas as mutações autenticadas. */
+async function mutationCsrfError(req, path, adminSession, buyerSession) {
+  const publicPaths = new Set([
+    'comprador/registro',
+    'comprador/login',
+    'comprador/pin-recovery/simple',
+    'comprador/pin-recovery/complete',
+    'admin/login',
+  ]);
+  const origin = req.headers.get('origin');
+  if (publicPaths.has(path)) {
+    return origin && !ALLOWED_ORIGINS.has(origin)
+      ? securityError('ORIGIN_NOT_ALLOWED', 403, 'Origem não autorizada')
+      : null;
+  }
+  const isBuyerMutation = path === 'comprador/logout'
+    || path === 'comprador/pin'
+    || (req.method === 'POST' && path === 'pedidos')
+    || (req.method === 'DELETE' && /^pedidos\/\d+$/.test(path) && !adminSession);
+  const requestedScope = req.headers.get('x-session-scope');
+  const scope = isBuyerMutation ? 'buyer' : (requestedScope || 'admin');
+  if (req.method === 'DELETE' && /^pedidos\/\d+$/.test(path) && !['buyer', 'admin'].includes(scope)) {
+    return securityError('AUTH_SCOPE_REQUIRED', 400, 'Escopo da sessão inválido');
+  }
+  const session = scope === 'buyer' ? buyerSession : adminSession;
+  if (!session) return unauthorized();
+  if (!(await csrfValid(req, session, scope))) {
+    return securityError('CSRF_VALIDATION_FAILED', 403, 'Validação CSRF inválida');
+  }
+  return null;
+}
+
 async function getActiveCycle(client) {
   const result = await client.query(
     `SELECT id, nome, inicio_em, fim_em, status FROM ciclos_compra WHERE ativo = TRUE LIMIT 1`
   );
   return result.rows[0] || null;
+}
+
+/**
+ * Lê a política progressiva e o total bruto do ciclo ativo.
+ * Este endpoint é público porque expõe somente um agregado coletivo.
+ * @param {object} client - Cliente PostgreSQL conectado.
+ * @returns {Promise<object>}
+ */
+async function getDiscountProgress(client) {
+  const cycle = await getActiveCycle(client);
+  const tiersResult = await client.query(`
+    SELECT id, nome, valor_minimo, valor_maximo, percentual
+    FROM faixas_desconto
+    WHERE ativo = TRUE
+    ORDER BY valor_minimo ASC
+  `);
+  const totalResult = cycle
+    ? await client.query(
+      `SELECT COALESCE(SUM(total_bruto), 0)::numeric AS total_bruto
+       FROM pedidos
+       WHERE ciclo_id = $1 AND status != 'cancelado'`,
+      [cycle.id],
+    )
+    : { rows: [{ total_bruto: 0 }] };
+  return {
+    ciclo_id: cycle?.id || null,
+    ciclo_nome: cycle?.nome || null,
+    ...buildDiscountProgress(totalResult.rows[0]?.total_bruto || 0, tiersResult.rows),
+  };
+}
+
+/**
+ * Reprecifica todos os pedidos ativos do ciclo com a faixa coletiva atual.
+ * Deve ser chamado dentro da mesma transação que alterou os pedidos.
+ * @param {object} client - Cliente PostgreSQL conectado.
+ * @param {number} cycleId - Ciclo a reprecificar.
+ * @returns {Promise<object>}
+ */
+async function repriceCycleOrders(client, cycleId) {
+  const progressResult = await client.query(
+    `SELECT COALESCE(SUM(total_bruto), 0)::numeric AS total_bruto
+     FROM pedidos
+     WHERE ciclo_id = $1 AND status != 'cancelado'`,
+    [cycleId],
+  );
+  const tiersResult = await client.query(`
+    SELECT id, nome, valor_minimo, valor_maximo, percentual
+    FROM faixas_desconto
+    WHERE ativo = TRUE
+    ORDER BY valor_minimo ASC
+  `);
+  const progress = buildDiscountProgress(progressResult.rows[0]?.total_bruto || 0, tiersResult.rows);
+  const discount = progress.percentual_atual;
+
+  await client.query(
+    `UPDATE itens_pedido ip
+     SET preco_com_desconto = ROUND(COALESCE(ip.preco_bruto, ip.preco_unitario) * (1 - $2::numeric / 100), 2),
+         preco_desconto = ROUND(COALESCE(ip.preco_bruto, ip.preco_unitario) * (1 - $2::numeric / 100), 2),
+         desconto_percentual = $2,
+         subtotal_final = ROUND(COALESCE(ip.preco_bruto, ip.preco_unitario) * (1 - $2::numeric / 100) * ip.quantidade, 2)
+     FROM pedidos p
+     WHERE p.id = ip.pedido_id
+       AND p.ciclo_id = $1
+       AND p.status != 'cancelado'`,
+    [cycleId, discount],
+  );
+  await client.query(
+    `UPDATE pedidos p
+     SET total_final = totals.total_final,
+         total_desconto = p.total_bruto - totals.total_final,
+         updated_at = NOW()
+     FROM (
+       SELECT pedido_id, COALESCE(SUM(subtotal_final), 0)::numeric AS total_final
+       FROM itens_pedido
+       GROUP BY pedido_id
+     ) totals
+     WHERE p.id = totals.pedido_id
+       AND p.ciclo_id = $1
+       AND p.status != 'cancelado'`,
+    [cycleId],
+  );
+  return progress;
 }
 
 /** Resolve o ciclo administrativo solicitado; sem parâmetro usa o ciclo ativo. */
@@ -493,6 +698,13 @@ export default async function handler(req) {
         return json({ success: true, data: stats.rows[0] });
       }
 
+      // Progresso coletivo: agregado público, sem dados pessoais ou de pedidos.
+      if (path === 'desconto-progresso') {
+        const progress = await getDiscountProgress(client);
+        await client.end();
+        return json({ success: true, data: progress });
+      }
+
       if (path === 'descontos') {
         if (!adminSession) {
           await client.end();
@@ -663,16 +875,19 @@ export default async function handler(req) {
           await client.end();
           return unauthorized();
         }
-        const buyerAccess = await getAdminBuyerAccess(client);
-        await client.end();
-        return json({
+        const buyer = await getAdminBuyer(client);
+        const buyerToken = buyer && !buyerSession
+          ? await createBuyerSession(client, buyer.id)
+          : null;
+        const response = json({
           success: true,
-          data: {
-            ...adminSession,
-            buyer_token: buyerAccess.buyerToken,
-            comprador: buyerAccess.buyer,
-          },
+          data: { active: true, comprador: buyer },
         });
+        if (buyerToken) {
+          appendCookies(response, await issueSessionCookies(client, 'buyer', buyerToken, randomHex(32), BUYER_SESSION_TTL_SECONDS));
+        }
+        await client.end();
+        return response;
       }
 
       if (path === 'comprador/session') {
@@ -692,7 +907,31 @@ export default async function handler(req) {
 
     // ===== POST ROUTES =====
     if (req.method === 'POST') {
-      const body = await req.json();
+      const parsed = await parseJsonBody(req);
+      if (parsed.error) {
+        await client.end();
+        return json({ success: false, code: parsed.error, error: parsed.error === 'INVALID_JSON' ? 'JSON inválido' : 'Corpo excede o limite permitido' }, parsed.status);
+      }
+      const body = parsed.value;
+
+      const csrfError = await mutationCsrfError(req, path, adminSession, buyerSession);
+      if (csrfError) {
+        await client.end();
+        return csrfError;
+      }
+
+      if (path === 'admin/logout') {
+        await client.query('DELETE FROM admin_sessions WHERE id = $1', [adminSession.id]);
+        const response = new Response(null, { status: 204, headers });
+        appendCookies(response, [
+          expiredCookie('__Host-cc-admin'),
+          expiredCookie('__Host-cc-admin-csrf', false),
+          expiredCookie('__Host-cc-buyer'),
+          expiredCookie('__Host-cc-buyer-csrf', false),
+        ]);
+        await client.end();
+        return response;
+      }
 
       const authResult = await handleBuyerAuthPost({
         path,
@@ -705,8 +944,21 @@ export default async function handler(req) {
         env: process.env,
       });
       if (authResult) {
+        const token = authResult.body?.token || authResult.body?.data?.token;
+        if (authResult.body) {
+          delete authResult.body.token;
+          if (authResult.body.data) delete authResult.body.data.token;
+        }
+        const response = authResponse(authResult);
+        if (token) {
+          const csrf = randomHex(32);
+          appendCookies(response, await issueSessionCookies(client, 'buyer', token, csrf, BUYER_SESSION_TTL_SECONDS));
+        }
+        if (path === 'comprador/logout' || path === 'comprador/pin-recovery/complete') {
+          appendCookies(response, [expiredCookie('__Host-cc-buyer'), expiredCookie('__Host-cc-buyer-csrf', false)]);
+        }
         await client.end();
-        return authResponse(authResult);
+        return response;
       }
 
       if (path === 'pedidos') {
@@ -719,6 +971,18 @@ export default async function handler(req) {
           await client.end();
           return json({ success: false, error: 'Dados incompletos' }, 400);
         }
+        const itemError = validateOrderItems(itens);
+        if (itemError) {
+          await client.end();
+          return json({ success: false, code: itemError.code, error: 'Itens do pedido inválidos' }, itemError.status);
+        }
+        const replacePedidoId = replace_pedido_id === null || replace_pedido_id === undefined || replace_pedido_id === ''
+          ? null
+          : Number(replace_pedido_id);
+        if (replacePedidoId !== null && (!Number.isSafeInteger(replacePedidoId) || replacePedidoId < 1)) {
+          await client.end();
+          return json({ success: false, code: 'INVALID_ORDER_REPLACEMENT_ID', error: 'Pedido de substituição inválido' }, 400);
+        }
         const normalizedBody = normalizeNomeTel(usuario, telefone);
         if (
           !namesEquivalent(normalizedBody.nome, buyerSession.nome) ||
@@ -730,21 +994,27 @@ export default async function handler(req) {
 
         await client.query('BEGIN');
         try {
-          const replacePedidoId = replace_pedido_id ? parseInt(replace_pedido_id) : null;
+          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
+          const cycle = await getActiveCycle(client);
+          if (!cycle) {
+            await client.query('ROLLBACK');
+            await client.end();
+            return json({ success: false, error: 'Não há ciclo de compras aberto no momento' }, 409);
+          }
+
           if (replacePedidoId) {
             const editable = await client.query(
               `SELECT id FROM pedidos
-               WHERE id = $1 AND comprador_id = $2 AND status = 'aberto_edicao'
+               WHERE id = $1 AND comprador_id = $2 AND ciclo_id = $3 AND status = 'aberto_edicao'
+               FOR UPDATE
                LIMIT 1`,
-              [replacePedidoId, buyerSession.id]
+              [replacePedidoId, buyerSession.id, cycle.id]
             );
             if (!editable.rows.length) {
               await client.query('ROLLBACK');
               await client.end();
-              return unauthorized('Pedido em edição inválido');
+              return json({ success: false, code: 'ORDER_REPLACEMENT_CONFLICT', error: 'Pedido em edição não está mais disponível' }, 409);
             }
-            await client.query('DELETE FROM itens_pedido WHERE pedido_id = $1', [replacePedidoId]);
-            await client.query('DELETE FROM pedidos WHERE id = $1', [replacePedidoId]);
           }
 
           // Proteção contra envios duplicados: verifica se já existe pedido
@@ -753,10 +1023,10 @@ export default async function handler(req) {
              FROM pedidos
              WHERE (comprador_id = $1 OR (comprador_id IS NULL AND usuario = $2))
                AND status IN ('pendente','aberto_edicao')
-               AND created_at > NOW() - INTERVAL '60 seconds'
-               AND ($3::int IS NULL OR id <> $3)
+             AND created_at > NOW() - INTERVAL '60 seconds'
+             AND ($3::int IS NULL OR id <> $3)
              LIMIT 1`,
-            [buyerSession.id, usuario, replacePedidoId]
+            [buyerSession.id, buyerSession.nome, replacePedidoId]
           );
           if (dup.rows.length) {
             await client.query('ROLLBACK');
@@ -764,51 +1034,71 @@ export default async function handler(req) {
             return json({ success: false, duplicate: true, error: 'Pedido recente já existe. Aguarde ou edite o pedido existente.' }, 409);
           }
 
-          const cycle = await getActiveCycle(client);
-          if (!cycle) {
+          const codes = itens.map((item) => String(item.codigo).trim().toLowerCase());
+          const catalog = await client.query(
+            `SELECT p.id, p.codigo, p.nome, p.preco, c.slug AS categoria
+             FROM produtos p
+             JOIN categorias c ON c.id = p.categoria_id
+             WHERE p.ativo = TRUE AND lower(btrim(p.codigo)) = ANY($1::text[])`,
+            [codes],
+          );
+          if (catalog.rows.length !== codes.length) {
             await client.query('ROLLBACK');
             await client.end();
-            return json({ success: false, error: 'Não há ciclo de compras aberto no momento' }, 409);
+            return json({ success: false, code: 'CATALOG_ITEM_UNAVAILABLE', error: 'Produto indisponível' }, 409);
           }
+          let pricing;
+          try {
+            pricing = priceItems(catalog.rows, itens);
+          } catch (error) {
+            await client.query('ROLLBACK');
+            await client.end();
+            return json({ success: false, code: error.code || 'CATALOG_ITEM_UNAVAILABLE', error: 'Catálogo indisponível' }, error.status || 409);
+          }
+
+          if (replacePedidoId) {
+            await client.query('DELETE FROM itens_pedido WHERE pedido_id = $1', [replacePedidoId]);
+            await client.query('DELETE FROM pedidos WHERE id = $1', [replacePedidoId]);
+          }
+
           const pedidoResult = await client.query(
             'INSERT INTO pedidos (comprador_id, usuario, status, ciclo_id) VALUES ($1, $2, $3, $4) RETURNING id',
-            [buyerSession.id, usuario, 'pendente', cycle.id]
+            [buyerSession.id, buyerSession.nome, 'pendente', cycle.id]
           );
           const pedidoId = pedidoResult.rows[0].id;
 
-          let totalBruto = 0;
-          let totalFinal = 0;
-
-          for (const item of itens) {
-            const precoBruto = parseFloat(item.preco_bruto) || 0;
-            const precoDesconto = parseFloat(item.preco_desconto) || precoBruto;
-            const qty = parseInt(item.quantidade) || 1;
-            const subtBruto = precoBruto * qty;
-            const subtFinal = precoDesconto * qty;
+          for (const item of pricing.items) {
+            const precoBruto = item.bruto / 100;
+            const subtBruto = precoBruto * item.quantidade;
 
             await client.query(
               `INSERT INTO itens_pedido (
                 pedido_id, codigo, nome_produto, quantidade,
                 preco_unitario, preco_bruto, preco_com_desconto, preco_desconto,
-                desconto_percentual, subtotal_bruto, subtotal_final, categoria
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-              [pedidoId, item.codigo, item.nome, qty, precoBruto, precoBruto, precoDesconto, precoDesconto, item.desconto || 0, subtBruto, subtFinal, item.categoria || '']
+                desconto_percentual, subtotal_bruto, subtotal_final, categoria, produto_id
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+              [pedidoId, item.codigo, item.nome, item.quantidade, precoBruto, precoBruto, precoBruto, precoBruto, 0, subtBruto, subtBruto, item.categoria || '', item.id]
             );
-            totalBruto += subtBruto;
-            totalFinal += subtFinal;
           }
 
           await client.query(
             'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3 WHERE id = $4',
-            [totalBruto, totalFinal, totalBruto - totalFinal, pedidoId]
+            [pricing.totalBruto / 100, pricing.totalBruto / 100, 0, pedidoId]
+          );
+          const progress = await repriceCycleOrders(client, cycle.id);
+          const totals = await client.query(
+            'SELECT total_bruto, total_final, total_desconto FROM pedidos WHERE id = $1',
+            [pedidoId],
           );
           await client.query('COMMIT');
 
           await client.end();
           return json({
             success: true,
-            message: `Pedido de ${usuario} registrado com ${itens.length} itens`,
-            pedido_id: pedidoId
+            message: `Pedido de ${buyerSession.nome} registrado com ${itens.length} itens`,
+            pedido_id: pedidoId,
+            desconto_percentual: progress.percentual_atual,
+            totais: totals.rows[0],
           });
         } catch (error) {
           await client.query('ROLLBACK');
@@ -851,23 +1141,33 @@ export default async function handler(req) {
 
       if (path === 'admin/login') {
         const { senha } = body;
+        const limit = await consumeAdminLoginLimit(client, req);
+        if (!limit.configured) {
+          await client.end();
+          return json({ success: false, code: 'AUTH_RATE_LIMIT_UNAVAILABLE', error: 'Autenticação temporariamente indisponível' }, 503);
+        }
+        if (limit.blocked) {
+          await client.end();
+          const response = json({ success: false, code: 'ADMIN_LOGIN_RATE_LIMITED', error: 'Credenciais inválidas' }, 429);
+          response.headers.set('Retry-After', String(limit.retryAfter));
+          return response;
+        }
         const isValid = await verifyAdminPassword(client, senha);
         if (isValid) {
           const token = await createAdminSession(client);
           const buyerAccess = await getAdminBuyerAccess(client);
-          await client.end();
-          return json({
+          const response = json({
             success: true,
             message: 'Login autorizado',
-            token,
-            buyer_token: buyerAccess.buyerToken,
             comprador: buyerAccess.buyer,
-            data: {
-              token,
-              buyer_token: buyerAccess.buyerToken,
-              comprador: buyerAccess.buyer,
-            }
+            data: { comprador: buyerAccess.buyer },
           });
+          appendCookies(response, await issueSessionCookies(client, 'admin', token, randomHex(32), ADMIN_SESSION_TTL_SECONDS));
+          if (buyerAccess.buyerToken) {
+            appendCookies(response, await issueSessionCookies(client, 'buyer', buyerAccess.buyerToken, randomHex(32), BUYER_SESSION_TTL_SECONDS));
+          }
+          await client.end();
+          return response;
         }
         await client.end();
         return json({ success: false, error: 'Senha incorreta' }, 401);
@@ -876,7 +1176,18 @@ export default async function handler(req) {
 
     // ===== PUT ROUTES =====
     if (req.method === 'PUT') {
-      const body = await req.json();
+      const parsed = await parseJsonBody(req);
+      if (parsed.error) {
+        await client.end();
+        return json({ success: false, code: parsed.error, error: parsed.error === 'INVALID_JSON' ? 'JSON inválido' : 'Corpo excede o limite permitido' }, parsed.status);
+      }
+      const body = parsed.value;
+
+      const csrfError = await mutationCsrfError(req, path, adminSession, buyerSession);
+      if (csrfError) {
+        await client.end();
+        return csrfError;
+      }
 
       const authResult = await handleBuyerAuthPut({
         path,
@@ -924,13 +1235,26 @@ export default async function handler(req) {
           await client.end();
           return json({ success: false, error: `Status inválido. Opções: ${validos.join(', ')}` }, 400);
         }
-        const r = await client.query(
-          'UPDATE pedidos SET status = $1, updated_at = NOW() WHERE id = $2 AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE) RETURNING id',
-          [status, pid]
-        );
-        await client.end();
-        if (!r.rowCount) return json({ success: false, error: 'Pedido não encontrado' }, 404);
-        return json({ success: true, message: `Pedido ${pid} → ${status}` });
+        await client.query('BEGIN');
+        try {
+          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
+          const r = await client.query(
+            'UPDATE pedidos SET status = $1, updated_at = NOW() WHERE id = $2 AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE) RETURNING id, ciclo_id',
+            [status, pid]
+          );
+          if (!r.rowCount) {
+            await client.query('ROLLBACK');
+            await client.end();
+            return json({ success: false, error: 'Pedido não encontrado' }, 404);
+          }
+          await repriceCycleOrders(client, r.rows[0].ciclo_id);
+          await client.query('COMMIT');
+          await client.end();
+          return json({ success: true, message: `Pedido ${pid} → ${status}` });
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        }
       }
 
       // PUT /pedidos/usuario/:nome/status  (altera status de TODOS os pedidos de um comprador)
@@ -947,12 +1271,21 @@ export default async function handler(req) {
           await client.end();
           return json({ success: false, error: `Status inválido` }, 400);
         }
-        const r = await client.query(
-          `UPDATE pedidos SET status = $1, updated_at = NOW() WHERE usuario = $2 AND status != 'cancelado' AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE) RETURNING id`,
-          [status, usuario]
-        );
-        await client.end();
-        return json({ success: true, message: `${r.rowCount} pedido(s) de ${usuario} → ${status}` });
+        await client.query('BEGIN');
+        try {
+          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
+          const r = await client.query(
+            `UPDATE pedidos SET status = $1, updated_at = NOW() WHERE usuario = $2 AND status != 'cancelado' AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE) RETURNING ciclo_id`,
+            [status, usuario]
+          );
+          if (r.rowCount) await repriceCycleOrders(client, r.rows[0].ciclo_id);
+          await client.query('COMMIT');
+          await client.end();
+          return json({ success: true, message: `${r.rowCount} pedido(s) de ${usuario} → ${status}` });
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        }
       }
 
       // PUT /itens/:id/qty  — Admin: alterar quantidade de item existente
@@ -971,6 +1304,7 @@ export default async function handler(req) {
         }
         await client.query('BEGIN');
         try {
+          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
           const item = await client.query(
             `SELECT ip.pedido_id, ip.preco_unitario, ip.preco_com_desconto
              FROM itens_pedido ip JOIN pedidos p ON p.id = ip.pedido_id
@@ -999,6 +1333,8 @@ export default async function handler(req) {
             'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3, updated_at = NOW() WHERE id = $4',
             [tb, tf, tb - tf, it.pedido_id]
           );
+          const cycle = await client.query('SELECT ciclo_id FROM pedidos WHERE id = $1', [it.pedido_id]);
+          if (cycle.rows[0]) await repriceCycleOrders(client, cycle.rows[0].ciclo_id);
           await client.query('COMMIT');
           await client.end();
           return json({ success: true, message: `Quantidade atualizada para ${qty}` });
@@ -1019,6 +1355,7 @@ export default async function handler(req) {
         const usuario = decodeURIComponent(mergeMatch[1]);
         await client.query('BEGIN');
         try {
+        await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
         // Busca todos os pedidos ativos do usuário
         const pedidos = await client.query(
           `SELECT id FROM pedidos WHERE usuario = $1 AND status != 'cancelado'
@@ -1080,6 +1417,8 @@ export default async function handler(req) {
           'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3, status = $4, updated_at = NOW() WHERE id = $5',
           [tb, tf, tb - tf, 'pendente', keepId]
         );
+        const cycle = await client.query('SELECT ciclo_id FROM pedidos WHERE id = $1', [keepId]);
+        if (cycle.rows[0]) await repriceCycleOrders(client, cycle.rows[0].ciclo_id);
         await client.query('COMMIT');
         await client.end();
         return json({ success: true, message: `${removeIds.length} pedido(s) duplicado(s) removido(s). Pedido ${keepId} mantido.` });
@@ -1120,6 +1459,7 @@ export default async function handler(req) {
 
         await client.query('BEGIN');
         try {
+          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
           // Verifica se já existe esse produto no pedido — se sim, incrementa
           const existingItem = await client.query(
             'SELECT id, quantidade, subtotal_bruto, subtotal_final FROM itens_pedido WHERE pedido_id = $1 AND codigo = $2 LIMIT 1',
@@ -1154,6 +1494,8 @@ export default async function handler(req) {
             'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3, updated_at = NOW() WHERE id = $4',
             [tb, tf, tb - tf, pid]
           );
+          const cycle = await client.query('SELECT ciclo_id FROM pedidos WHERE id = $1', [pid]);
+          if (cycle.rows[0]) await repriceCycleOrders(client, cycle.rows[0].ciclo_id);
           await client.query('COMMIT');
           await client.end();
           return json({ success: true, message: `Item ${nome} adicionado ao pedido ${pid}` });
@@ -1166,6 +1508,11 @@ export default async function handler(req) {
 
     // ===== DELETE ROUTES =====
     if (req.method === 'DELETE') {
+      const csrfError = await mutationCsrfError(req, path, adminSession, buyerSession);
+      if (csrfError) {
+        await client.end();
+        return csrfError;
+      }
       if (path === 'pedidos') {
         if (!adminSession) {
           await client.end();
@@ -1205,8 +1552,11 @@ export default async function handler(req) {
         }
         await client.query('BEGIN');
         try {
+          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
           await client.query('DELETE FROM itens_pedido WHERE pedido_id = $1 AND EXISTS (SELECT 1 FROM pedidos WHERE id = $1 AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE))', [pid]);
           const r = await client.query('DELETE FROM pedidos WHERE id = $1 AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE) RETURNING id', [pid]);
+          const cycle = await getActiveCycle(client);
+          if (cycle) await repriceCycleOrders(client, cycle.id);
           await client.query('COMMIT');
           await client.end();
           if (!r.rowCount) return json({ success: false, error: 'Pedido não encontrado' }, 404);
@@ -1227,11 +1577,14 @@ export default async function handler(req) {
         const usuario = decodeURIComponent(pedidoUserMatch[1]);
         await client.query('BEGIN');
         try {
+          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
           await client.query(
             'DELETE FROM itens_pedido WHERE pedido_id IN (SELECT id FROM pedidos WHERE usuario = $1 AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE))',
             [usuario]
           );
           const r = await client.query('DELETE FROM pedidos WHERE usuario = $1 AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE) RETURNING id', [usuario]);
+          const cycle = await getActiveCycle(client);
+          if (cycle) await repriceCycleOrders(client, cycle.id);
           await client.query('COMMIT');
           await client.end();
           return json({ success: true, message: `${r.rowCount} pedido(s) de ${usuario} apagados` });
@@ -1251,6 +1604,7 @@ export default async function handler(req) {
         const iid = parseInt(itemMatch[1]);
         await client.query('BEGIN');
         try {
+          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
           const r = await client.query(`DELETE FROM itens_pedido ip USING pedidos p
             WHERE ip.id = $1 AND p.id = ip.pedido_id
               AND p.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
@@ -1262,6 +1616,8 @@ export default async function handler(req) {
               await client.query('DELETE FROM pedidos WHERE id = $1', [pedidoId]);
             }
           }
+          const cycle = await getActiveCycle(client);
+          if (cycle) await repriceCycleOrders(client, cycle.id);
           await client.query('COMMIT');
           await client.end();
           if (!r.rowCount) return json({ success: false, error: 'Item não encontrado' }, 404);
@@ -1283,14 +1639,17 @@ export default async function handler(req) {
         const codigo = decodeURIComponent(produtoMatch[1]);
         await client.query('BEGIN');
         try {
+          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
           const r = await client.query(`DELETE FROM itens_pedido ip USING pedidos p
             WHERE ip.codigo = $1 AND p.id = ip.pedido_id
               AND p.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
             RETURNING ip.pedido_id`, [codigo]);
           await client.query(`
             DELETE FROM pedidos WHERE id NOT IN (SELECT DISTINCT pedido_id FROM itens_pedido)
-              AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
+            AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
           `);
+          const cycle = await getActiveCycle(client);
+          if (cycle) await repriceCycleOrders(client, cycle.id);
           await client.query('COMMIT');
           await client.end();
           return json({ success: true, message: `${r.rowCount} ocorrência(s) do produto ${codigo} removidas` });

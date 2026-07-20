@@ -24,6 +24,7 @@ Access-Control-Allow-Origin: *
 - [Estatísticas](#get-stats)
 - [Descontos](#get-descontos)
 - [Faixas de Desconto](#get-faixas-desconto)
+- [Progresso do Desconto Coletivo](#get-desconto-progresso)
 - [Categorias](#get-categorias)
 - [Compradores](#get-compradores)
 - [Lista de Compradores](#get-compradoreslista)
@@ -259,6 +260,34 @@ Lista faixas de desconto progressivo ativas.
 
 ---
 
+### GET /desconto-progresso
+
+Retorna o total bruto dos pedidos ativos do ciclo e a faixa de desconto vigente.
+É uma rota pública e não expõe compradores, pedidos ou dados pessoais. Quando uma
+faixa é alcançada, a API reprecifica todos os pedidos ativos do ciclo com o mesmo
+percentual global.
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "data": {
+    "ciclo_id": 2,
+    "ciclo_nome": "Julho/2026",
+    "total_bruto": 4200,
+    "percentual_atual": 44,
+    "valor_faltante": 3800,
+    "progresso_percentual": 30,
+    "maximo_alcancado": false,
+    "faixa_atual": { "valor_minimo": 3000, "percentual": 44 },
+    "proxima_faixa": { "valor_minimo": 8000, "percentual": 48 },
+    "faixas": []
+  }
+}
+```
+
+---
+
 ### GET /categorias
 
 Lista todas as categorias de produtos.
@@ -383,7 +412,8 @@ Colunas: `Comprador;Código;Produto;Qtd;Preço Unit.;Desconto %;Preço c/ Desc.;
 
 ### POST /pedidos
 
-Cria um novo pedido com itens.
+Cria um novo pedido com itens. Preço, nome, categoria e desconto são resolvidos
+exclusivamente no servidor a partir do catálogo e da faixa global vigente.
 
 Telefone e e-mail do corpo são usados apenas para validar a sessão. Esta rota
 não altera mais a identidade persistida do comprador.
@@ -397,12 +427,7 @@ não altera mais a identidade persistida do comprador.
   "itens": [
     {
       "codigo": "AGF120",
-      "nome": "Arginofor 120 cáps",
-      "quantidade": 2,
-      "preco_bruto": 89.90,
-      "preco_desconto": 53.94,
-      "desconto": 40,
-      "categoria": "aminoacidos"
+      "quantidade": 2
     }
   ]
 }
@@ -413,7 +438,9 @@ não altera mais a identidade persistida do comprador.
 {
   "success": true,
   "message": "Pedido de João Silva registrado com 1 itens",
-  "pedido_id": 15
+  "pedido_id": 15,
+  "desconto_percentual": 44,
+  "totais": { "total_bruto": 179.80, "total_final": 100.69, "total_desconto": 79.11 }
 }
 ```
 

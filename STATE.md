@@ -1,5 +1,24 @@
 # Compras Coletivas Vitafor — STATE
 
+## Atualização 20/07/2026 — desconto progressivo coletivo e hardening
+
+**Status:** implementação concluída localmente; publicação e smoke de produção pendentes.
+
+- Compradores passam a ver, no topo da página, uma barra pública com o total
+  coletivo, percentual atual, próxima faixa e valor faltante. O agregado é
+  atualizado ao abrir a página e a cada 30 segundos.
+- O backend calcula o preço do pedido a partir do catálogo e aplica a faixa
+  coletiva vigente a todos os pedidos ativos dentro da mesma transação. Ao
+  alcançar uma nova faixa, pedidos existentes também são reprecificados.
+- O hardening foi reaplicado com cookies `HttpOnly` de sessão, CSRF por escopo,
+  corpo JSON limitado e rate limit administrativo com IP canônico e fallback
+  compatível com o proxy da Vercel. Tokens não são mais persistidos no navegador.
+- A migração aditiva `sql/08_security_hardening.sql` inclui preflight fail-closed,
+  invalidação das sessões antigas sem CSRF e alinhamento imediato dos pedidos
+  existentes à faixa vigente.
+- Gates locais: 35 testes aprovados, auditoria sem vulnerabilidades de alta
+  severidade, sintaxe validada e `git diff --check` aprovado.
+
 ## Atualização 19/07/2026 20:24 BRT — acesso admin/comprador simplificado
 
 **Status:** correção publicada e validada em produção.

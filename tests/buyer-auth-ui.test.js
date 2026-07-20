@@ -101,6 +101,8 @@ test('excecao de rede no cadastro nunca deixa a acao inerte', async () => {
 test('login administrativo restaura também o comprador vinculado', () => {
   assert.match(source, /this\.api\("admin\/session"\)/);
   assert.match(source, /adminSession\.data\?\.comprador/);
-  assert.match(source, /adminSession\.data\?\.buyer_token/);
+  assert.match(source, /credentials: "same-origin"/);
+  assert.match(source, /X-CSRF-Token/);
+  assert.doesNotMatch(source, /Authorization: `Bearer/);
   assert.match(source, /Acesso unificado/);
 });

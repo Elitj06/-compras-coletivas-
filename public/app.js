@@ -11,7 +11,7 @@
  *   - handlers      → reações a eventos do usuário
  *
  * Regras de negócio:
- *  - Desconto é um ÚNICO percentual global definido pelo admin.
+ *  - Desconto é um percentual global progressivo, calculado pelo ciclo ativo.
  *  - Cards do catálogo mostram apenas o preço cheio (sem desconto).
  *  - No carrinho/fatura o comprador vê preço cheio + preço com desconto.
  *  - Cadastro (nome + telefone) é obrigatório na entrada do app.
@@ -19,26 +19,9 @@
  * ============================================================ */
 
 const API_BASE = "/api/db";
-const BUYER_TOKEN_KEY = "buyerToken";
-const ADMIN_TOKEN_KEY = "adminToken";
-
-function readPersistedToken(key) {
-  return sessionStorage.getItem(key) || localStorage.getItem(key) || "";
-}
-
-function writePersistedToken(key, value) {
-  if (!value) {
-    sessionStorage.removeItem(key);
-    localStorage.removeItem(key);
-    return;
-  }
-  sessionStorage.setItem(key, value);
-  localStorage.setItem(key, value);
-}
-
-function clearPersistedToken(key) {
-  sessionStorage.removeItem(key);
-  localStorage.removeItem(key);
+function csrfToken(scope) {
+  const prefix = `__Host-cc-${scope}-csrf=`;
+  return document.cookie.split("; ").find((entry) => entry.startsWith(prefix))?.slice(prefix.length) || "";
 }
 
 /* ----------------------- Confirm modal customizado --------- */
@@ -165,7 +148,8 @@ const PRODUTO_INDEX = Object.fromEntries(
 const app = {
   state: {
     cart: {},
-    discountPct: 0, // percentual global único aplicado pelo admin
+    discountPct: 0, // percentual global vigente no ciclo coletivo
+    discountProgress: null,
     currentGroup: "todos",
     sortBy: "nome",
     page: 1,
@@ -173,8 +157,6 @@ const app = {
     isAdminLoggedIn: false,
     isRegistered: false,
     user: { name: "", phone: "", email: "" },
-    buyerToken: "",
-    adminToken: "",
     adminCycleId: null,
     adminCycleIsActive: true,
     useServer: true,
@@ -197,7 +179,10 @@ const app = {
     this.renderGroupGrid();
     this.renderProducts();
     this.updateCartBar();
-    await this.loadDiscountFromServer();
+    await this.loadDiscountProgress();
+    this._discountPollTimer = setInterval(() => {
+      if (!document.hidden) this.loadDiscountProgress();
+    }, 30000);
     await this.restoreSessions();
     // Restaura estado admin se estava logado
     if (this.state.isAdminLoggedIn) {
@@ -300,15 +285,16 @@ const app = {
         path === "pedidos/historico" ||
         (path === "pedidos" && method === "POST") ||
         (/^pedidos\/\d+$/.test(path) && method === "DELETE");
-      const token = authScope === "admin"
-        ? this.state.adminToken
-        : (isBuyerRoute ? this.state.buyerToken : (this.state.adminToken || this.state.buyerToken));
+      const scope = authScope === "admin" ? "admin" : (isBuyerRoute ? "buyer" : "admin");
       const opts = {
         method,
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(["POST", "PUT", "DELETE"].includes(method)
+            ? { "X-CSRF-Token": csrfToken(scope), "X-Session-Scope": scope }
+            : {}),
         },
+        credentials: "same-origin",
       };
       if (body) opts.body = JSON.stringify(body);
       const res = await fetch(`${API_BASE}/${path}`, opts);
@@ -331,68 +317,108 @@ const app = {
   },
 
   async restoreSessions() {
-    if (this.state.adminToken) {
-      const adminSession = await this.api("admin/session");
-      if (adminSession?.success) {
-        this.state.isAdminLoggedIn = true;
-        const linkedBuyer = adminSession.data?.comprador;
-        const linkedBuyerToken = adminSession.data?.buyer_token;
-        if (linkedBuyer && linkedBuyerToken) {
-          this._saveUserSession(
-            linkedBuyer.nome,
-            linkedBuyer.telefone || "",
-            linkedBuyer.email || "",
-            linkedBuyerToken,
-            { announce: false, refreshHistory: false },
-          );
-        } else {
-          this.clearBuyerSession(false);
-        }
-      } else {
-        this.clearAdminSession();
+    const adminSession = await this.api("admin/session");
+    if (adminSession?.success) {
+      this.state.isAdminLoggedIn = true;
+      const linkedBuyer = adminSession.data?.comprador;
+      if (linkedBuyer) {
+        this._saveUserSession(
+          linkedBuyer.nome,
+          linkedBuyer.telefone || "",
+          linkedBuyer.email || "",
+          "",
+          { announce: false, refreshHistory: false },
+        );
       }
+    } else {
+      this.clearAdminSession();
     }
-    if (this.state.buyerToken) {
-      const buyerSession = await this.api("comprador/session");
-      if (buyerSession?.success) {
-        this.state.isRegistered = true;
-        this.state.user.name = buyerSession.data.nome || this.state.user.name;
-        this.state.user.phone = buyerSession.data.telefone || this.state.user.phone;
-      } else {
-        this.clearBuyerSession(false);
-      }
+    const buyerSession = await this.api("comprador/session");
+    if (buyerSession?.success) {
+      this.state.isRegistered = true;
+      this.state.user.name = buyerSession.data.nome || this.state.user.name;
+      this.state.user.phone = buyerSession.data.telefone || this.state.user.phone;
+      this.state.user.email = buyerSession.data.email || this.state.user.email;
+    } else if (!this.state.isAdminLoggedIn) {
+      this.clearBuyerSession(false);
     }
   },
 
-  async loadDiscountFromServer() {
-    const res = await this.api("descontos");
-    if (res && res.success && Array.isArray(res.data)) {
-      // Buscamos a entrada "todos" (desconto global). Para compatibilidade,
-      // caímos para o maior percentual encontrado se não existir "todos".
-      const todos = res.data.find((d) => d.categoria === "todos");
-      if (todos) {
-        this.state.discountPct = parseFloat(todos.percentual) || 0;
-      } else if (res.data.length) {
-        this.state.discountPct = Math.max(
-          ...res.data.map((d) => parseFloat(d.percentual) || 0)
-        );
-      }
-      this.updateCartBar();
-      if (
-        document.getElementById("tab-meu-pedido") &&
-        !document.getElementById("tab-meu-pedido").classList.contains("hidden")
-      ) {
-        this.renderInvoice();
-      }
+  /** Carrega o agregado público do ciclo e atualiza o desconto de todos. */
+  async loadDiscountProgress() {
+    const res = await this.api("desconto-progresso");
+    if (!res?.success || !res.data) return;
+    this.state.discountProgress = res.data;
+    this.state.discountPct = Number(res.data.percentual_atual) || 0;
+    this.renderDiscountProgress();
+    this.updateCartBar();
+    if (
+      document.getElementById("tab-meu-pedido") &&
+      !document.getElementById("tab-meu-pedido").classList.contains("hidden")
+    ) {
+      this.renderInvoice();
     }
+  },
+
+  /** Mantém compatibilidade com chamadas antigas do painel. */
+  async loadDiscountFromServer() {
+    return this.loadDiscountProgress();
+  },
+
+  /** Renderiza a barra global acima das abas do comprador. */
+  renderDiscountProgress() {
+    const container = document.getElementById("discountProgress");
+    const progress = this.state.discountProgress;
+    if (!container || !progress) {
+      if (container) container.hidden = true;
+      return;
+    }
+
+    const currentPct = Number(progress.percentual_atual) || 0;
+    const next = progress.proxima_faixa;
+    const current = progress.faixa_atual;
+    const total = Number(progress.total_bruto) || 0;
+    const progressPct = Math.min(100, Math.max(0, Number(progress.progresso_percentual) || 0));
+    const title = currentPct > 0
+      ? `${currentPct}% de desconto coletivo ativo`
+      : "Desconto coletivo em construção";
+    const detail = progress.maximo_alcancado
+      ? "A maior faixa de desconto já foi alcançada para todos os compradores."
+      : next
+        ? `Faltam ${fmt.brl(progress.valor_faltante)} para liberar ${next.percentual}% de desconto para todos.`
+        : "Assim que a próxima faixa for alcançada, o desconto será aplicado a todos.";
+    const tierMarkers = (progress.faixas || []).map((tier) => {
+      const reached = total >= Number(tier.valor_minimo);
+      return `<span class="discount-progress-tier ${reached ? "is-reached" : ""}">
+        <span>${Number(tier.percentual) || 0}%</span> · ${fmt.brl(tier.valor_minimo)}
+      </span>`;
+    }).join("");
+
+    container.hidden = false;
+    container.innerHTML = `
+      <div class="discount-progress-heading">
+        <div>
+          <span class="discount-progress-eyebrow">Desconto da compra coletiva</span>
+          <strong>${title}</strong>
+        </div>
+        <span class="discount-progress-total">${fmt.brl(total)} em pedidos</span>
+      </div>
+      <div class="discount-progress-track" role="progressbar" aria-valuenow="${progressPct}" aria-valuemin="0" aria-valuemax="100" aria-label="Progresso para a próxima faixa de desconto">
+        <span style="width:${progressPct}%"></span>
+      </div>
+      <div class="discount-progress-meta">
+        <span>${fmt.escape(detail)}</span>
+        <strong>${progress.maximo_alcancado ? "Desconto máximo" : next ? `Próxima faixa: ${next.percentual}%` : "Aguardando pedidos"}</strong>
+      </div>
+      <div class="discount-progress-tiers">${tierMarkers}</div>
+      ${current ? `<small class="discount-progress-note">Faixa atual: ${fmt.escape(current.nome || `${current.percentual}%`)}</small>` : ""}
+    `;
   },
 
   /* ----------------- Cadastro ----------------- */
   checkRegistration() {
-    this.state.buyerToken = readPersistedToken(BUYER_TOKEN_KEY);
-    this.state.adminToken = readPersistedToken(ADMIN_TOKEN_KEY);
     const reg = localStorage.getItem("userRegistered");
-    if (reg === "true" && this.state.buyerToken) {
+    if (reg === "true") {
       this.state.isRegistered = true;
       this.state.user.name = localStorage.getItem("registeredName") || "";
       this.state.user.phone = localStorage.getItem("registeredPhone") || "";
@@ -406,13 +432,11 @@ const app = {
 
   clearBuyerSession(showModal = true) {
     this.state.isRegistered = false;
-    this.state.buyerToken = "";
     this.state.user = { name: "", phone: "", email: "" };
     localStorage.removeItem("userRegistered");
     localStorage.removeItem("registeredName");
     localStorage.removeItem("registeredPhone");
     localStorage.removeItem("registeredEmail");
-    clearPersistedToken(BUYER_TOKEN_KEY);
     this.state.lastOrder = null;
     this.renderHeaderUser();
     this.saveLocal();
@@ -421,8 +445,6 @@ const app = {
 
   clearAdminSession() {
     this.state.isAdminLoggedIn = false;
-    this.state.adminToken = "";
-    clearPersistedToken(ADMIN_TOKEN_KEY);
     this.saveLocal();
   },
 
@@ -617,12 +639,10 @@ const app = {
     this.state.user.phone = phone;
     this.state.user.email = email;
     this.state.isRegistered = true;
-    this.state.buyerToken = token || this.state.buyerToken;
     localStorage.setItem("userRegistered", "true");
     localStorage.setItem("registeredName", name);
     localStorage.setItem("registeredPhone", phone);
     localStorage.setItem("registeredEmail", email);
-    writePersistedToken(BUYER_TOKEN_KEY, this.state.buyerToken);
     document.getElementById("registrationModal")?.remove();
     this.renderHeaderUser();
     if (announce) this.toast(`Olá, ${name.split(" ")[0]}!`, "success");
@@ -1161,7 +1181,7 @@ const app = {
      this.state.lastOrder para exibir na tab "Meu Pedido".
      Só é chamado quando o carrinho está vazio E não há lastOrder no localStorage. */
   async loadServerOrder() {
-    if (!this.state.isRegistered || !this.state.user.name || !this.state.buyerToken) return false;
+    if (!this.state.isRegistered || !this.state.user.name) return false;
     try {
       const res = await this.api("pedidos/historico");
       const pedidos = res?.data || [];
@@ -1404,7 +1424,7 @@ const app = {
   async checkPedidoAberto() {
     this.state._editCheckDone = true;
     try {
-      if (!this.state.user.name || !this.state.buyerToken) return;
+      if (!this.state.user.name) return;
       const res = await this.api("pedidos/historico");
       const pedidos = res?.data || [];
       const aberto = pedidos.find((p) => p.status === "aberto_edicao");
@@ -1546,17 +1566,10 @@ const app = {
 
     this.state._submitting = true;
 
-    const itens = Object.entries(this.state.cart).map(([cod, qty]) => {
-      const p = PRODUTO_INDEX[cod];
-      return {
-        codigo: cod,
-        nome: p?.nome || cod,
-        quantidade: qty,
-        preco_bruto: p?.preco || 0,
-        preco_desconto: p ? this.applyDiscountTo(p.preco) : 0,
-        categoria: p?.categoria || "",
-      };
-    });
+    const itens = Object.entries(this.state.cart).map(([codigo, quantidade]) => ({
+      codigo,
+      quantidade,
+    }));
 
     let res;
     try {
@@ -1582,6 +1595,14 @@ const app = {
       return;
     }
 
+    await this.loadDiscountProgress();
+    const appliedPct = Number(res.desconto_percentual ?? this.state.discountPct ?? t.pct) || 0;
+    const appliedItems = itens.map((item) => ({
+      ...item,
+      preco_desconto: item.preco_bruto * (1 - appliedPct / 100),
+    }));
+    const serverTotals = res.totais || {};
+
     // Persiste o pedido enviado para o comprador visualizar depois
     this.state.lastOrder = {
       id: res && res.pedido_id ? res.pedido_id : null,
@@ -1589,11 +1610,11 @@ const app = {
       usuario: this.state.user.name,
       telefone: this.state.user.phone,
       email: this.state.user.email,
-      itens,
-      discountPct: t.pct,
-      totalBruto: t.bruto,
-      totalFinal: t.total,
-      economia: t.economia,
+      itens: appliedItems,
+      discountPct: appliedPct,
+      totalBruto: Number(serverTotals.total_bruto) || t.bruto,
+      totalFinal: Number(serverTotals.total_final) || t.total,
+      economia: Number(serverTotals.total_desconto) || t.economia,
     };
 
     this.state.cart = {};
@@ -1622,6 +1643,7 @@ const app = {
       this.toast("Pedido removido localmente", "info");
     }
     this.state.lastOrder = null;
+    await this.loadDiscountProgress();
     this.saveLocal();
     this.renderInvoice();
   },
@@ -1753,19 +1775,16 @@ const app = {
     const res = await this.api("admin/login", "POST", { senha: pwd });
     if (res && res.success) {
       this.state.isAdminLoggedIn = true;
-      this.state.adminToken = res?.token || res?.data?.token || "";
       const adminBuyer = res?.comprador || res?.data?.comprador;
-      const adminBuyerToken = res?.buyer_token || res?.data?.buyer_token;
-      if (adminBuyer && adminBuyerToken) {
+      if (adminBuyer) {
         this._saveUserSession(
           adminBuyer.nome,
           adminBuyer.telefone || "",
           adminBuyer.email || "",
-          adminBuyerToken,
+          "",
           { refreshHistory: false },
         );
       }
-      writePersistedToken(ADMIN_TOKEN_KEY, this.state.adminToken);
       const tabAdmin = document.getElementById("tabAdmin");
       if (tabAdmin) tabAdmin.hidden = false;
       document
@@ -1815,6 +1834,8 @@ const app = {
       </div>`;
 
     const pctAtual = this.state.discountPct || 0;
+    const progress = this.state.discountProgress || {};
+    const nextTier = progress.proxima_faixa;
 
     const valorBruto = parseFloat(stats.valor_bruto_geral || 0);
     const economia = parseFloat(stats.economia_geral || 0);
@@ -1856,14 +1877,17 @@ const app = {
       </div>
 
       <div class="card discount-panel">
-        <div class="discount-row" style="margin:0;align-items:center">
-          <span style="font-weight:600;font-size:0.88rem;white-space:nowrap">${icon("tag")} Desconto: <strong style="color:var(--c-brand)">${pctAtual}%</strong></span>
-          <div class="discount-input-wrap">
-            <input type="number" id="discPctInput" value="${pctAtual}" min="0" max="100" step="1" />
-            <span class="discount-suffix">%</span>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          ${icon("tag")}
+          <div style="flex:1;min-width:220px">
+            <strong>Desconto coletivo automático: ${pctAtual}%</strong><br>
+            <small style="color:var(--c-text-muted)">
+              ${nextTier
+                ? `Faltam ${fmt.brl(progress.valor_faltante)} para liberar ${nextTier.percentual}% para todos.`
+                : "A maior faixa configurada já foi alcançada para todos os compradores."}
+            </small>
           </div>
-          <button class="btn btn-primary btn-sm" onclick="app.applyDiscount()">${icon("check")} Aplicar</button>
-          <button class="btn btn-secondary btn-sm" onclick="app.clearDiscounts()">Remover</button>
+          <button class="btn btn-secondary btn-sm" onclick="app.loadDiscountProgress().then(() => app.renderAdmin())">${icon("refresh")} Atualizar faixa</button>
         </div>
       </div>
 
@@ -2808,8 +2832,6 @@ const app = {
     localStorage.setItem("cart", JSON.stringify(this.state.cart));
     localStorage.setItem("discountPct", String(this.state.discountPct || 0));
     localStorage.setItem("lastOrder", JSON.stringify(this.state.lastOrder || null));
-    writePersistedToken(ADMIN_TOKEN_KEY, this.state.adminToken);
-    writePersistedToken(BUYER_TOKEN_KEY, this.state.buyerToken);
   },
   loadLocal() {
     try {
@@ -2817,15 +2839,10 @@ const app = {
       const d = localStorage.getItem("discountPct");
       const theme = localStorage.getItem("theme");
       const lo = localStorage.getItem("lastOrder");
-      const adminToken = readPersistedToken(ADMIN_TOKEN_KEY);
-      const buyerToken = readPersistedToken(BUYER_TOKEN_KEY);
       if (c) this.state.cart = JSON.parse(c);
       if (d) this.state.discountPct = parseFloat(d) || 0;
       if (theme === "dark" || theme === "light") this.state.theme = theme;
       if (lo && lo !== "null") this.state.lastOrder = JSON.parse(lo);
-      if (adminToken) this.state.isAdminLoggedIn = true;
-      if (adminToken) this.state.adminToken = adminToken;
-      if (buyerToken) this.state.buyerToken = buyerToken;
     } catch (e) {
       this.state.cart = {};
       this.state.discountPct = 0;
