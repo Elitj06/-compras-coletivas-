@@ -2248,7 +2248,10 @@ const app = {
               <td>
                 <div style="display:flex;align-items:center;gap:4px">
                   <button class="btn-icon btn-sm" title="Diminuir" onclick="event.stopPropagation();app.adminChangeQty(${it.item_id},${it.quantidade - 1})">−</button>
-                  <span style="min-width:24px;text-align:center">${it.quantidade}</span>
+                  <input type="number" class="qty-input admin-qty-input" value="${it.quantidade}" min="1" max="99"
+                    style="width:48px;text-align:center;padding:2px 4px"
+                    onchange="app.adminSetQty(${it.item_id},this.value)"
+                    onkeydown="if(event.key==='Enter'){this.blur()}" />
                   <button class="btn-icon btn-sm" title="Aumentar" onclick="event.stopPropagation();app.adminChangeQty(${it.item_id},${it.quantidade + 1})">+</button>
                 </div>
               </td>
@@ -2301,9 +2304,22 @@ const app = {
 
   /* Refresh discount progress then re-render admin panel.
      Called after any mutation that affects cycle totals. */
+  // SECTION: Debounced admin refresh — prevents overlapping API calls (race conditions)
   async refreshAdmin() {
-    await this.loadDiscountProgress(true);
-    return this.renderAdmin();
+    // Coalesce overlapping refresh calls into a single in-flight request
+    if (this._refreshAdminInFlight) {
+      return this._refreshAdminInFlight;
+    }
+    const run = (async () => {
+      await this.loadDiscountProgress(true);
+      return this.renderAdmin();
+    })();
+    this._refreshAdminInFlight = run;
+    try {
+      return await run;
+    } finally {
+      this._refreshAdminInFlight = null;
+    }
   },
 
   async adminMergeOrders(usuario) {
@@ -2408,6 +2424,22 @@ const app = {
     } else {
       this.toast(r?.error || "Erro ao alterar quantidade", "error");
     }
+  },
+
+  // SECTION: Direct qty input from admin panel (not just +/- unitary)
+  adminSetQty(itemId, value) {
+    const qty = parseInt(value);
+    if (!qty || qty < 1) {
+      this.toast("Quantidade inválida", "error");
+      this.refreshAdmin();
+      return;
+    }
+    if (qty > 99) {
+      this.toast("Quantidade máxima é 99", "error");
+      this.refreshAdmin();
+      return;
+    }
+    this.adminChangeQty(itemId, qty);
   },
 
   async adminAddItem(pedidoId) {

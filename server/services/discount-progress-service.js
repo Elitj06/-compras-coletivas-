@@ -44,6 +44,31 @@ export function selectDiscountTier(totalFinal, tiers) {
 }
 
 /**
+ * Encontra a faixa de desconto estável (ponto fixo) para um total bruto coletivo.
+ *
+ * O sistema usa total_final (pós-desconto) para selecionar a faixa, o que cria
+ * uma dependência circular: desconto → total_final → faixa → desconto.
+ * Esta função quebra a circularidade testando cada faixa da maior para a menor:
+ * a primeira faixa cujo desconto, quando aplicado, produz um total_final ainda
+ * dentro do próprio valor_minimo é o ponto estável.
+ *
+ * @param {number} totalBrutoColetivo - Soma dos preços brutos de todos os pedidos ativos.
+ * @param {Array<object>} tiers - Faixas de desconto normalizadas.
+ * @returns {object|null} A faixa estável, ou null se nenhuma se aplica.
+ */
+export function resolveStableDiscountTier(totalBrutoColetivo, tiers) {
+  const total = Math.max(0, Number(totalBrutoColetivo) || 0);
+  const normalized = normalizeDiscountTiers(tiers);
+  // Test from highest tier to lowest — the first self-consistent tier wins.
+  for (let i = normalized.length - 1; i >= 0; i--) {
+    const tier = normalized[i];
+    const projectedFinal = total * (1 - tier.percentual / 100);
+    if (projectedFinal >= tier.valor_minimo) return tier;
+  }
+  return null;
+}
+
+/**
  * Monta o contrato usado pela barra de progresso do comprador.
  * @param {number} totalFinal - Soma dos pedidos ativos já com desconto.
  * @param {Array<object>} tiers - Faixas de desconto.

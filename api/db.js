@@ -29,7 +29,7 @@ import {
   handleBuyerAuthPost,
   handleBuyerAuthPut,
 } from '../server/routes/buyer-auth-routes.js';
-import { buildDiscountProgress } from '../server/services/discount-progress-service.js';
+import { buildDiscountProgress, normalizeDiscountTiers, resolveStableDiscountTier } from '../server/services/discount-progress-service.js';
 import { priceItems, validateOrderItems } from '../server/services/order-pricing-service.js';
 import { consumeAuthRateLimit } from '../server/services/auth-rate-limit-service.js';
 import {
@@ -368,16 +368,23 @@ async function getDiscountProgress(client, cycleId = null) {
 
 /**
  * Reprecifica todos os pedidos ativos do ciclo com a faixa coletiva atual.
+ *
+ * Quebra a circularidade desconto→total_final→faixa calculando primeiro a
+ * faixa estável a partir do total BRUTO coletivo (que não depende do desconto),
+ * depois aplicando o percentual resultante.
+ *
  * Deve ser chamado dentro da mesma transação que alterou os pedidos.
  * @param {object} client - Cliente PostgreSQL conectado.
  * @param {number} cycleId - Ciclo a reprecificar.
  * @returns {Promise<object>}
  */
 async function repriceCycleOrders(client, cycleId) {
-  const progressResult = await client.query(
-    `SELECT COALESCE(SUM(total_final), 0)::numeric AS total_final
-     FROM pedidos
-     WHERE ciclo_id = $1 AND status != 'cancelado'`,
+  // STEP 1: Lê o total BRUTO coletivo (independente do desconto) e as faixas.
+  const bruteResult = await client.query(
+    `SELECT COALESCE(SUM(ip.subtotal_bruto), 0)::numeric AS total_bruto
+     FROM itens_pedido ip
+     JOIN pedidos p ON p.id = ip.pedido_id
+     WHERE p.ciclo_id = $1 AND p.status != 'cancelado'`,
     [cycleId],
   );
   const tiersResult = await client.query(`
@@ -386,13 +393,14 @@ async function repriceCycleOrders(client, cycleId) {
     WHERE ativo = TRUE
     ORDER BY valor_minimo ASC
   `);
-  const progress = buildDiscountProgress(
-    progressResult.rows[0]?.total_final || 0,
-    tiersResult.rows,
-  );
-  const discount = progress.percentual_atual;
+  const totalBruto = Number(bruteResult.rows[0]?.total_bruto) || 0;
+  const normalizedTiers = normalizeDiscountTiers(tiersResult.rows);
 
-  // STEP 1: Reaplica o percentual calculado sobre o total já com desconto.
+  // STEP 2: Resolve a faixa estável (ponto fixo) sem circularidade.
+  const stableTier = resolveStableDiscountTier(totalBruto, normalizedTiers);
+  const discount = stableTier?.percentual || 0;
+
+  // STEP 3: Aplica o desconto sobre os preços brutos de todos os itens.
   await client.query(
     `UPDATE itens_pedido ip
      SET preco_com_desconto = ROUND(COALESCE(ip.preco_bruto, ip.preco_unitario) * (1 - $2::numeric / 100), 2),
@@ -405,7 +413,7 @@ async function repriceCycleOrders(client, cycleId) {
        AND p.status != 'cancelado'`,
     [cycleId, discount],
   );
-  // STEP 2: Recalcula todos os totais a partir dos itens, inclusive após remoção.
+  // STEP 4: Recalcula totais de cada pedido a partir dos itens.
   await client.query(
     `UPDATE pedidos p
      SET total_bruto = totals.total_bruto,
@@ -426,6 +434,22 @@ async function repriceCycleOrders(client, cycleId) {
        AND p.status != 'cancelado'`,
     [cycleId],
   );
+  // STEP 5: Monta o progresso consistente com a faixa estável usada no pricing.
+  // buildDiscountProgress sozinho pode selecionar faixa diferente do total_final,
+  // causando oscilação. Usamos a faixa estável como fonte de verdade.
+  const finalResult = await client.query(
+    `SELECT COALESCE(SUM(total_final), 0)::numeric AS total_final
+     FROM pedidos
+     WHERE ciclo_id = $1 AND status != 'cancelado'`,
+    [cycleId],
+  );
+  const actualFinal = Number(finalResult.rows[0]?.total_final) || 0;
+  const progress = buildDiscountProgress(actualFinal, normalizedTiers);
+  // Override: garante que a faixa exibida é a mesma usada para precificar.
+  if (stableTier) {
+    progress.percentual_atual = stableTier.percentual;
+    progress.faixa_atual = stableTier;
+  }
   return progress;
 }
 
@@ -1440,9 +1464,11 @@ export default async function handler(req) {
         await client.query('BEGIN');
         try {
           await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
+          // SECTION: Obtém item + ciclo_id em uma única query (evita round-trip extra)
           const item = await client.query(
-            `SELECT ip.pedido_id, ip.preco_unitario, ip.preco_com_desconto
-             FROM itens_pedido ip JOIN pedidos p ON p.id = ip.pedido_id
+            `SELECT ip.id, ip.pedido_id, ip.preco_unitario, ip.preco_com_desconto, p.ciclo_id
+             FROM itens_pedido ip
+             JOIN pedidos p ON p.id = ip.pedido_id
              WHERE ip.id = $1 AND p.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)`,
             [iid]
           );
@@ -1454,22 +1480,12 @@ export default async function handler(req) {
           const it = item.rows[0];
           const pBruto = parseFloat(it.preco_unitario);
           const pDesc = parseFloat(it.preco_com_desconto);
+          // Atualiza apenas o item — repriceCycleOrders recalcula totais do pedido
           await client.query(
             `UPDATE itens_pedido SET quantidade = $1, subtotal_bruto = $2, subtotal_final = $3 WHERE id = $4`,
             [qty, pBruto * qty, pDesc * qty, iid]
           );
-          const totals = await client.query(
-            `SELECT COALESCE(SUM(subtotal_bruto),0)::numeric AS tb, COALESCE(SUM(subtotal_final),0)::numeric AS tf FROM itens_pedido WHERE pedido_id = $1`,
-            [it.pedido_id]
-          );
-          const tb = parseFloat(totals.rows[0].tb);
-          const tf = parseFloat(totals.rows[0].tf);
-          await client.query(
-            'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3, updated_at = NOW() WHERE id = $4',
-            [tb, tf, tb - tf, it.pedido_id]
-          );
-          const cycle = await client.query('SELECT ciclo_id FROM pedidos WHERE id = $1', [it.pedido_id]);
-          if (cycle.rows[0]) await repriceCycleOrders(client, cycle.rows[0].ciclo_id);
+          await repriceCycleOrders(client, it.ciclo_id);
           await client.query('COMMIT');
           await client.end();
           return json({ success: true, message: `Quantidade atualizada para ${qty}` });
@@ -1541,17 +1557,7 @@ export default async function handler(req) {
           await client.query('DELETE FROM itens_pedido WHERE pedido_id = $1', [oldId]);
           await client.query('DELETE FROM pedidos WHERE id = $1', [oldId]);
         }
-        // Recalcula totais do pedido mantido
-        const totals = await client.query(
-          `SELECT COALESCE(SUM(subtotal_bruto),0)::numeric AS tb, COALESCE(SUM(subtotal_final),0)::numeric AS tf FROM itens_pedido WHERE pedido_id = $1`,
-          [keepId]
-        );
-        const tb = parseFloat(totals.rows[0].tb);
-        const tf = parseFloat(totals.rows[0].tf);
-        await client.query(
-          'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3, status = $4, updated_at = NOW() WHERE id = $5',
-          [tb, tf, tb - tf, 'pendente', keepId]
-        );
+        // repriceCycleOrders recalcula totais do pedido a partir dos itens
         const cycle = await client.query('SELECT ciclo_id FROM pedidos WHERE id = $1', [keepId]);
         if (cycle.rows[0]) await repriceCycleOrders(client, cycle.rows[0].ciclo_id);
         await client.query('COMMIT');
@@ -1618,17 +1624,7 @@ export default async function handler(req) {
               [pid, codigo, nome, qty, pBruto, pBruto, pDesc, pDesc, descPct, subtBruto, subtFinal, categoria || '']
             );
           }
-          // Recalcula totais do pedido
-          const totals = await client.query(
-            `SELECT COALESCE(SUM(subtotal_bruto),0)::numeric AS tb, COALESCE(SUM(subtotal_final),0)::numeric AS tf FROM itens_pedido WHERE pedido_id = $1`,
-            [pid]
-          );
-          const tb = parseFloat(totals.rows[0].tb);
-          const tf = parseFloat(totals.rows[0].tf);
-          await client.query(
-            'UPDATE pedidos SET total_bruto = $1, total_final = $2, total_desconto = $3, updated_at = NOW() WHERE id = $4',
-            [tb, tf, tb - tf, pid]
-          );
+          // repriceCycleOrders recalcula totais do pedido a partir dos itens
           const cycle = await client.query('SELECT ciclo_id FROM pedidos WHERE id = $1', [pid]);
           if (cycle.rows[0]) await repriceCycleOrders(client, cycle.rows[0].ciclo_id);
           await client.query('COMMIT');
