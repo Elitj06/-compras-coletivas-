@@ -15,13 +15,16 @@
 - O painel administrativo carrega progresso, estatísticas e relatórios em
   paralelo. Refreshes concorrentes são coalescidos e recebem uma renderização
   final adicional quando necessário.
+- A leitura do progresso do ciclo ativo faz auto-healing transacional quando
+  encontra preços antigos em faixa diferente da alcançada; não altera
+  quantidade, produto, pedido ou pagamento.
 - Gates: 116 testes aprovados, sintaxe, `git diff --check` e `vercel build`.
 - GitHub: commits `e9a7ed2`, `e74bc4b` e `2bfa402` publicados em `main`.
-- Vercel: deployment de produção `dpl_Ha4sSZenGZ7YpwaGAfGQTuypno4H` em
+- Vercel: deployment de produção `dpl_FGqaf9JQ9pZPrhTmdcNzQoodM851` em
   `READY`, alias canônico `https://compras-coletivas-phi.vercel.app`.
 - Smoke: home e health `200`; progresso `200` sem cache, retornando total final
-  de R$ 8.454,60 e 48% ativos; JavaScript publicado com entrada direta de
-  quantidade e refresh paralelo.
+  de R$ 8.454,60 e 48% ativos em duas leituras consecutivas; JavaScript
+  publicado com entrada direta de quantidade e refresh paralelo.
 
 ## Atualização 24/07/2026 — progresso baseado no total final
 
