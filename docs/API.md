@@ -269,6 +269,9 @@ Retorna o total final (já com o desconto aplicado) dos pedidos ativos do ciclo 
 a faixa de desconto vigente. O valor bruto não é usado para avançar a barra ou
 alternar o percentual; nos casos-limite, a resposta preserva o percentual
 efetivamente aplicado aos itens para não exibir uma faixa diferente dos preços.
+Se o ciclo ativo estiver com preços antigos em uma faixa diferente da alcançada,
+a própria leitura corrige somente os preços e totais em uma transação protegida;
+quantidades, pedidos e pagamentos permanecem intactos.
 É uma rota pública e não expõe compradores, pedidos ou dados pessoais. Quando uma
 faixa é alcançada, a API reprecifica todos os pedidos ativos do ciclo com o mesmo
 percentual global.

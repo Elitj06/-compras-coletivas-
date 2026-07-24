@@ -375,14 +375,43 @@ async function getDiscountProgress(client, cycleId = null) {
       [cycle.id],
     )
     : { rows: [{ total_final: 0, percentual_aplicado: null }] };
+  const progress = buildDiscountProgress(
+    totalResult.rows[0]?.total_final || 0,
+    tiersResult.rows,
+    totalResult.rows[0]?.percentual_aplicado,
+  );
+
+  // SECTION: Auto-healing de pricing — somente no ciclo ativo e quando a
+  // faixa exibida diverge do percentual efetivamente gravado nos itens.
+  // A operação é transacional, protegida por advisory lock e não altera
+  // quantidade, produto, pedido ou pagamento.
+  const appliedPercentual = totalResult.rows[0]?.percentual_aplicado;
+  const totalFinal = Number(totalResult.rows[0]?.total_final) || 0;
+  const hasPricingMismatch = totalFinal > 0 && (
+    appliedPercentual === null ||
+    Number(appliedPercentual) !== Number(progress.percentual_atual)
+  );
+  if (!cycleId && cycle?.ativo && hasPricingMismatch) {
+    await client.query('BEGIN');
+    try {
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
+      const repairedProgress = await repriceCycleOrders(client, cycle.id);
+      await client.query('COMMIT');
+      return {
+        ciclo_id: cycle.id,
+        ciclo_nome: cycle.nome,
+        ...repairedProgress,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    }
+  }
+
   return {
     ciclo_id: cycle?.id || null,
     ciclo_nome: cycle?.nome || null,
-    ...buildDiscountProgress(
-      totalResult.rows[0]?.total_final || 0,
-      tiersResult.rows,
-      totalResult.rows[0]?.percentual_aplicado,
-    ),
+    ...progress,
   };
 }
 
