@@ -766,7 +766,6 @@ const app = {
       return;
     }
 
-    const btn = document.querySelector("#editProfileModal .btn-primary");
     const r = await this.api("comprador/perfil", "PUT", { nome, telefone, email });
     if (r?.success) {
       const data = r.data || {};
