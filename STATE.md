@@ -2,7 +2,7 @@
 
 ## Atualização 24/07/2026 — progresso baseado no total final
 
-**Status:** implementação validada localmente; publicação em andamento.
+**Status:** publicado e validado em produção.
 
 - A barra de progresso agora usa exclusivamente `SUM(pedidos.total_final)` do
   ciclo ativo, ou seja, o total que já inclui o desconto aplicado.
@@ -10,6 +10,12 @@
 - A API e a interface passaram a expor `total_final`; a regra pura e os testes
   cobrem a transição 40%/44%/48% usando o total pago.
 - Os 58 testes locais, sintaxe, `git diff --check` e `vercel build` passaram.
+- GitHub: commit `eb27d77` publicado em `main`.
+- Vercel: deployment de produção `READY`, alias canônico
+  `https://compras-coletivas-phi.vercel.app`.
+- Smoke: `GET /api/db/desconto-progresso` retornou `200` com
+  `total_final: 9079.46` e 48% ativos; home e JavaScript publicados retornaram
+  `200`.
 
 ## Atualização 20/07/2026 — desconto progressivo coletivo e hardening
 
