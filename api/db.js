@@ -1217,7 +1217,10 @@ export default async function handler(req) {
             success: true,
             message: `Pedido de ${buyerSession.nome} registrado com ${itens.length} itens`,
             pedido_id: pedidoId,
-            desconto_percentual: progress.percentual_atual,
+            // The order response must expose the effective pricing discount.
+            // `percentual_atual` is visual-only and can be lower while retention
+            // keeps a higher discount applied to the order items.
+            desconto_percentual: progress.percentual_aplicado ?? progress.percentual_atual,
             totais: totals.rows[0],
           });
         } catch (error) {
