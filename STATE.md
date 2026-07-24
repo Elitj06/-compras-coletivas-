@@ -2,7 +2,7 @@
 
 ## Atualização 24/07/2026 — barra de progresso restrita ao admin
 
-**Status:** correção implementada; publicação em validação.
+**Status:** publicado e validado em produção.
 
 - A barra detalhada de progresso do desconto foi removida da área do comprador.
 - O componente agora fica dentro da aba administrativa e só renderiza quando a
@@ -10,7 +10,13 @@
 - O logout administrativo limpa imediatamente o conteúdo da barra.
 - O cálculo do desconto e o percentual aplicado ao carrinho continuam iguais;
   somente a visualização da barra foi restringida.
-- Testes locais: 123 aprovados.
+- Testes locais: 124 aprovados, `git diff --check` e `vercel build` aprovados.
+- GitHub: commit `3f6293d` publicado em `main`.
+- Vercel: deployment `dpl_5fu5JPaogkhFbn436Dtp5uBMuBJZ` em `READY`, alias
+  canônico `https://compras-coletivas-phi.vercel.app`.
+- Smoke: home, JavaScript e endpoint de progresso retornaram `200`; o HTML em
+  produção contém uma única barra dentro da aba admin e o JavaScript publicado
+  mantém a guarda de sessão administrativa.
 
 ## Atualização 24/07/2026 — cálculo final, quantidades e atualização do admin
 
