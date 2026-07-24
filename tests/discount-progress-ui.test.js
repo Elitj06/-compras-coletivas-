@@ -34,7 +34,7 @@ test('barra do comprador mostra percentual atual e próxima meta', () => {
   const element = { hidden: true, innerHTML: '' };
   const app = loadApp(element);
   app.state.discountProgress = {
-    total_bruto: 2000,
+    total_final: 2000,
     percentual_atual: 40,
     progresso_percentual: 50,
     valor_faltante: 1000,

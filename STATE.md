@@ -1,5 +1,16 @@
 # Compras Coletivas Vitafor — STATE
 
+## Atualização 24/07/2026 — progresso baseado no total final
+
+**Status:** implementação validada localmente; publicação em andamento.
+
+- A barra de progresso agora usa exclusivamente `SUM(pedidos.total_final)` do
+  ciclo ativo, ou seja, o total que já inclui o desconto aplicado.
+- O valor bruto não avança a próxima faixa nem altera o percentual exibido.
+- A API e a interface passaram a expor `total_final`; a regra pura e os testes
+  cobrem a transição 40%/44%/48% usando o total pago.
+- Os 58 testes locais, sintaxe, `git diff --check` e `vercel build` passaram.
+
 ## Atualização 20/07/2026 — desconto progressivo coletivo e hardening
 
 **Status:** publicado e validado em produção.

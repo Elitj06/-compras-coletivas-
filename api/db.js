@@ -324,7 +324,7 @@ async function getActiveCycle(client) {
 }
 
 /**
- * Lê a política progressiva e o total bruto do ciclo ativo.
+ * Lê a política progressiva e o total final do ciclo ativo.
  * Este endpoint é público porque expõe somente um agregado coletivo.
  * @param {object} client - Cliente PostgreSQL conectado.
  * @returns {Promise<object>}
@@ -339,16 +339,16 @@ async function getDiscountProgress(client) {
   `);
   const totalResult = cycle
     ? await client.query(
-      `SELECT COALESCE(SUM(total_bruto), 0)::numeric AS total_bruto
+      `SELECT COALESCE(SUM(total_final), 0)::numeric AS total_final
        FROM pedidos
        WHERE ciclo_id = $1 AND status != 'cancelado'`,
       [cycle.id],
     )
-    : { rows: [{ total_bruto: 0 }] };
+    : { rows: [{ total_final: 0 }] };
   return {
     ciclo_id: cycle?.id || null,
     ciclo_nome: cycle?.nome || null,
-    ...buildDiscountProgress(totalResult.rows[0]?.total_bruto || 0, tiersResult.rows),
+    ...buildDiscountProgress(totalResult.rows[0]?.total_final || 0, tiersResult.rows),
   };
 }
 
@@ -361,7 +361,7 @@ async function getDiscountProgress(client) {
  */
 async function repriceCycleOrders(client, cycleId) {
   const progressResult = await client.query(
-    `SELECT COALESCE(SUM(total_bruto), 0)::numeric AS total_bruto
+    `SELECT COALESCE(SUM(total_final), 0)::numeric AS total_final
      FROM pedidos
      WHERE ciclo_id = $1 AND status != 'cancelado'`,
     [cycleId],
@@ -372,7 +372,10 @@ async function repriceCycleOrders(client, cycleId) {
     WHERE ativo = TRUE
     ORDER BY valor_minimo ASC
   `);
-  const progress = buildDiscountProgress(progressResult.rows[0]?.total_bruto || 0, tiersResult.rows);
+  const progress = buildDiscountProgress(
+    progressResult.rows[0]?.total_final || 0,
+    tiersResult.rows,
+  );
   const discount = progress.percentual_atual;
 
   await client.query(

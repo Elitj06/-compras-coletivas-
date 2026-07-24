@@ -378,7 +378,7 @@ const app = {
     const currentPct = Number(progress.percentual_atual) || 0;
     const next = progress.proxima_faixa;
     const current = progress.faixa_atual;
-    const total = Number(progress.total_bruto) || 0;
+    const total = Number(progress.total_final ?? progress.total_bruto) || 0;
     const progressPct = Math.min(100, Math.max(0, Number(progress.progresso_percentual) || 0));
     const title = currentPct > 0
       ? `${currentPct}% de desconto coletivo ativo`

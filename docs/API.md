@@ -262,7 +262,9 @@ Lista faixas de desconto progressivo ativas.
 
 ### GET /desconto-progresso
 
-Retorna o total bruto dos pedidos ativos do ciclo e a faixa de desconto vigente.
+Retorna o total final (já com o desconto aplicado) dos pedidos ativos do ciclo e
+a faixa de desconto vigente. O valor bruto não é usado para avançar a barra ou
+alternar o percentual.
 É uma rota pública e não expõe compradores, pedidos ou dados pessoais. Quando uma
 faixa é alcançada, a API reprecifica todos os pedidos ativos do ciclo com o mesmo
 percentual global.
@@ -274,7 +276,7 @@ percentual global.
   "data": {
     "ciclo_id": 2,
     "ciclo_nome": "Julho/2026",
-    "total_bruto": 4200,
+    "total_final": 4200,
     "percentual_atual": 44,
     "valor_faltante": 3800,
     "progresso_percentual": 30,

@@ -25,14 +25,15 @@ export function normalizeDiscountTiers(tiers) {
 }
 
 /**
- * Seleciona a faixa vigente para um total bruto coletivo.
- * A maior faixa já alcançada vence; o limite superior só encerra a faixa.
- * @param {number} totalBruto - Soma dos pedidos ativos do ciclo.
+ * Seleciona a faixa vigente para um total final coletivo.
+ * A maior faixa cujo mínimo foi alcançado vence; o limite superior só encerra
+ * a faixa visual, pois a próxima faixa é sempre a próxima meta mínima.
+ * @param {number} totalFinal - Soma dos pedidos ativos já com desconto.
  * @param {Array<object>} tiers - Faixas de desconto.
  * @returns {object|null}
  */
-export function selectDiscountTier(totalBruto, tiers) {
-  const total = Math.max(0, Number(totalBruto) || 0);
+export function selectDiscountTier(totalFinal, tiers) {
+  const total = Math.max(0, Number(totalFinal) || 0);
   const normalized = normalizeDiscountTiers(tiers);
   let selected = null;
   for (const tier of normalized) {
@@ -44,12 +45,12 @@ export function selectDiscountTier(totalBruto, tiers) {
 
 /**
  * Monta o contrato usado pela barra de progresso do comprador.
- * @param {number} totalBruto - Soma dos pedidos ativos do ciclo.
+ * @param {number} totalFinal - Soma dos pedidos ativos já com desconto.
  * @param {Array<object>} tiers - Faixas de desconto.
  * @returns {object}
  */
-export function buildDiscountProgress(totalBruto, tiers) {
-  const total = Math.max(0, Number(totalBruto) || 0);
+export function buildDiscountProgress(totalFinal, tiers) {
+  const total = Math.max(0, Number(totalFinal) || 0);
   const normalized = normalizeDiscountTiers(tiers);
   const current = selectDiscountTier(total, normalized);
   const next = normalized.find((tier) => tier.valor_minimo > total) || null;
@@ -60,7 +61,7 @@ export function buildDiscountProgress(totalBruto, tiers) {
   const maxReached = Boolean(current && !next);
 
   return {
-    total_bruto: Number(total.toFixed(2)),
+    total_final: Number(total.toFixed(2)),
     percentual_atual: current?.percentual || 0,
     faixa_atual: current,
     proxima_faixa: next,

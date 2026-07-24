@@ -40,4 +40,13 @@ describe('desconto progressivo coletivo', () => {
     assert.equal(progress.maximo_alcancado, true);
     assert.equal(progress.progresso_percentual, 100);
   });
+
+  it('usa o total final, não o bruto, para a faixa exibida', () => {
+    const progress = buildDiscountProgress(4397, tiers);
+
+    assert.equal(progress.total_final, 4397);
+    assert.equal(progress.percentual_atual, 44);
+    assert.equal(progress.proxima_faixa.percentual, 48);
+    assert.equal(progress.valor_faltante, 3603);
+  });
 });
