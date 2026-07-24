@@ -355,7 +355,10 @@ const app = {
     const res = await this.api(`desconto-progresso${cicloParam}`);
     if (!res?.success || !res.data) return;
     this.state.discountProgress = res.data;
-    this.state.discountPct = Number(res.data.percentual_atual) || 0;
+    // NOTE: discountPct reflects the APPLIED (pricing) percentual, not the
+    // visual tier — the cart/admin need the effective discount, not the bar
+    // position.
+    this.state.discountPct = Number(res.data.percentual_aplicado ?? res.data.percentual_atual) || 0;
     this.renderDiscountProgress();
     this.updateCartBar();
     if (
@@ -2001,7 +2004,7 @@ const app = {
 
     if (progressRes?.success && progressRes.data) {
       this.state.discountProgress = progressRes.data;
-      this.state.discountPct = Number(progressRes.data.percentual_atual) || 0;
+      this.state.discountPct = Number(progressRes.data.percentual_aplicado ?? progressRes.data.percentual_atual) || 0;
       this.renderDiscountProgress();
       this.updateCartBar();
     }

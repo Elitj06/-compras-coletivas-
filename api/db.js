@@ -387,9 +387,12 @@ async function getDiscountProgress(client, cycleId = null) {
   // quantidade, produto, pedido ou pagamento.
   const appliedPercentual = totalResult.rows[0]?.percentual_aplicado;
   const totalFinal = Number(totalResult.rows[0]?.total_final) || 0;
+  // NOTE: Compara contra o percentual aplicado (resolveDiscountTier, com
+  // retenção) — não contra o percentual visual (selectDiscountTier).  A
+  // barra pode mostrar 44% visualmente enquanto o pricing retém 48%.
   const hasPricingMismatch = totalFinal > 0 && (
     appliedPercentual === null ||
-    Number(appliedPercentual) !== Number(progress.percentual_atual)
+    Number(appliedPercentual) !== Number(progress.percentual_aplicado)
   );
   if (!cycleId && cycle?.ativo && hasPricingMismatch) {
     await client.query('BEGIN');

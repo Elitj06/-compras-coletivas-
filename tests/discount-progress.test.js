@@ -55,13 +55,19 @@ describe('desconto progressivo coletivo', () => {
     assert.equal(progress.valor_faltante, 3603);
   });
 
-  it('preserva a faixa efetivamente aplicada em uma fronteira de recálculo', () => {
+  it('preserva a faixa de pricing via retenção, mas visual mostra posição real', () => {
+    // total_final=2800 com applied=44: resolveDiscountTier mantém 44% (retenção),
+    // mas a BARRA deve mostrar a posição visual real: faixa 40%, próxima 44%.
     const progress = buildDiscountProgress(2800, tiers, 44);
 
-    assert.equal(progress.percentual_atual, 44);
-    assert.equal(progress.faixa_atual?.id, 2);
-    assert.equal(progress.proxima_faixa?.id, 3);
-    assert.equal(progress.valor_faltante, 5200);
+    assert.equal(progress.percentual_atual, 40);
+    assert.equal(progress.percentual_aplicado, 44);
+    assert.equal(progress.faixa_atual?.id, 1);
+    assert.equal(progress.faixa_aplicada?.id, 2);
+    assert.equal(progress.proxima_faixa?.id, 2);
+    assert.equal(progress.valor_faltante, 200);
+    assert.equal(progress.progresso_percentual, 90);
+    assert.equal(progress.maximo_alcancado, false);
   });
 
   it('considera a próxima meta alcançada pelo total final mesmo com faixa anterior aplicada', () => {
@@ -344,10 +350,86 @@ describe('resolveDiscountTier — regra baseada no total final', () => {
 // ---------------------------------------------------------------------------
 
 describe('regressão: consistência pós-repricing', () => {
-  it('a barra usa a faixa mais alta alcançada pelo total final', () => {
+  it('visual segue selectDiscountTier mesmo quando pricing retém faixa superior', () => {
+    // total_final=8454.6 já alcançou 8000 → selectDiscountTier retorna 48%.
+    // Visual e pricing concordam neste caso.
     const progress = buildDiscountProgress(8454.6, tiers, 44);
+
     assert.equal(progress.percentual_atual, 48);
+    assert.equal(progress.percentual_aplicado, 48);
     assert.equal(progress.proxima_faixa, null);
     assert.equal(progress.maximo_alcancado, true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// BUG FIX: barra de progresso deve medir posição visual pelo total_final
+// líquido, nunca indicar R$ 8.000 alcançado quando total_final < 8000.
+// Pricing (retenção) e visual (selectDiscountTier) estão separados.
+// ---------------------------------------------------------------------------
+
+describe('fix: separação pricing vs visual com retenção ativa', () => {
+  it('total_final 5200 com applied 48: visual mostra 44%, faltam 2800, progresso 44%', () => {
+    // Cenário: retention mantém 48% no pricing, mas total_final (5200)
+    // está na faixa 44% (3000–7999). A barra deve refletir a posição real.
+    const progress = buildDiscountProgress(5200, tiers, 48);
+
+    // Visual metrics (selectDiscountTier — sem retenção)
+    assert.equal(progress.percentual_atual, 44);
+    assert.equal(progress.faixa_atual?.id, 2);
+    assert.equal(progress.faixa_atual?.percentual, 44);
+    assert.equal(progress.proxima_faixa?.id, 3);
+    assert.equal(progress.proxima_faixa?.percentual, 48);
+    assert.equal(progress.valor_faltante, 2800);
+    assert.equal(progress.progresso_percentual, 44);
+    assert.equal(progress.maximo_alcancado, false);
+
+    // Pricing metrics (resolveDiscountTier — com retenção)
+    assert.equal(progress.percentual_aplicado, 48);
+    assert.equal(progress.faixa_aplicada?.id, 3);
+    assert.equal(progress.faixa_aplicada?.percentual, 48);
+  });
+
+  it('total_final 7999: na fronteira do 8000, ainda não alcançou máximo', () => {
+    const progress = buildDiscountProgress(7999, tiers);
+
+    assert.equal(progress.percentual_atual, 44);
+    assert.equal(progress.faixa_atual?.id, 2);
+    assert.equal(progress.proxima_faixa?.id, 3);
+    assert.equal(progress.proxima_faixa?.percentual, 48);
+    assert.equal(progress.valor_faltante, 1);
+    assert.equal(progress.maximo_alcancado, false);
+    assert.ok(progress.progresso_percentual > 99);
+    assert.ok(progress.progresso_percentual < 100);
+  });
+
+  it('total_final 8000: máximo alcançado, sem próxima faixa', () => {
+    const progress = buildDiscountProgress(8000, tiers);
+
+    assert.equal(progress.percentual_atual, 48);
+    assert.equal(progress.faixa_atual?.id, 3);
+    assert.equal(progress.proxima_faixa, null);
+    assert.equal(progress.maximo_alcancado, true);
+    assert.equal(progress.valor_faltante, 0);
+    assert.equal(progress.progresso_percentual, 100);
+  });
+
+  it('total_final 7999 com applied 48: NÃO indica máximo alcançado', () => {
+    // Regression guard: mesmo com 48% aplicado via retention,
+    // total_final < 8000 nunca deve mostrar maximo_alcancado=true.
+    const progress = buildDiscountProgress(7999, tiers, 48);
+
+    assert.equal(progress.maximo_alcancado, false);
+    assert.equal(progress.percentual_atual, 44);
+    assert.equal(progress.percentual_aplicado, 48);
+    assert.equal(progress.proxima_faixa?.percentual, 48);
+    assert.equal(progress.valor_faltante, 1);
+  });
+
+  it('total_final 5200 com applied 48: progresso entre start e end da faixa visual', () => {
+    const progress = buildDiscountProgress(5200, tiers, 48);
+    // start=3000 (tier 2 mínimo), end=8000 (tier 3 mínimo)
+    // progresso = (5200 - 3000) / (8000 - 3000) * 100 = 44%
+    assert.equal(progress.progresso_percentual, 44);
   });
 });

@@ -82,6 +82,16 @@ export function resolveDiscountTier(totalFinal, appliedPercentual, tiers) {
 
 /**
  * Monta o contrato usado pela barra de progresso do comprador.
+ *
+ * **Métricas visuais** (posição na barra) sempre usam `selectDiscountTier`,
+ * que reflete onde o total_final realmente está — sem retenção.  Assim a
+ * barra nunca indica que R$ 8.000 foi alcançado quando total_final < 8000,
+ * mesmo que a retenção mantenha 48% no pricing.
+ *
+ * **Métricas de pricing** usam `resolveDiscountTier` (com retenção) e são
+ * expostas em `percentual_aplicado` / `faixa_aplicada` para consumo pelo
+ * auto-healing e pelo frontend (carrinho/admin).
+ *
  * @param {number} totalFinal - Soma dos pedidos ativos já com desconto.
  * @param {Array<object>} tiers - Faixas de desconto.
  * @param {number|null} [appliedPercentual] - Percentual efetivamente aplicado,
@@ -91,7 +101,13 @@ export function resolveDiscountTier(totalFinal, appliedPercentual, tiers) {
 export function buildDiscountProgress(totalFinal, tiers, appliedPercentual = null) {
   const total = Math.max(0, Number(totalFinal) || 0);
   const normalized = normalizeDiscountTiers(tiers);
-  const current = resolveDiscountTier(total, appliedPercentual, normalized);
+
+  // SECTION: Visual position — pure selection, NO retention.
+  const current = selectDiscountTier(total, normalized);
+
+  // SECTION: Pricing position — with retention for auto-healing and display.
+  const resolved = resolveDiscountTier(total, appliedPercentual, normalized);
+
   const currentIndex = current ? normalized.findIndex((tier) => tier.id === current.id) : -1;
   const next = currentIndex >= 0
     ? normalized[currentIndex + 1] || null
@@ -105,7 +121,9 @@ export function buildDiscountProgress(totalFinal, tiers, appliedPercentual = nul
   return {
     total_final: Number(total.toFixed(2)),
     percentual_atual: current?.percentual || 0,
+    percentual_aplicado: resolved?.percentual || 0,
     faixa_atual: current,
+    faixa_aplicada: resolved,
     proxima_faixa: next,
     valor_faltante: next ? Number(Math.max(0, next.valor_minimo - total).toFixed(2)) : 0,
     progresso_percentual: Number(clampPercent(progress).toFixed(2)),
