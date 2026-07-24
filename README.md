@@ -47,7 +47,8 @@ compras-coletivas/
 │   ├── 02_faixas_desconto.sql # Faixas de desconto progressivo
 │   ├── 03_pin_comprador.sql   # PIN hash para autenticação de compradores
 │   ├── 04_security_sessions.sql # Sessões autenticadas
-│   └── 05_pin_recovery.sql    # Estrutura aditiva para recuperação de PIN
+│   ├── 05_pin_recovery.sql      # Estrutura aditiva para recuperação de PIN
+│   └── 09_discount_progress_final_total.sql # Recalibra a faixa pelo total final
 ├── docs/
 │   └── API.md                 # Documentação completa da API
 ├── .env.example               # Template de variáveis de ambiente

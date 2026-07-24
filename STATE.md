@@ -7,6 +7,9 @@
 - A barra de progresso agora usa exclusivamente `SUM(pedidos.total_final)` do
   ciclo ativo, ou seja, o total que já inclui o desconto aplicado.
 - O valor bruto não avança a próxima faixa nem altera o percentual exibido.
+- A migração aditiva `sql/09_discount_progress_final_total.sql` recalibra dados
+  existentes pelo total final; a conferência da produção mostrou R$ 9.079,46
+  finais e 48% já aplicados, portanto não houve mutação de dados necessária.
 - A API e a interface passaram a expor `total_final`; a regra pura e os testes
   cobrem a transição 40%/44%/48% usando o total pago.
 - Os 58 testes locais, sintaxe, `git diff --check` e `vercel build` passaram.
