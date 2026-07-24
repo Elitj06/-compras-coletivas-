@@ -56,6 +56,10 @@ const BASE_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRF-Token, X-Session-Scope',
   'Access-Control-Allow-Credentials': 'true',
   'Vary': 'Origin',
+  // SECTION: Prevent stale data — all GET responses must not be cached by browser/CDN
+  'Cache-Control': 'no-store, no-cache, must-revalidate',
+  'Pragma': 'no-cache',
+  'Expires': '0',
 };
 
 let headers = { ...BASE_HEADERS };
@@ -378,6 +382,7 @@ async function repriceCycleOrders(client, cycleId) {
   );
   const discount = progress.percentual_atual;
 
+  // STEP 1: Reaplica o percentual calculado sobre o total já com desconto.
   await client.query(
     `UPDATE itens_pedido ip
      SET preco_com_desconto = ROUND(COALESCE(ip.preco_bruto, ip.preco_unitario) * (1 - $2::numeric / 100), 2),
@@ -390,15 +395,21 @@ async function repriceCycleOrders(client, cycleId) {
        AND p.status != 'cancelado'`,
     [cycleId, discount],
   );
+  // STEP 2: Recalcula todos os totais a partir dos itens, inclusive após remoção.
   await client.query(
     `UPDATE pedidos p
-     SET total_final = totals.total_final,
-         total_desconto = p.total_bruto - totals.total_final,
+     SET total_bruto = totals.total_bruto,
+         total_final = totals.total_final,
+         total_desconto = totals.total_bruto - totals.total_final,
          updated_at = NOW()
      FROM (
-       SELECT pedido_id, COALESCE(SUM(subtotal_final), 0)::numeric AS total_final
-       FROM itens_pedido
-       GROUP BY pedido_id
+       SELECT ip.pedido_id,
+              COALESCE(SUM(ip.subtotal_bruto), 0)::numeric AS total_bruto,
+              COALESCE(SUM(ip.subtotal_final), 0)::numeric AS total_final
+       FROM itens_pedido ip
+       JOIN pedidos p2 ON p2.id = ip.pedido_id
+       WHERE p2.ciclo_id = $1 AND p2.status != 'cancelado'
+       GROUP BY ip.pedido_id
      ) totals
      WHERE p.id = totals.pedido_id
        AND p.ciclo_id = $1
