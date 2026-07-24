@@ -44,29 +44,40 @@ export function selectDiscountTier(totalFinal, tiers) {
 }
 
 /**
- * Encontra a faixa de desconto estável (ponto fixo) para um total bruto coletivo.
+ * Resolve a faixa usando somente o total final e o percentual já aplicado.
  *
- * O sistema usa total_final (pós-desconto) para selecionar a faixa, o que cria
- * uma dependência circular: desconto → total_final → faixa → desconto.
- * Esta função quebra a circularidade testando cada faixa da maior para a menor.
- * Quando a tabela cria uma fronteira sem ponto fixo (o salto de percentual
- * derruba o total para a faixa anterior), retorna a maior faixa que o total
- * projetado ainda consegue sustentar, evitando conceder desconto excessivo.
+ * Quando o salto de percentual faz o total cair abaixo da própria meta, a
+ * faixa recém-liberada é mantida até o total recuar abaixo da faixa anterior.
+ * Isso evita alternância 40%/44%/40% a cada atualização, sem usar o bruto para
+ * decidir a faixa exibida ou concedida.
  *
- * @param {number} totalBrutoColetivo - Soma dos preços brutos de todos os pedidos ativos.
- * @param {Array<object>} tiers - Faixas de desconto normalizadas.
- * @returns {object|null} A faixa estável, ou null se nenhuma se aplica.
+ * @param {number} totalFinal - Soma dos pedidos já com desconto.
+ * @param {number|null} appliedPercentual - Percentual atualmente aplicado.
+ * @param {Array<object>} tiers - Faixas de desconto.
+ * @returns {object|null} A faixa que deve permanecer ou ser aplicada.
  */
-export function resolveStableDiscountTier(totalBrutoColetivo, tiers) {
-  const total = Math.max(0, Number(totalBrutoColetivo) || 0);
+export function resolveDiscountTier(totalFinal, appliedPercentual, tiers) {
+  const total = Math.max(0, Number(totalFinal) || 0);
   const normalized = normalizeDiscountTiers(tiers);
-  // Test from highest tier to lowest — the first self-consistent tier wins.
-  for (let i = normalized.length - 1; i >= 0; i--) {
-    const tier = normalized[i];
-    const projectedFinal = total * (1 - tier.percentual / 100);
-    if (projectedFinal >= tier.valor_minimo) return tier;
+  const selected = selectDiscountTier(total, normalized);
+  const applied = appliedPercentual === null || appliedPercentual === undefined
+    ? null
+    : normalized.find((tier) => tier.percentual === Number(appliedPercentual)) || null;
+
+  if (!applied) return selected;
+  if (!selected) {
+    const appliedIndex = normalized.findIndex((tier) => tier.id === applied.id);
+    const previous = appliedIndex > 0 ? normalized[appliedIndex - 1] : null;
+    return previous && total >= previous.valor_minimo ? applied : null;
   }
-  return null;
+
+  const appliedIndex = normalized.findIndex((tier) => tier.id === applied.id);
+  const selectedIndex = normalized.findIndex((tier) => tier.id === selected.id);
+  if (selectedIndex >= appliedIndex) return selected;
+
+  const previous = appliedIndex > 0 ? normalized[appliedIndex - 1] : null;
+  const retentionMinimum = previous?.valor_minimo ?? applied.valor_minimo;
+  return total >= retentionMinimum ? applied : selected;
 }
 
 /**
@@ -80,11 +91,7 @@ export function resolveStableDiscountTier(totalBrutoColetivo, tiers) {
 export function buildDiscountProgress(totalFinal, tiers, appliedPercentual = null) {
   const total = Math.max(0, Number(totalFinal) || 0);
   const normalized = normalizeDiscountTiers(tiers);
-  const selected = selectDiscountTier(total, normalized);
-  const applied = appliedPercentual === null || appliedPercentual === undefined
-    ? null
-    : normalized.find((tier) => tier.percentual === Number(appliedPercentual)) || null;
-  const current = applied || selected;
+  const current = resolveDiscountTier(total, appliedPercentual, normalized);
   const currentIndex = current ? normalized.findIndex((tier) => tier.id === current.id) : -1;
   const next = currentIndex >= 0
     ? normalized[currentIndex + 1] || null

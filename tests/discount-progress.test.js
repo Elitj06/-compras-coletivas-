@@ -5,7 +5,7 @@ import {
   buildDiscountProgress,
   selectDiscountTier,
   normalizeDiscountTiers,
-  resolveStableDiscountTier,
+  resolveDiscountTier,
 } from '../server/services/discount-progress-service.js';
 
 const tiers = [
@@ -67,10 +67,10 @@ describe('desconto progressivo coletivo', () => {
   it('considera a próxima meta alcançada pelo total final mesmo com faixa anterior aplicada', () => {
     const progress = buildDiscountProgress(3000, tiers, 40);
 
-    assert.equal(progress.percentual_atual, 40);
-    assert.equal(progress.proxima_faixa?.id, 2);
-    assert.equal(progress.valor_faltante, 0);
-    assert.equal(progress.progresso_percentual, 100);
+    assert.equal(progress.percentual_atual, 44);
+    assert.equal(progress.faixa_atual?.id, 2);
+    assert.equal(progress.proxima_faixa?.id, 3);
+    assert.equal(progress.valor_faltante, 5000);
   });
 });
 
@@ -288,96 +288,66 @@ describe('regressão: recalculo de totais após mutação', () => {
 });
 
 // ---------------------------------------------------------------------------
-// resolveStableDiscountTier: quebra a circularidade desconto→total_final→faixa
-//
-// A faixa estável é aquela cujo desconto, quando aplicado ao total BRUTO,
-// produz um total_final que ainda cabe dentro da própria faixa.
+// resolveDiscountTier: usa total_final e retenção progressiva
 // ---------------------------------------------------------------------------
 
-describe('resolveStableDiscountTier — ponto fixo sem circularidade', () => {
-  it('retorna null para total bruto abaixo de todas as faixas', () => {
-    assert.equal(resolveStableDiscountTier(500, tiers), null);
+describe('resolveDiscountTier — regra baseada no total final', () => {
+  it('retorna null para total final abaixo de todas as faixas', () => {
+    assert.equal(resolveDiscountTier(500, null, tiers), null);
   });
 
-  it('retorna null para total bruto zero', () => {
-    assert.equal(resolveStableDiscountTier(0, tiers), null);
+  it('retorna null para total final zero', () => {
+    assert.equal(resolveDiscountTier(0, null, tiers), null);
   });
 
-  it('encontra faixa 40% quando bruto é suficiente para sustentá-la', () => {
-    // Bruto = 1800, 40% off → final = 1080 >= 1000 ✓
-    const tier = resolveStableDiscountTier(1800, tiers);
+  it('seleciona a faixa alcançada pelo total final', () => {
+    const tier = resolveDiscountTier(2000, null, tiers);
     assert.equal(tier?.id, 1);
     assert.equal(tier?.percentual, 40);
   });
 
-  it('não seleciona faixa 44% se o desconto derruba o final abaixo do mínimo', () => {
-    // Bruto = 3500, 44% off → final = 1960 < 3000 ✗
-    // Mas 40% off → final = 2100 >= 1000 ✓
-    const tier = resolveStableDiscountTier(3500, tiers);
-    assert.equal(tier?.percentual, 40);
-  });
-
-  it('seleciona 44% quando bruto é suficientemente alto', () => {
-    // Bruto = 6000, 44% off → final = 3360 >= 3000 ✓
-    // Mas 48% off → final = 3120 < 8000 ✗
-    const tier = resolveStableDiscountTier(6000, tiers);
-    assert.equal(tier?.percentual, 44);
-  });
-
-  it('seleciona 48% quando bruto é muito alto', () => {
-    // Bruto = 20000, 48% off → final = 10400 >= 8000 ✓
-    const tier = resolveStableDiscountTier(20000, tiers);
+  it('avança para 48% quando o total final já alcançou 8000', () => {
+    const tier = resolveDiscountTier(8454.6, 44, tiers);
     assert.equal(tier?.percentual, 48);
   });
 
-  it('lida com fronteira exata — bruto onde desconto leva ao mínimo exato', () => {
-    // Bruto = 1666.67, 40% off → final ≈ 1000.00 >= 1000 ✓ (boundary)
-    const tier = resolveStableDiscountTier(1666.67, tiers);
+  it('mantém a faixa recém-liberada sem oscilar após o recálculo', () => {
+    // 44% liberado em R$ 3.000; o novo desconto pode reduzir o final,
+    // mas não deve alternar imediatamente de volta para 40%.
+    const tier = resolveDiscountTier(2800, 44, tiers);
+    assert.equal(tier?.percentual, 44);
+  });
+
+  it('regride quando o total final cai abaixo da faixa anterior', () => {
+    const tier = resolveDiscountTier(900, 44, tiers);
+    assert.equal(tier, null);
+  });
+
+  it('regride de 48% para 40% quando recua abaixo de 44%', () => {
+    const tier = resolveDiscountTier(2500, 48, tiers);
     assert.equal(tier?.percentual, 40);
   });
 
   it('retorna null para array vazio', () => {
-    assert.equal(resolveStableDiscountTier(10000, []), null);
+    assert.equal(resolveDiscountTier(10000, null, []), null);
   });
 
   it('trata input não-numérico como zero', () => {
-    assert.equal(resolveStableDiscountTier(NaN, tiers), null);
-    assert.equal(resolveStableDiscountTier(null, tiers), null);
-    assert.equal(resolveStableDiscountTier(undefined, tiers), null);
+    assert.equal(resolveDiscountTier(NaN, null, tiers), null);
+    assert.equal(resolveDiscountTier(null, null, tiers), null);
+    assert.equal(resolveDiscountTier(undefined, null, tiers), null);
   });
 });
 
 // ---------------------------------------------------------------------------
-// regressão: convergência do reprice sem iteração explícita
-// Demonstra que resolveStableDiscountTier + buildDiscountProgress produzem
-// resultados consistentes — o total_final exibido cai na mesma faixa.
+// regressão: o total final é a única entrada da regra de faixa
 // ---------------------------------------------------------------------------
 
-describe('regressão: consistência pós-convergência', () => {
-  it('total_final após desconto corresponde à faixa estável', () => {
-    // Cenário: bruto coletivo = 5000
-    // Faixa estável: 40% (pois 44% daria final=2800 < 3000)
-    // A função resolveStableDiscountTier deve retornar 40%, não 44%.
-    const bruto = 5000;
-    const stable = resolveStableDiscountTier(bruto, tiers);
-    assert.equal(stable?.percentual, 40,
-      'Bruto 5000 com 44% → final 2800 < 3000, então estável é 40%');
-
-    // O total_final exibido pelo buildDiscountProgress pode apontar faixa
-    // diferente (pois total_final=3000 é boundary), mas o repriceCycleOrders
-    // usa resolveStableDiscountTier como override para garantir consistência.
-    const finalCalculado = bruto * (1 - (stable?.percentual || 0) / 100);
-    assert.ok(finalCalculado >= 1000,
-      'Final calculado deve estar dentro da faixa estável');
-  });
-
-  it('não oscila entre faixas — bruto alto sustenta faixa máxima', () => {
-    const bruto = 25000;
-    const stable = resolveStableDiscountTier(bruto, tiers);
-    assert.equal(stable?.percentual, 48);
-
-    const finalCalculado = bruto * (1 - 48 / 100); // 13000
-    const progress = buildDiscountProgress(finalCalculado, tiers);
+describe('regressão: consistência pós-repricing', () => {
+  it('a barra usa a faixa mais alta alcançada pelo total final', () => {
+    const progress = buildDiscountProgress(8454.6, tiers, 44);
     assert.equal(progress.percentual_atual, 48);
+    assert.equal(progress.proxima_faixa, null);
+    assert.equal(progress.maximo_alcancado, true);
   });
 });

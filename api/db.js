@@ -29,7 +29,7 @@ import {
   handleBuyerAuthPost,
   handleBuyerAuthPut,
 } from '../server/routes/buyer-auth-routes.js';
-import { buildDiscountProgress, normalizeDiscountTiers, resolveStableDiscountTier } from '../server/services/discount-progress-service.js';
+import { buildDiscountProgress, normalizeDiscountTiers, resolveDiscountTier } from '../server/services/discount-progress-service.js';
 import { priceItems, validateOrderItems } from '../server/services/order-pricing-service.js';
 import { consumeAuthRateLimit } from '../server/services/auth-rate-limit-service.js';
 import {
@@ -362,8 +362,10 @@ async function getDiscountProgress(client, cycleId = null) {
          (
            SELECT CASE
              WHEN COUNT(ip.id) = 0 THEN NULL
-             WHEN MIN(ip.desconto_percentual) = MAX(ip.desconto_percentual)
-               THEN MIN(ip.desconto_percentual)
+             WHEN COUNT(DISTINCT ip.desconto_percentual)
+                    FILTER (WHERE ip.desconto_percentual > 0) <= 1
+               THEN COALESCE(MAX(ip.desconto_percentual)
+                               FILTER (WHERE ip.desconto_percentual > 0), 0)
              ELSE NULL
            END
            FROM itens_pedido ip
@@ -387,9 +389,9 @@ async function getDiscountProgress(client, cycleId = null) {
 /**
  * Reprecifica todos os pedidos ativos do ciclo com a faixa coletiva atual.
  *
- * Quebra a circularidade desconto→total_final→faixa calculando primeiro a
- * faixa estável a partir do total BRUTO coletivo (que não depende do desconto),
- * depois aplicando o percentual resultante.
+ * Recalcula a faixa a partir do total FINAL coletivo e reaplica o percentual
+ * em todos os itens ativos do ciclo. A faixa já liberada usa retenção
+ * progressiva para não oscilar quando o novo percentual reduz o total final.
  *
  * Deve ser chamado dentro da mesma transação que alterou os pedidos.
  * @param {object} client - Cliente PostgreSQL conectado.
@@ -397,12 +399,28 @@ async function getDiscountProgress(client, cycleId = null) {
  * @returns {Promise<object>}
  */
 async function repriceCycleOrders(client, cycleId) {
-  // STEP 1: Lê o total BRUTO coletivo (independente do desconto) e as faixas.
-  const bruteResult = await client.query(
-    `SELECT COALESCE(SUM(ip.subtotal_bruto), 0)::numeric AS total_bruto
-     FROM itens_pedido ip
-     JOIN pedidos p ON p.id = ip.pedido_id
-     WHERE p.ciclo_id = $1 AND p.status != 'cancelado'`,
+  // STEP 1: Lê o total FINAL e o percentual já aplicado — nunca o bruto —
+  // para decidir se a próxima faixa foi alcançada.
+  const progressResult = await client.query(
+    `SELECT
+       COALESCE((
+         SELECT SUM(p.total_final)
+         FROM pedidos p
+         WHERE p.ciclo_id = $1 AND p.status != 'cancelado'
+       ), 0)::numeric AS total_final,
+       (
+         SELECT CASE
+           WHEN COUNT(ip.id) = 0 THEN NULL
+           WHEN COUNT(DISTINCT ip.desconto_percentual)
+                  FILTER (WHERE ip.desconto_percentual > 0) <= 1
+             THEN COALESCE(MAX(ip.desconto_percentual)
+                             FILTER (WHERE ip.desconto_percentual > 0), 0)
+           ELSE NULL
+         END
+         FROM itens_pedido ip
+         JOIN pedidos p ON p.id = ip.pedido_id
+         WHERE p.ciclo_id = $1 AND p.status != 'cancelado'
+       ) AS percentual_aplicado`,
     [cycleId],
   );
   const tiersResult = await client.query(`
@@ -411,12 +429,13 @@ async function repriceCycleOrders(client, cycleId) {
     WHERE ativo = TRUE
     ORDER BY valor_minimo ASC
   `);
-  const totalBruto = Number(bruteResult.rows[0]?.total_bruto) || 0;
   const normalizedTiers = normalizeDiscountTiers(tiersResult.rows);
 
-  // STEP 2: Resolve a faixa estável (ponto fixo) sem circularidade.
-  const stableTier = resolveStableDiscountTier(totalBruto, normalizedTiers);
-  const discount = stableTier?.percentual || 0;
+  // STEP 2: Resolve a faixa exclusivamente pelo total FINAL atual.
+  const currentFinal = Number(progressResult.rows[0]?.total_final) || 0;
+  const appliedPercentual = progressResult.rows[0]?.percentual_aplicado;
+  const resolvedTier = resolveDiscountTier(currentFinal, appliedPercentual, normalizedTiers);
+  const discount = resolvedTier?.percentual || 0;
 
   // STEP 3: Aplica o desconto sobre os preços brutos de todos os itens.
   await client.query(
@@ -457,13 +476,13 @@ async function repriceCycleOrders(client, cycleId) {
      FROM updated`,
     [cycleId],
   );
-  // STEP 5: Mantém a faixa aplicada como fonte de verdade nos casos-limite
-  // em que uma nova faixa reduziria o total para abaixo do próprio mínimo.
+  // STEP 5: Retorna o percentual efetivamente aplicado, inclusive quando a
+  // retenção progressiva mantém uma faixa após o salto de desconto.
   const actualFinal = Number(totalsResult.rows[0]?.total_final) || 0;
   const progress = buildDiscountProgress(
     actualFinal,
     normalizedTiers,
-    stableTier?.percentual ?? null,
+    resolvedTier?.percentual ?? null,
   );
   return progress;
 }
