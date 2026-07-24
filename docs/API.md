@@ -262,6 +262,9 @@ Lista faixas de desconto progressivo ativas.
 
 ### GET /desconto-progresso
 
+Opcionalmente, o administrador pode informar `?ciclo_id=<id>` para consultar
+o progresso de um ciclo histórico.
+
 Retorna o total final (já com o desconto aplicado) dos pedidos ativos do ciclo e
 a faixa de desconto vigente. O valor bruto não é usado para avançar a barra ou
 alternar o percentual.

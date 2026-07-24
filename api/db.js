@@ -331,10 +331,20 @@ async function getActiveCycle(client) {
  * Lê a política progressiva e o total final do ciclo ativo.
  * Este endpoint é público porque expõe somente um agregado coletivo.
  * @param {object} client - Cliente PostgreSQL conectado.
+ * @param {number|null} [cycleId] - Ciclo histórico opcional para o painel admin.
  * @returns {Promise<object>}
  */
-async function getDiscountProgress(client) {
-  const cycle = await getActiveCycle(client);
+async function getDiscountProgress(client, cycleId = null) {
+  let cycle;
+  if (cycleId) {
+    const cycleResult = await client.query(
+      'SELECT id, nome, ativo FROM ciclos_compra WHERE id = $1 LIMIT 1',
+      [cycleId],
+    );
+    cycle = cycleResult.rows[0] || null;
+  } else {
+    cycle = await getActiveCycle(client);
+  }
   const tiersResult = await client.query(`
     SELECT id, nome, valor_minimo, valor_maximo, percentual
     FROM faixas_desconto
@@ -718,7 +728,9 @@ export default async function handler(req) {
 
       // Progresso coletivo: agregado público, sem dados pessoais ou de pedidos.
       if (path === 'desconto-progresso') {
-        const progress = await getDiscountProgress(client);
+        const cicloParam = url.searchParams.get('ciclo_id');
+        const cicloId = cicloParam ? Number.parseInt(cicloParam, 10) : null;
+        const progress = await getDiscountProgress(client, cicloId);
         await client.end();
         return json({ success: true, data: progress });
       }

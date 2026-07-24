@@ -346,8 +346,13 @@ const app = {
   },
 
   /** Carrega o agregado público do ciclo e atualiza o desconto de todos. */
-  async loadDiscountProgress() {
-    const res = await this.api("desconto-progresso");
+  async loadDiscountProgress(useAdminCycle = false) {
+    // NOTE: When admin is viewing a specific cycle, pass ciclo_id so the
+    // discount progress matches the selected cycle instead of the active one.
+    const cicloParam = (useAdminCycle && this.state.adminCycleId)
+      ? `?ciclo_id=${this.state.adminCycleId}`
+      : '';
+    const res = await this.api(`desconto-progresso${cicloParam}`);
     if (!res?.success || !res.data) return;
     this.state.discountProgress = res.data;
     this.state.discountPct = Number(res.data.percentual_atual) || 0;
@@ -836,7 +841,8 @@ const app = {
       this.renderHistorico();
     } else if (tab === "admin" && this.state.isAdminLoggedIn) {
       // Reload discount progress before rendering admin to ensure fresh stats
-      this.loadDiscountProgress().then(() => this.renderAdmin());
+      // Pass true to use adminCycleId when viewing a historical cycle
+      this.loadDiscountProgress(true).then(() => this.renderAdmin());
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
   },
@@ -2041,7 +2047,7 @@ const app = {
                 : "A maior faixa configurada já foi alcançada para todos os compradores."}
             </small>
           </div>
-          <button class="btn btn-secondary btn-sm" onclick="app.loadDiscountProgress().then(() => app.renderAdmin())">${icon("refresh")} Atualizar faixa</button>
+          <button class="btn btn-secondary btn-sm" onclick="app.loadDiscountProgress(true).then(() => app.renderAdmin())">${icon("refresh")} Atualizar faixa</button>
         </div>
       </div>
 
@@ -2272,7 +2278,7 @@ const app = {
   /* Refresh discount progress then re-render admin panel.
      Called after any mutation that affects cycle totals. */
   async refreshAdmin() {
-    await this.loadDiscountProgress();
+    await this.loadDiscountProgress(true);
     return this.renderAdmin();
   },
 
