@@ -374,12 +374,15 @@ const app = {
     return this.loadDiscountProgress();
   },
 
-  /** Renderiza a barra global acima das abas do comprador. */
+  /** Renderiza a barra de progresso exclusivamente dentro do painel admin. */
   renderDiscountProgress() {
     const container = document.getElementById("discountProgress");
     const progress = this.state.discountProgress;
-    if (!container || !progress) {
-      if (container) container.hidden = true;
+    if (!container || !this.state.isAdminLoggedIn || !progress) {
+      if (container) {
+        container.hidden = true;
+        container.innerHTML = "";
+      }
       return;
     }
 
@@ -454,6 +457,7 @@ const app = {
 
   clearAdminSession() {
     this.state.isAdminLoggedIn = false;
+    this.renderDiscountProgress();
     this.saveLocal();
   },
 
