@@ -13,12 +13,12 @@
 - A API e a interface passaram a expor `total_final`; a regra pura e os testes
   cobrem a transição 40%/44%/48% usando o total pago.
 - Os 58 testes locais, sintaxe, `git diff --check` e `vercel build` passaram.
-- GitHub: commit `eb27d77` publicado em `main`.
-- Vercel: deployment de produção `READY`, alias canônico
+- GitHub: commits `eb27d77`, `e499b09` e `9b49463` publicados em `main`.
+- Vercel: deployment de produção `READY` (`dpl_66UxnreJgyEVe3ggth4hxUg5nUms`), alias canônico
   `https://compras-coletivas-phi.vercel.app`.
 - Smoke: `GET /api/db/desconto-progresso` retornou `200` com
-  `total_final: 9079.46` e 48% ativos; home e JavaScript publicados retornaram
-  `200`.
+  `total_final: 9079.46` e 48% ativos; a API respondeu com `Cache-Control:
+  no-store` e a home/JavaScript publicados retornaram `200`.
 
 ## Atualização 20/07/2026 — desconto progressivo coletivo e hardening
 
