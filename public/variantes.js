@@ -371,16 +371,6 @@ const VARIANTES = [
     ],
   },
   {
-    id: "omegafor_vitamins",
-    nome: "Omegafor Vitamins",
-    hasFlavor: false,
-    hasSize: true,
-    variantes: [
-      {"codigo": "OFV60", "flavor": null, "size": "60 cápsulas"},
-      {"codigo": "OFV120", "flavor": null, "size": "120 cápsulas"},
-    ],
-  },
-  {
     id: "palatinose",
     nome: "Palatinose",
     hasFlavor: false,

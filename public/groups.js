@@ -78,7 +78,7 @@ const PRODUCT_GROUPS = [
     nome: "Snacks & Doces",
     descricao: "Barrinhas, snacks e adoçantes",
     icon: "cookie",
-    keywords: ["barrinh", "fitzei", "snack", "choco family", "xilitol"],
+    keywords: ["barrinh", "fitzei", "snack", "xilitol"],
   },
   {
     id: "digestivos",
@@ -93,7 +93,6 @@ const PRODUCT_GROUPS = [
       "laczyme",
       "prebiótic",
       "prebiotic",
-      "fiberfor",
       "espefor",
       "colosfort",
       "colostr",

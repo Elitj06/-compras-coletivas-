@@ -47,6 +47,16 @@ CODE_RE = re.compile(r"^[A-Z]{2,}\d+[A-Z0-9]*$")
 # Códigos com selo "lançamento" (sem foto real) — forçar limpeza
 LAUNCH_BADGE_HINT_BYTES = 6000  # imagens muito pequenas costumam ser selos
 
+# Produtos descontinuados: não podem voltar ao catálogo em uma atualização
+# mensal que ainda contenha linhas antigas da Vitafor.
+DISCONTINUED_CODES = frozenset({
+    "CCF240",  # Choco Family
+    "FBF10",   # Fiberfor 10 sachês
+    "FBF400",  # Fiberfor pote
+    "OFV60",   # Omegafor Vitamins 60
+    "OFV120",  # Omegafor Vitamins 120
+})
+
 
 # ----------------------------------------------------------------------
 # Utilidades
@@ -392,6 +402,9 @@ def main(xlsx_path: str) -> None:
                     break
             p["imagem"] = uri
         all_products.extend(prods)
+
+    # SECTION: bloqueio permanente de itens descontinuados
+    all_products = [p for p in all_products if p["codigo"] not in DISCONTINUED_CODES]
 
     # Mescla com produtos.js antigo
     legacy = load_existing_produtos()
