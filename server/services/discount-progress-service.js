@@ -48,9 +48,10 @@ export function selectDiscountTier(totalFinal, tiers) {
  *
  * O sistema usa total_final (pós-desconto) para selecionar a faixa, o que cria
  * uma dependência circular: desconto → total_final → faixa → desconto.
- * Esta função quebra a circularidade testando cada faixa da maior para a menor:
- * a primeira faixa cujo desconto, quando aplicado, produz um total_final ainda
- * dentro do próprio valor_minimo é o ponto estável.
+ * Esta função quebra a circularidade testando cada faixa da maior para a menor.
+ * Quando a tabela cria uma fronteira sem ponto fixo (o salto de percentual
+ * derruba o total para a faixa anterior), retorna a maior faixa que o total
+ * projetado ainda consegue sustentar, evitando conceder desconto excessivo.
  *
  * @param {number} totalBrutoColetivo - Soma dos preços brutos de todos os pedidos ativos.
  * @param {Array<object>} tiers - Faixas de desconto normalizadas.
@@ -72,13 +73,22 @@ export function resolveStableDiscountTier(totalBrutoColetivo, tiers) {
  * Monta o contrato usado pela barra de progresso do comprador.
  * @param {number} totalFinal - Soma dos pedidos ativos já com desconto.
  * @param {Array<object>} tiers - Faixas de desconto.
+ * @param {number|null} [appliedPercentual] - Percentual efetivamente aplicado,
+ * quando o ciclo já possui pedidos precificados.
  * @returns {object}
  */
-export function buildDiscountProgress(totalFinal, tiers) {
+export function buildDiscountProgress(totalFinal, tiers, appliedPercentual = null) {
   const total = Math.max(0, Number(totalFinal) || 0);
   const normalized = normalizeDiscountTiers(tiers);
-  const current = selectDiscountTier(total, normalized);
-  const next = normalized.find((tier) => tier.valor_minimo > total) || null;
+  const selected = selectDiscountTier(total, normalized);
+  const applied = appliedPercentual === null || appliedPercentual === undefined
+    ? null
+    : normalized.find((tier) => tier.percentual === Number(appliedPercentual)) || null;
+  const current = applied || selected;
+  const currentIndex = current ? normalized.findIndex((tier) => tier.id === current.id) : -1;
+  const next = currentIndex >= 0
+    ? normalized[currentIndex + 1] || null
+    : normalized.find((tier) => tier.valor_minimo > total) || null;
   const start = current?.valor_minimo || 0;
   const end = next?.valor_minimo || start;
   const range = end - start;

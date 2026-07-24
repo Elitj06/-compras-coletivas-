@@ -267,7 +267,8 @@ o progresso de um ciclo histórico.
 
 Retorna o total final (já com o desconto aplicado) dos pedidos ativos do ciclo e
 a faixa de desconto vigente. O valor bruto não é usado para avançar a barra ou
-alternar o percentual.
+alternar o percentual; nos casos-limite, a resposta preserva o percentual
+efetivamente aplicado aos itens para não exibir uma faixa diferente dos preços.
 É uma rota pública e não expõe compradores, pedidos ou dados pessoais. Quando uma
 faixa é alcançada, a API reprecifica todos os pedidos ativos do ciclo com o mesmo
 percentual global.
@@ -797,7 +798,8 @@ Altera o status de TODOS os pedidos de um comprador.
 
 ### PUT /itens/:id/qty
 
-Altera a quantidade de um item específico. Recalcula automaticamente os totais do pedido.
+Altera a quantidade de um item específico (de 1 a 99). Recalcula automaticamente
+os totais do pedido e o desconto coletivo do ciclo.
 
 **Parâmetros de URL:**
 | Parâmetro | Tipo | Descrição |
@@ -816,7 +818,7 @@ Altera a quantidade de um item específico. Recalcula automaticamente os totais 
 
 **Response `400`:**
 ```json
-{ "success": false, "error": "Quantidade deve ser >= 1" }
+{ "success": false, "error": "Quantidade deve estar entre 1 e 99" }
 ```
 
 **Response `404`:**

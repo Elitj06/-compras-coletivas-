@@ -54,6 +54,24 @@ describe('desconto progressivo coletivo', () => {
     assert.equal(progress.proxima_faixa.percentual, 48);
     assert.equal(progress.valor_faltante, 3603);
   });
+
+  it('preserva a faixa efetivamente aplicada em uma fronteira de recálculo', () => {
+    const progress = buildDiscountProgress(2800, tiers, 44);
+
+    assert.equal(progress.percentual_atual, 44);
+    assert.equal(progress.faixa_atual?.id, 2);
+    assert.equal(progress.proxima_faixa?.id, 3);
+    assert.equal(progress.valor_faltante, 5200);
+  });
+
+  it('considera a próxima meta alcançada pelo total final mesmo com faixa anterior aplicada', () => {
+    const progress = buildDiscountProgress(3000, tiers, 40);
+
+    assert.equal(progress.percentual_atual, 40);
+    assert.equal(progress.proxima_faixa?.id, 2);
+    assert.equal(progress.valor_faltante, 0);
+    assert.equal(progress.progresso_percentual, 100);
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -864,9 +864,8 @@ const app = {
       // Always fetch fresh historico data from server
       this.renderHistorico();
     } else if (tab === "admin" && this.state.isAdminLoggedIn) {
-      // Reload discount progress before rendering admin to ensure fresh stats
-      // Pass true to use adminCycleId when viewing a historical cycle
-      this.loadDiscountProgress(true).then(() => this.renderAdmin());
+      // renderAdmin carrega progresso e relatórios em paralelo.
+      this.renderAdmin();
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
   },
@@ -1978,7 +1977,6 @@ const app = {
       document.getElementById("adminLoginModal")?.remove();
       document.getElementById("registrationModal")?.remove();
       this.switchTab("admin");
-      await this.renderAdmin();
       this.saveLocal();
       this.toast("Acesso liberado", "success");
     } else {
@@ -1992,12 +1990,21 @@ const app = {
       "refresh"
     )}<h3>Carregando dados...</h3></div></div>`;
 
-    const [statsRes, conRes, usersRes, cyclesRes] = await Promise.all([
+    const cycleQuery = this.state.adminCycleId ? `?ciclo_id=${this.state.adminCycleId}` : "";
+    const [statsRes, conRes, usersRes, cyclesRes, progressRes] = await Promise.all([
       this.api(`stats${this.state.adminCycleId ? `?ciclo_id=${this.state.adminCycleId}` : ""}`),
       this.api(`pedidos/consolidado${this.state.adminCycleId ? `?ciclo_id=${this.state.adminCycleId}` : ""}`),
       this.api(`pedidos/por-usuario${this.state.adminCycleId ? `?ciclo_id=${this.state.adminCycleId}` : ""}`),
       this.api("ciclos-compra"),
+      this.api(`desconto-progresso${cycleQuery}`),
     ]);
+
+    if (progressRes?.success && progressRes.data) {
+      this.state.discountProgress = progressRes.data;
+      this.state.discountPct = Number(progressRes.data.percentual_atual) || 0;
+      this.renderDiscountProgress();
+      this.updateCartBar();
+    }
 
     const stats = statsRes?.data || {};
     const con = conRes?.data || [];
@@ -2071,7 +2078,7 @@ const app = {
                 : "A maior faixa configurada já foi alcançada para todos os compradores."}
             </small>
           </div>
-          <button class="btn btn-secondary btn-sm" onclick="app.loadDiscountProgress(true).then(() => app.renderAdmin())">${icon("refresh")} Atualizar faixa</button>
+          <button class="btn btn-secondary btn-sm" onclick="app.refreshAdmin()">${icon("refresh")} Atualizar faixa</button>
         </div>
       </div>
 
@@ -2248,7 +2255,7 @@ const app = {
               <td>
                 <div style="display:flex;align-items:center;gap:4px">
                   <button class="btn-icon btn-sm" title="Diminuir" onclick="event.stopPropagation();app.adminChangeQty(${it.item_id},${it.quantidade - 1})">−</button>
-                  <input type="number" class="qty-input admin-qty-input" value="${it.quantidade}" min="1" max="99"
+                  <input type="number" class="qty-input admin-qty-input" value="${it.quantidade}" min="1" max="99" step="1"
                     style="width:48px;text-align:center;padding:2px 4px"
                     onchange="app.adminSetQty(${it.item_id},this.value)"
                     onkeydown="if(event.key==='Enter'){this.blur()}" />
@@ -2306,13 +2313,16 @@ const app = {
      Called after any mutation that affects cycle totals. */
   // SECTION: Debounced admin refresh — prevents overlapping API calls (race conditions)
   async refreshAdmin() {
-    // Coalesce overlapping refresh calls into a single in-flight request
+    // Coalesce overlapping refreshes while guaranteeing a final fresh render.
     if (this._refreshAdminInFlight) {
+      this._refreshAdminPending = true;
       return this._refreshAdminInFlight;
     }
     const run = (async () => {
-      await this.loadDiscountProgress(true);
-      return this.renderAdmin();
+      do {
+        this._refreshAdminPending = false;
+        await this.renderAdmin();
+      } while (this._refreshAdminPending);
     })();
     this._refreshAdminInFlight = run;
     try {
@@ -2414,11 +2424,16 @@ const app = {
 
   async adminChangeQty(itemId, newQty) {
     if (!this.canManageSelectedCycle()) return;
-    if (newQty < 1) {
+    const qty = Number(newQty);
+    if (!Number.isSafeInteger(qty) || qty < 1) {
       this.toast("Use o botão de lixeira para remover", "info");
       return;
     }
-    const r = await this.api(`itens/${itemId}/qty`, "PUT", { quantidade: newQty });
+    if (qty > 99) {
+      this.toast("Quantidade máxima é 99", "error");
+      return;
+    }
+    const r = await this.api(`itens/${itemId}/qty`, "PUT", { quantidade: qty });
     if (r?.success) {
       this.refreshAdmin();
     } else {
@@ -2428,8 +2443,8 @@ const app = {
 
   // SECTION: Direct qty input from admin panel (not just +/- unitary)
   adminSetQty(itemId, value) {
-    const qty = parseInt(value);
-    if (!qty || qty < 1) {
+    const qty = Number(value);
+    if (!Number.isSafeInteger(qty) || qty < 1) {
       this.toast("Quantidade inválida", "error");
       this.refreshAdmin();
       return;

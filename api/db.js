@@ -353,16 +353,34 @@ async function getDiscountProgress(client, cycleId = null) {
   `);
   const totalResult = cycle
     ? await client.query(
-      `SELECT COALESCE(SUM(total_final), 0)::numeric AS total_final
-       FROM pedidos
-       WHERE ciclo_id = $1 AND status != 'cancelado'`,
+      `SELECT
+         COALESCE((
+           SELECT SUM(p.total_final)
+           FROM pedidos p
+           WHERE p.ciclo_id = $1 AND p.status != 'cancelado'
+         ), 0)::numeric AS total_final,
+         (
+           SELECT CASE
+             WHEN COUNT(ip.id) = 0 THEN NULL
+             WHEN MIN(ip.desconto_percentual) = MAX(ip.desconto_percentual)
+               THEN MIN(ip.desconto_percentual)
+             ELSE NULL
+           END
+           FROM itens_pedido ip
+           JOIN pedidos p ON p.id = ip.pedido_id
+           WHERE p.ciclo_id = $1 AND p.status != 'cancelado'
+         ) AS percentual_aplicado`,
       [cycle.id],
     )
-    : { rows: [{ total_final: 0 }] };
+    : { rows: [{ total_final: 0, percentual_aplicado: null }] };
   return {
     ciclo_id: cycle?.id || null,
     ciclo_nome: cycle?.nome || null,
-    ...buildDiscountProgress(totalResult.rows[0]?.total_final || 0, tiersResult.rows),
+    ...buildDiscountProgress(
+      totalResult.rows[0]?.total_final || 0,
+      tiersResult.rows,
+      totalResult.rows[0]?.percentual_aplicado,
+    ),
   };
 }
 
@@ -413,14 +431,9 @@ async function repriceCycleOrders(client, cycleId) {
        AND p.status != 'cancelado'`,
     [cycleId, discount],
   );
-  // STEP 4: Recalcula totais de cada pedido a partir dos itens.
-  await client.query(
-    `UPDATE pedidos p
-     SET total_bruto = totals.total_bruto,
-         total_final = totals.total_final,
-         total_desconto = totals.total_bruto - totals.total_final,
-         updated_at = NOW()
-     FROM (
+  // STEP 4: Recalcula totais e agrega o total final na mesma ida ao banco.
+  const totalsResult = await client.query(
+    `WITH totals AS (
        SELECT ip.pedido_id,
               COALESCE(SUM(ip.subtotal_bruto), 0)::numeric AS total_bruto,
               COALESCE(SUM(ip.subtotal_final), 0)::numeric AS total_final
@@ -428,28 +441,30 @@ async function repriceCycleOrders(client, cycleId) {
        JOIN pedidos p2 ON p2.id = ip.pedido_id
        WHERE p2.ciclo_id = $1 AND p2.status != 'cancelado'
        GROUP BY ip.pedido_id
-     ) totals
-     WHERE p.id = totals.pedido_id
-       AND p.ciclo_id = $1
-       AND p.status != 'cancelado'`,
+     ), updated AS (
+       UPDATE pedidos p
+       SET total_bruto = totals.total_bruto,
+           total_final = totals.total_final,
+           total_desconto = totals.total_bruto - totals.total_final,
+           updated_at = NOW()
+       FROM totals
+       WHERE p.id = totals.pedido_id
+         AND p.ciclo_id = $1
+         AND p.status != 'cancelado'
+       RETURNING p.total_final
+     )
+     SELECT COALESCE(SUM(total_final), 0)::numeric AS total_final
+     FROM updated`,
     [cycleId],
   );
-  // STEP 5: Monta o progresso consistente com a faixa estável usada no pricing.
-  // buildDiscountProgress sozinho pode selecionar faixa diferente do total_final,
-  // causando oscilação. Usamos a faixa estável como fonte de verdade.
-  const finalResult = await client.query(
-    `SELECT COALESCE(SUM(total_final), 0)::numeric AS total_final
-     FROM pedidos
-     WHERE ciclo_id = $1 AND status != 'cancelado'`,
-    [cycleId],
+  // STEP 5: Mantém a faixa aplicada como fonte de verdade nos casos-limite
+  // em que uma nova faixa reduziria o total para abaixo do próprio mínimo.
+  const actualFinal = Number(totalsResult.rows[0]?.total_final) || 0;
+  const progress = buildDiscountProgress(
+    actualFinal,
+    normalizedTiers,
+    stableTier?.percentual ?? null,
   );
-  const actualFinal = Number(finalResult.rows[0]?.total_final) || 0;
-  const progress = buildDiscountProgress(actualFinal, normalizedTiers);
-  // Override: garante que a faixa exibida é a mesma usada para precificar.
-  if (stableTier) {
-    progress.percentual_atual = stableTier.percentual;
-    progress.faixa_atual = stableTier;
-  }
   return progress;
 }
 
@@ -1456,17 +1471,17 @@ export default async function handler(req) {
         }
         const iid = parseInt(qtyMatch[1]);
         const { quantidade } = body;
-        const qty = parseInt(quantidade);
-        if (!qty || qty < 1) {
+        const qty = Number(quantidade);
+        if (!Number.isSafeInteger(qty) || qty < 1 || qty > 99) {
           await client.end();
-          return json({ success: false, error: 'Quantidade deve ser >= 1' }, 400);
+          return json({ success: false, error: 'Quantidade deve estar entre 1 e 99' }, 400);
         }
         await client.query('BEGIN');
         try {
           await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
-          // SECTION: Obtém item + ciclo_id em uma única query (evita round-trip extra)
+          // SECTION: Obtém o ciclo na mesma query (evita round-trip extra)
           const item = await client.query(
-            `SELECT ip.id, ip.pedido_id, ip.preco_unitario, ip.preco_com_desconto, p.ciclo_id
+            `SELECT ip.id, ip.pedido_id, p.ciclo_id
              FROM itens_pedido ip
              JOIN pedidos p ON p.id = ip.pedido_id
              WHERE ip.id = $1 AND p.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)`,
@@ -1478,12 +1493,14 @@ export default async function handler(req) {
             return json({ success: false, error: 'Item não encontrado' }, 404);
           }
           const it = item.rows[0];
-          const pBruto = parseFloat(it.preco_unitario);
-          const pDesc = parseFloat(it.preco_com_desconto);
           // Atualiza apenas o item — repriceCycleOrders recalcula totais do pedido
           await client.query(
-            `UPDATE itens_pedido SET quantidade = $1, subtotal_bruto = $2, subtotal_final = $3 WHERE id = $4`,
-            [qty, pBruto * qty, pDesc * qty, iid]
+            `UPDATE itens_pedido
+             SET quantidade = $1,
+                 subtotal_bruto = ROUND(COALESCE(preco_bruto, preco_unitario) * $1, 2),
+                 subtotal_final = ROUND(COALESCE(preco_com_desconto, preco_desconto, preco_unitario) * $1, 2)
+             WHERE id = $2`,
+            [qty, iid]
           );
           await repriceCycleOrders(client, it.ciclo_id);
           await client.query('COMMIT');
