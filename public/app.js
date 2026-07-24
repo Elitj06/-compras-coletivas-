@@ -680,8 +680,33 @@ const app = {
       this.state.user.name;
     const roleLabel = wrap.querySelector(".header-user-info small");
     if (roleLabel) roleLabel.textContent = this.state.isAdminLoggedIn ? "Comprador + Admin" : "Comprador";
-    // SECTION: Edit profile button
+    // SECTION: Edit profile button — inject visible "Meus dados" button
     this.renderAuthSecurityAction?.();
+  },
+
+  /**
+   * Injects a visible "Meus dados" button into the header for the logged-in comprador.
+   * Called from renderHeaderUser. No-op if the button already exists or user not logged in.
+   */
+  renderAuthSecurityAction() {
+    const wrap = document.getElementById("headerUser");
+    if (!wrap || !this.state.isRegistered) return;
+    const existing = wrap.querySelector("[data-action='edit-profile']");
+    if (existing) return;
+    const btn = document.createElement("button");
+    btn.setAttribute("data-action", "edit-profile");
+    btn.className = "btn btn-ghost btn-sm";
+    btn.style.cssText = "margin-right:4px;font-size:0.8rem;padding:4px 10px";
+    btn.title = "Editar nome, telefone e e-mail";
+    btn.innerHTML = `${icon("user")||'👤'} Meus dados`;
+    btn.onclick = () => this.showEditProfileModal();
+    // Insert before the icon-only edit button
+    const iconBtn = wrap.querySelector("button[onclick='app.showEditProfileModal()']");
+    if (iconBtn) {
+      wrap.insertBefore(btn, iconBtn);
+    } else {
+      wrap.appendChild(btn);
+    }
   },
 
   /* SECTION: Editar dados cadastrais (nome, telefone, e-mail) */
@@ -2949,7 +2974,7 @@ const app = {
     const isAdminView = !!forcedUsuario;
     const header = isAdminView
       ? `<div class="card" style="margin-bottom:14px"><div style="padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><strong>Histórico de ${fmt.escape(usuario)}</strong><br><small style="color:var(--c-text-muted)">${pedidos.length} pedido(s)</small></div><button class="btn btn-ghost btn-sm" onclick="app.renderAdmin()">← Voltar ao painel</button></div></div>`
-      : `<div class="card" style="margin-bottom:14px"><div style="padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><strong>Olá, ${fmt.escape(usuario.split(" ")[0])}</strong><br><small style="color:var(--c-text-muted)">${pedidos.length} pedido(s) no histórico</small></div><button class="btn btn-ghost btn-sm" onclick="app.logoutUser()">Sair da conta</button></div></div>`;
+      : `<div class="card" style="margin-bottom:14px"><div style="padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><strong>Olá, ${fmt.escape(usuario.split(" ")[0])}</strong><br><small style="color:var(--c-text-muted)">${pedidos.length} pedido(s) no histórico</small></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.showEditProfileModal()">${icon("user")||'👤'} Meus dados</button><button class="btn btn-ghost btn-sm" onclick="app.logoutUser()">Sair da conta</button></div></div></div>`;
     if (!pedidos.length) {
       c.innerHTML = header + `<div class="card"><div class="empty-state">${icon("receipt")}<h3>Nenhum pedido encontrado</h3><p>Assim que você finalizar um pedido, ele aparecerá aqui.</p></div></div>`;
       return;
