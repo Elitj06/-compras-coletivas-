@@ -1,5 +1,28 @@
 # Compras Coletivas Vitafor — STATE
 
+## Atualização 24/07/2026 — cálculo final, quantidades e atualização do admin
+
+**Status:** publicado e validado em produção.
+
+- A troca de faixa usa exclusivamente o total final já com desconto. Quando uma
+  faixa é liberada, ela permanece estável até o total recuar abaixo da faixa
+  anterior; isso evita alternância entre percentuais após o próprio recálculo.
+- A barra pública e o painel administrativo mostram a faixa mais alta alcançada
+  pelo total final, inclusive no limite de R$ 8.000 para 48%.
+- O admin permite digitar a quantidade diretamente (1–99), mantendo os botões
+  de atalho. O recálculo usa preços armazenados no banco e totais arredondados,
+  sem alterar produtos, pedidos ou pagamentos registrados.
+- O painel administrativo carrega progresso, estatísticas e relatórios em
+  paralelo. Refreshes concorrentes são coalescidos e recebem uma renderização
+  final adicional quando necessário.
+- Gates: 116 testes aprovados, sintaxe, `git diff --check` e `vercel build`.
+- GitHub: commits `e9a7ed2`, `e74bc4b` e `2bfa402` publicados em `main`.
+- Vercel: deployment de produção `dpl_Ha4sSZenGZ7YpwaGAfGQTuypno4H` em
+  `READY`, alias canônico `https://compras-coletivas-phi.vercel.app`.
+- Smoke: home e health `200`; progresso `200` sem cache, retornando total final
+  de R$ 8.454,60 e 48% ativos; JavaScript publicado com entrada direta de
+  quantidade e refresh paralelo.
+
 ## Atualização 24/07/2026 — progresso baseado no total final
 
 **Status:** publicado e validado em produção.
