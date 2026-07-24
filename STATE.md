@@ -580,3 +580,10 @@ Para melhorar UX, categorias semelhantes foram agrupadas:
 2. Configurar agente `guia-compras` (binding pendente)
 3. Implementar upload de planilha no backend
 4. Integrar com Evolution API para notificações
+
+## Atualização — 2026-07-24 — barra de progresso do desconto
+
+- Corrigida a separação entre posição visual da barra (`selectDiscountTier`, baseada no `total_final`) e desconto efetivamente aplicado (`resolveDiscountTier`, com retenção).
+- A barra agora mantém a próxima meta e o progresso coerentes quando o pricing retém uma faixa superior; abaixo de R$ 8.000 líquidos, `maximo_alcancado` permanece falso.
+- O retorno de criação de pedido passou a informar o percentual efetivamente aplicado, evitando divergência no pedido salvo localmente.
+- Testes: 121 aprovados; build/deploy de produção validado e endpoint público respondendo com o novo contrato.
