@@ -300,6 +300,7 @@ async function mutationCsrfError(req, path, adminSession, buyerSession) {
   }
   const isBuyerMutation = path === 'comprador/logout'
     || path === 'comprador/pin'
+    || path === 'comprador/perfil'
     || (req.method === 'POST' && path === 'pedidos')
     || (req.method === 'DELETE' && /^pedidos\/\d+$/.test(path) && !adminSession);
   const requestedScope = req.headers.get('x-session-scope');
@@ -527,6 +528,8 @@ async function getClient() {
  *   - `/itens/:id/qty` — Alterar quantidade de item
  *   - `/pedidos/usuario/:name/merge` — Mesclar pedidos duplicados
  *   - `/pedidos/:id/itens` — Adicionar item a pedido
+ *   - `/comprador/perfil` — Atualizar nome, telefone e e-mail do comprador autenticado
+ *   - `/admin/compradores/:id` — Admin: atualizar nome, telefone e e-mail de qualquer comprador
  *
  * Rotas DELETE:
  *   - `/pedidos` — Apagar todos os pedidos
@@ -622,6 +625,7 @@ export default async function handler(req) {
         const rows = await client.query(`
           SELECT
             p.usuario,
+            MAX(c.id) AS comprador_id,
             MAX(c.telefone) as telefone,
             MAX(c.email) as email,
             array_agg(DISTINCT p.id) as pedido_ids,
@@ -1201,6 +1205,111 @@ export default async function handler(req) {
       if (authResult) {
         await client.end();
         return authResponse(authResult);
+      }
+
+      // PUT /comprador/perfil — Atualiza nome, telefone e e-mail do comprador autenticado
+      if (path === 'comprador/perfil') {
+        if (!buyerSession) {
+          await client.end();
+          return unauthorized('Faça login para atualizar seus dados');
+        }
+        const { nome, telefone, email } = body;
+        if (!nome || String(nome).trim().split(/\s+/).length < 2) {
+          await client.end();
+          return json({ success: false, error: 'Informe nome e sobrenome' }, 400);
+        }
+        const telNorm = String(telefone || '').replace(/\D/g, '');
+        if (telNorm.length < 8) {
+          await client.end();
+          return json({ success: false, error: 'Telefone inválido' }, 400);
+        }
+        if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+          await client.end();
+          return json({ success: false, error: 'E-mail inválido' }, 400);
+        }
+        // Verifica conflito de telefone/e-mail com outro comprador
+        const conflict = await client.query(
+          `SELECT id FROM compradores
+           WHERE id != $1
+             AND (regexp_replace(COALESCE(telefone,''), '\\D', '', 'g') = $2
+                  OR (COALESCE(email,'') != '' AND lower(email) = lower($3)))
+           LIMIT 1`,
+          [buyerSession.id, telNorm, email || '']
+        );
+        if (conflict.rows.length) {
+          await client.end();
+          return json({ success: false, code: 'IDENTITY_ALREADY_REGISTERED', error: 'Telefone ou e-mail já cadastrado para outro comprador' }, 409);
+        }
+        const updated = await client.query(
+          `UPDATE compradores SET nome = $1, telefone = $2, email = $3, updated_at = NOW()
+           WHERE id = $4 RETURNING id, nome, telefone, email`,
+          [String(nome).trim(), telNorm, (email || '').trim() || null, buyerSession.id]
+        );
+        // Sincroniza o nome em pedidos existentes do ciclo ativo
+        await client.query(
+          `UPDATE pedidos SET usuario = $1
+           WHERE comprador_id = $2 AND status != 'cancelado'
+             AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)`,
+          [String(nome).trim(), buyerSession.id]
+        );
+        await client.end();
+        return json({ success: true, message: 'Dados atualizados', data: updated.rows[0] });
+      }
+
+      // PUT /admin/compradores/:id — Admin: atualiza nome, telefone e e-mail de qualquer comprador
+      const adminBuyerUpdateMatch = path.match(/^admin\/compradores\/(\d+)$/);
+      if (adminBuyerUpdateMatch) {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
+        const buyerId = parseInt(adminBuyerUpdateMatch[1]);
+        const { nome, telefone, email } = body;
+        if (!nome || String(nome).trim().split(/\s+/).length < 2) {
+          await client.end();
+          return json({ success: false, error: 'Informe nome e sobrenome' }, 400);
+        }
+        const telNorm = String(telefone || '').replace(/\D/g, '');
+        if (telNorm.length < 8) {
+          await client.end();
+          return json({ success: false, error: 'Telefone inválido' }, 400);
+        }
+        if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+          await client.end();
+          return json({ success: false, error: 'E-mail inválido' }, 400);
+        }
+        const conflict = await client.query(
+          `SELECT id FROM compradores
+           WHERE id != $1
+             AND (regexp_replace(COALESCE(telefone,''), '\\D', '', 'g') = $2
+                  OR (COALESCE(email,'') != '' AND lower(email) = lower($3)))
+           LIMIT 1`,
+          [buyerId, telNorm, email || '']
+        );
+        if (conflict.rows.length) {
+          await client.end();
+          return json({ success: false, code: 'IDENTITY_ALREADY_REGISTERED', error: 'Telefone ou e-mail já cadastrado para outro comprador' }, 409);
+        }
+        const oldBuyer = await client.query('SELECT nome FROM compradores WHERE id = $1', [buyerId]);
+        if (!oldBuyer.rows.length) {
+          await client.end();
+          return json({ success: false, error: 'Comprador não encontrado' }, 404);
+        }
+        const oldNome = oldBuyer.rows[0].nome;
+        const updated = await client.query(
+          `UPDATE compradores SET nome = $1, telefone = $2, email = $3, updated_at = NOW()
+           WHERE id = $4 RETURNING id, nome, telefone, email`,
+          [String(nome).trim(), telNorm, (email || '').trim() || null, buyerId]
+        );
+        // Sincroniza nome em pedidos do ciclo ativo
+        await client.query(
+          `UPDATE pedidos SET usuario = $1
+           WHERE comprador_id = $2 AND status != 'cancelado'
+             AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)`,
+          [String(nome).trim(), buyerId]
+        );
+        await client.end();
+        return json({ success: true, message: 'Dados do comprador atualizados', data: updated.rows[0], old_nome: oldNome });
       }
 
       // PUT /pagamentos/:id — atualiza parcelas/obs de um pagamento

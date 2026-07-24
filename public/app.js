@@ -281,6 +281,7 @@ const app = {
       const isBuyerRoute =
         path === "comprador/session" ||
         path === "comprador/pin" ||
+        path === "comprador/perfil" ||
         path === "comprador/logout" ||
         path === "pedidos/historico" ||
         (path === "pedidos" && method === "POST") ||
@@ -674,7 +675,146 @@ const app = {
       this.state.user.name;
     const roleLabel = wrap.querySelector(".header-user-info small");
     if (roleLabel) roleLabel.textContent = this.state.isAdminLoggedIn ? "Comprador + Admin" : "Comprador";
+    // SECTION: Edit profile button
     this.renderAuthSecurityAction?.();
+  },
+
+  /* SECTION: Editar dados cadastrais (nome, telefone, e-mail) */
+  showEditProfileModal() {
+    const existing = document.getElementById("editProfileModal");
+    if (existing) existing.remove();
+    const modal = document.createElement("div");
+    modal.id = "editProfileModal";
+    modal.className = "modal-wrap";
+    modal.innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this)this.parentElement.remove()">
+        <div class="modal-content" style="max-width:420px">
+          <div class="modal-header">
+            <div class="modal-header-icon">${icon("user")}</div>
+            <h2>Meus dados</h2>
+            <p>Atualize seu nome, telefone e e-mail de contato.</p>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="epNome">Nome completo</label>
+              <input type="text" id="epNome" value="${fmt.escape(this.state.user.name)}" placeholder="Nome e sobrenome" autocomplete="name" />
+            </div>
+            <div class="form-group">
+              <label for="epTelefone">Telefone / WhatsApp</label>
+              <input type="text" id="epTelefone" value="${fmt.escape(this.state.user.phone)}" placeholder="(00) 00000-0000" autocomplete="tel" inputmode="tel" />
+            </div>
+            <div class="form-group">
+              <label for="epEmail">E-mail</label>
+              <input type="email" id="epEmail" value="${fmt.escape(this.state.user.email)}" placeholder="seu@email.com" autocomplete="email" />
+            </div>
+          </div>
+          <div class="modal-footer" style="display:flex;gap:10px">
+            <button class="btn btn-ghost" onclick="document.getElementById('editProfileModal')?.remove()">Cancelar</button>
+            <button class="btn btn-primary" style="flex:1" onclick="app.saveProfile()">Salvar alterações</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    setTimeout(() => document.getElementById("epNome")?.focus(), 50);
+  },
+
+  async saveProfile() {
+    const nome = document.getElementById("epNome")?.value?.trim() || "";
+    const telefone = document.getElementById("epTelefone")?.value?.trim() || "";
+    const email = document.getElementById("epEmail")?.value?.trim() || "";
+
+    if (!nome || nome.split(/\s+/).length < 2) {
+      this.toast("Digite nome e sobrenome", "error");
+      return;
+    }
+    if (telefone.replace(/\D/g, "").length < 8) {
+      this.toast("Telefone inválido", "error");
+      return;
+    }
+    if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+      this.toast("E-mail inválido", "error");
+      return;
+    }
+
+    const btn = document.querySelector("#editProfileModal .btn-primary");
+    const r = await this.api("comprador/perfil", "PUT", { nome, telefone, email });
+    if (r?.success) {
+      const data = r.data || {};
+      this.state.user.name = data.nome || nome;
+      this.state.user.phone = data.telefone || telefone;
+      this.state.user.email = data.email || email;
+      localStorage.setItem("registeredName", this.state.user.name);
+      localStorage.setItem("registeredPhone", this.state.user.phone);
+      localStorage.setItem("registeredEmail", this.state.user.email);
+      document.getElementById("editProfileModal")?.remove();
+      this.renderHeaderUser();
+      this.toast("Dados atualizados com sucesso", "success");
+    } else {
+      this.toast(r?.error || "Não foi possível salvar. Tente novamente.", "error");
+    }
+  },
+
+  /* Admin: editar dados de qualquer comprador a partir do painel */
+  showEditCompradorModal(buyerId, nome, telefone, email) {
+    const existing = document.getElementById("editProfileModal");
+    if (existing) existing.remove();
+    const modal = document.createElement("div");
+    modal.id = "editProfileModal";
+    modal.className = "modal-wrap";
+    modal.innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this)this.parentElement.remove()">
+        <div class="modal-content" style="max-width:420px">
+          <div class="modal-header">
+            <div class="modal-header-icon">${icon("user")}</div>
+            <h2>Editar comprador</h2>
+            <p>Altere os dados cadastrais de ${fmt.escape(nome)}.</p>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="epNome">Nome completo</label>
+              <input type="text" id="epNome" value="${fmt.escape(nome)}" placeholder="Nome e sobrenome" />
+            </div>
+            <div class="form-group">
+              <label for="epTelefone">Telefone / WhatsApp</label>
+              <input type="text" id="epTelefone" value="${fmt.escape(telefone || "")}" placeholder="(00) 00000-0000" inputmode="tel" />
+            </div>
+            <div class="form-group">
+              <label for="epEmail">E-mail</label>
+              <input type="email" id="epEmail" value="${fmt.escape(email || "")}" placeholder="seu@email.com" />
+            </div>
+          </div>
+          <div class="modal-footer" style="display:flex;gap:10px">
+            <button class="btn btn-ghost" onclick="document.getElementById('editProfileModal')?.remove()">Cancelar</button>
+            <button class="btn btn-primary" style="flex:1" onclick="app.adminSaveComprador(${buyerId})">Salvar alterações</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    setTimeout(() => document.getElementById("epNome")?.focus(), 50);
+  },
+
+  async adminSaveComprador(buyerId) {
+    const nome = document.getElementById("epNome")?.value?.trim() || "";
+    const telefone = document.getElementById("epTelefone")?.value?.trim() || "";
+    const email = document.getElementById("epEmail")?.value?.trim() || "";
+
+    if (!nome || nome.split(/\s+/).length < 2) {
+      this.toast("Digite nome e sobrenome", "error");
+      return;
+    }
+    if (telefone.replace(/\D/g, "").length < 8) {
+      this.toast("Telefone inválido", "error");
+      return;
+    }
+
+    const r = await this.api(`admin/compradores/${buyerId}`, "PUT", { nome, telefone, email });
+    if (r?.success) {
+      document.getElementById("editProfileModal")?.remove();
+      this.refreshAdmin();
+      this.toast("Dados do comprador atualizados", "success");
+    } else {
+      this.toast(r?.error || "Não foi possível salvar", "error");
+    }
   },
 
   /* ----------------- Tabs ----------------- */
@@ -686,9 +826,18 @@ const app = {
       .querySelectorAll(".tab-content")
       .forEach((c) => c.classList.add("hidden"));
     document.getElementById(`tab-${tab}`)?.classList.remove("hidden");
-    if (tab === "meu-pedido") this.renderInvoice();
-    else if (tab === "historico") this.renderHistorico();
-    else if (tab === "admin" && this.state.isAdminLoggedIn) this.renderAdmin();
+    // SECTION: Fresh data on every tab switch — no stale views
+    if (tab === "meu-pedido") {
+      // Reset edit-check so reopening revalidates server-side pedido status
+      this.state._editCheckDone = false;
+      this.renderInvoice();
+    } else if (tab === "historico") {
+      // Always fetch fresh historico data from server
+      this.renderHistorico();
+    } else if (tab === "admin" && this.state.isAdminLoggedIn) {
+      // Reload discount progress before rendering admin to ensure fresh stats
+      this.loadDiscountProgress().then(() => this.renderAdmin());
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   },
 
@@ -1254,6 +1403,11 @@ const app = {
       if (loaded && this.state.lastOrder) {
         c.innerHTML = this.renderSentOrder(this.state.lastOrder);
         return;
+      }
+      // Pedidos deletados pelo admin não devem persistir no cache local
+      if (!loaded && this.state.lastOrder?._fromServer) {
+        this.state.lastOrder = null;
+        this.saveLocal();
       }
       // Se não encontrou no servidor, cai para o fluxo normal abaixo
     }
@@ -2093,6 +2247,7 @@ const app = {
             <div class="buyer-card-actions">
               <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();app.adminVerHistorico('${usuarioEsc}','${fmt.escape(u.telefone || '').replace(/'/g, "\\'")}')">${icon("receipt")} Histórico</button>
               <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();app.showAdminAddItem(${u.pedido_ids[0]},'${usuarioEsc}')">${icon("plus")} Adicionar item</button>
+              <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();app.showEditCompradorModal(${u.comprador_id || 0}, '${usuarioEsc}', '${(u.telefone||"").replace(/'/g,"\\'")}', '${(u.email||"").replace(/'/g,"\\'")}')" ${!u.comprador_id ? 'disabled title="Sem ID de comprador"' : ''}>${icon("user")} Editar dados</button>
               ${emEdicao || qtdPedidos > 1
                 ? `<button class="btn btn-secondary btn-sm" style="background:#059669;color:#fff;border-color:#059669" onclick="event.stopPropagation();app.adminConfirmarPedido('${usuarioEsc}')">${icon("check")} Confirmar pedido</button>`
                 : `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();app.adminLiberarEdicao('${usuarioEsc}')">${icon("refresh")} Liberar para edição</button>`
@@ -2114,6 +2269,13 @@ const app = {
     }).join("")}</div>`;
   },
 
+  /* Refresh discount progress then re-render admin panel.
+     Called after any mutation that affects cycle totals. */
+  async refreshAdmin() {
+    await this.loadDiscountProgress();
+    return this.renderAdmin();
+  },
+
   async adminMergeOrders(usuario) {
     if (!this.canManageSelectedCycle()) return;
     if (!(await customConfirm(
@@ -2126,7 +2288,7 @@ const app = {
     );
     if (r?.success) {
       this.toast(r.message || "Pedidos mesclados", "success");
-      this.renderAdmin();
+      this.refreshAdmin();
     } else {
       this.toast(r?.error || "Erro ao mesclar pedidos", "error");
     }
@@ -2143,7 +2305,7 @@ const app = {
     );
     if (r?.success) {
       this.toast(`Pedido de ${usuario} confirmado`, "success");
-      this.renderAdmin();
+      this.refreshAdmin();
     } else {
       this.toast(r?.error || "Erro ao confirmar pedido", "error");
     }
@@ -2162,7 +2324,7 @@ const app = {
     );
     if (r?.success) {
       this.toast(`Pedido de ${usuario} liberado para edição`, "success");
-      this.renderAdmin();
+      this.refreshAdmin();
     } else {
       this.toast(r?.error || "Erro ao liberar pedido", "error");
     }
@@ -2212,7 +2374,7 @@ const app = {
     }
     const r = await this.api(`itens/${itemId}/qty`, "PUT", { quantidade: newQty });
     if (r?.success) {
-      this.renderAdmin();
+      this.refreshAdmin();
     } else {
       this.toast(r?.error || "Erro ao alterar quantidade", "error");
     }
@@ -2243,7 +2405,7 @@ const app = {
 
     if (r?.success) {
       this.toast(`${nome} adicionado ao pedido`, "success");
-      this.renderAdmin();
+      this.refreshAdmin();
     } else {
       this.toast(r?.error || "Erro ao adicionar item", "error");
     }
@@ -2272,7 +2434,7 @@ const app = {
     const r = await this.api(`pedidos/usuario/${encodeURIComponent(usuario)}`, "DELETE");
     if (r?.success) {
       this.toast(`Pedidos de ${usuario} apagados`, "success");
-      this.renderAdmin();
+      this.refreshAdmin();
     } else {
       this.toast("Erro ao apagar pedido", "error");
     }
@@ -2284,7 +2446,7 @@ const app = {
     const r = await this.api(`itens/${itemId}`, "DELETE");
     if (r?.success) {
       this.toast("Item removido", "success");
-      this.renderAdmin();
+      this.refreshAdmin();
     } else {
       this.toast("Erro ao remover item", "error");
     }
@@ -2300,7 +2462,7 @@ const app = {
     const r = await this.api(`produtos/${encodeURIComponent(codigo)}`, "DELETE");
     if (r?.success) {
       this.toast(`Produto ${codigo} removido dos pedidos`, "success");
-      this.renderAdmin();
+      this.refreshAdmin();
     } else {
       this.toast("Erro ao remover produto", "error");
     }
@@ -2325,7 +2487,7 @@ const app = {
     this.saveLocal();
     this.renderProducts();
     this.updateCartBar();
-    this.renderAdmin();
+    this.refreshAdmin();
     this.toast(
       pct > 0 ? `Desconto global de ${pct}% aplicado` : "Desconto removido",
       "success"
@@ -2343,7 +2505,7 @@ const app = {
     this.saveLocal();
     this.renderProducts();
     this.updateCartBar();
-    this.renderAdmin();
+    this.refreshAdmin();
     this.toast("Desconto removido", "success");
   },
 
@@ -2351,7 +2513,7 @@ const app = {
     if (!(await customConfirm("Apagar TODOS os pedidos atuais?"))) return;
     if (!(await customConfirm("Confirmação final — esta ação é irreversível."))) return;
     await this.api("pedidos", "DELETE");
-    this.renderAdmin();
+    this.refreshAdmin();
     this.toast("Pedidos apagados", "info");
   },
 
@@ -2359,7 +2521,7 @@ const app = {
     if (!(await customConfirm("Apagar TODO o histórico de pedidos (incluindo pedidos antigos e atuais)?"))) return;
     if (!(await customConfirm("Confirmação final — esta ação é irreversível. Todos os pedidos de todos os compradores serão removidos."))) return;
     await this.api("pedidos", "DELETE");
-    this.renderAdmin();
+    this.refreshAdmin();
     this.toast("Histórico completo apagado", "info");
   },
 
