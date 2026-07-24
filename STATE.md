@@ -1,5 +1,27 @@
 # Compras Coletivas Vitafor — STATE
 
+## Atualização 24/07/2026 — remoção de produtos descontinuados
+
+**Status:** publicado e validado em produção.
+
+- Removidos do catálogo do app e desativados no banco: `CCF240` (Choco Family),
+  `FBF10`/`FBF400` (Fiberfor) e `OFV60`/`OFV120` (Omegafor Vitamins).
+- O gerador mensal passou a bloquear esses cinco códigos para que não voltem em
+  uma atualização futura baseada em planilha antiga.
+- Cruzamento da planilha `TABELA_NOVA_JULHO_2026.xlsx` com o catálogo frontend:
+  240 códigos na planilha e 235 no app; nenhum produto ativo do app ficou fora
+  da planilha. Os cinco códigos descontinuados aparecem apenas na planilha-base
+  antiga e não no catálogo publicado.
+- Existem 7 registros legados ativos somente no banco e não expostos pela UI:
+  `CLB30AH`, `DR150`, `EF20`, `ISP240`, `PA600`, `WFT1800BA` e `WFT1800CH`.
+  Eles foram preservados para confirmação antes de qualquer nova desativação.
+- Havia registros antigos desses produtos em pedidos ativos: `CCF240` (5) e
+  `FBF400` (1). A desativação do catálogo não apagou pedidos existentes.
+- Commit `b90fa5e` publicado no GitHub; Vercel deployment
+  `dpl_eJmhvvLjgF8yfxNcV4CvvH6qE2zw` em `READY` no alias canônico.
+- Smoke: home, catálogo publicado e `/api/db/health` retornaram `200`; os cinco
+  códigos descontinuados não aparecem no JavaScript servido em produção.
+
 ## Atualização 24/07/2026 — barra de progresso restrita ao admin
 
 **Status:** publicado e validado em produção.
