@@ -647,7 +647,7 @@ Para melhorar UX, categorias semelhantes foram agrupadas:
 
 ## Atualização 06/09/2026 — checkpoint e migração aditiva para sa-east-1
 
-**Status:** banco preparado e validado; troca de produção bloqueada apenas por atualização das variáveis do Vercel.
+**Status:** cutover concluído e validado em produção.
 
 - Checkpoint Git local: tag `rollback/2026-09-06-before-sa-east-1` apontando para `c8fe8a2`.
 - Backup lógico da origem criado e validado com `pg_restore --list`.
@@ -655,5 +655,9 @@ Para melhorar UX, categorias semelhantes foram agrupadas:
 - Como o projeto FitFlow já possui Supabase em `sa-east-1`, foi criado de forma aditiva o schema isolado `compras_coletivas_20260906`, sem tocar no schema existente `compras_coletivas`.
 - Validação origem → destino: categorias 76/76, produtos 247/247, compradores 39/39, ciclos 2/2, configurações 4/4, descontos 1/1, faixas 3/3, pedidos 31/31, itens 143/143, pagamentos 31/31, sessões/auditoria preservadas com contagens idênticas.
 - Rollback do banco: manter a origem ativa ou remover apenas o schema novo `compras_coletivas_20260906`; o dump permanece em `backups/2026-09-06-c8fe8a2/`.
-- `vercel.json` preparado para executar funções em `gru1`, mas **não deve ser publicado antes de atualizar POSTGRES_URL/DATABASE_URL** para o pooler sa-east-1 com `search_path=compras_coletivas_20260906`.
-- Bloqueio operacional atual: esta sessão não tem credencial Vercel conectada para alterar variáveis de produção. Nenhum deploy foi disparado para evitar apontar `gru1` para o banco antigo e piorar a latência.
+- `POSTGRES_URL` e `POSTGRES_CONNECTION_STRING` de produção atualizados para o pooler `sa-east-1`, com `POSTGRES_SCHEMA=compras_coletivas_20260906`.
+- `api/db.js` e `api/pin-recovery-request.js` passaram a selecionar o schema por variável validada, mantendo o fallback local `compras_coletivas`.
+- Commit `085048f` publicado no GitHub; deployment de produção `READY` no alias canônico.
+- Validação pós-cutover: schema destino retornando `31` pedidos, `143` itens, `31` pagamentos e `247` produtos; origem preservada com as mesmas contagens.
+- Smoke no ar: health `200`; progresso público para o ciclo ativo retornando `total_final=8148.66` e `48%`; ciclo histórico também conferido.
+- Funções Node sensíveis publicadas em `gru1`; `api/db` permanece Edge global, executando próximo do usuário, enquanto o banco está em São Paulo.
