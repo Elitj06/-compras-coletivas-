@@ -1624,7 +1624,7 @@ export default async function handler(req) {
       }
 
       // PUT /pedidos/:id/itens  — Admin: adicionar item a pedido existente
-      // body: { codigo, nome, quantidade, preco_bruto, preco_desconto, categoria }
+      // body: { codigo, quantidade }; preço e metadados vêm do catálogo server-side
       const addItemMatch = path.match(/^pedidos\/(\d+)\/itens$/);
       if (addItemMatch) {
         if (!adminSession) {
@@ -1632,14 +1632,29 @@ export default async function handler(req) {
           return unauthorized();
         }
         const pid = parseInt(addItemMatch[1]);
-        const { codigo, nome, quantidade, preco_bruto, preco_desconto, categoria } = body;
-        if (!codigo || !nome || !quantidade || !preco_bruto) {
+        const codigo = String(body.codigo || '').trim().toLowerCase();
+        const qty = Number(body.quantidade);
+        if (!codigo || !Number.isSafeInteger(qty) || qty < 1 || qty > 99) {
           await client.end();
-          return json({ success: false, error: 'Dados do item incompletos' }, 400);
+          return json({ success: false, error: 'Código ou quantidade inválidos' }, 400);
         }
-        const qty = parseInt(quantidade) || 1;
-        const pBruto = parseFloat(preco_bruto);
-        const pDesc = parseFloat(preco_desconto) || pBruto;
+        const catalog = await client.query(
+          `SELECT p.codigo, p.nome, p.preco, c.slug AS categoria
+           FROM produtos p
+           JOIN categorias c ON c.id = p.categoria_id
+           WHERE p.ativo = TRUE AND lower(btrim(p.codigo)) = $1
+           LIMIT 1`,
+          [codigo],
+        );
+        if (!catalog.rows.length) {
+          await client.end();
+          return json({ success: false, error: 'Produto indisponível no catálogo' }, 409);
+        }
+        const product = catalog.rows[0];
+        const nome = product.nome;
+        const categoria = product.categoria || '';
+        const pBruto = Number(product.preco);
+        const pDesc = pBruto;
         const subtBruto = pBruto * qty;
         const subtFinal = pDesc * qty;
 
@@ -1663,6 +1678,11 @@ export default async function handler(req) {
           if (existingItem.rows.length) {
             const ei = existingItem.rows[0];
             const newQty = ei.quantidade + qty;
+            if (newQty > 99) {
+              await client.query('ROLLBACK');
+              await client.end();
+              return json({ success: false, error: 'Quantidade máxima por produto é 99' }, 400);
+            }
             await client.query(
               `UPDATE itens_pedido SET quantidade = $1, subtotal_bruto = $2, subtotal_final = $3 WHERE id = $4`,
               [newQty, pBruto * newQty, pDesc * newQty, ei.id]

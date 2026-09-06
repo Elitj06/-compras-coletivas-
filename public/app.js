@@ -171,9 +171,9 @@ const app = {
 
   /* ----------------- Bootstrap ----------------- */
   async init() {
+    this.checkRegistration();
     this.loadLocal();
     this.applyTheme();
-    this.checkRegistration();
     this.bindEvents();
     this.renderHeaderUser();
     this.renderGroupGrid();
@@ -443,6 +443,9 @@ const app = {
   },
 
   clearBuyerSession(showModal = true) {
+    const scopedKeys = ["cart", "discountPct", "lastOrder"].map((key) => this.storageKey(key));
+    scopedKeys.forEach((key) => localStorage.removeItem(key));
+    this.state.cart = {};
     this.state.isRegistered = false;
     this.state.user = { name: "", phone: "", email: "" };
     localStorage.removeItem("userRegistered");
@@ -666,7 +669,7 @@ const app = {
   },
 
   async logoutUser() {
-    if (!(await customConfirm("Sair da sua conta? O carrinho continuará salvo neste navegador."))) return;
+    if (!(await customConfirm("Sair da sua conta? Os dados locais deste comprador serão limpos para proteger a privacidade."))) return;
     await this.api("comprador/logout", "POST");
     this.clearBuyerSession(true);
   },
@@ -1787,10 +1790,15 @@ const app = {
 
     await this.loadDiscountProgress();
     const appliedPct = Number(res.desconto_percentual ?? this.state.discountPct ?? t.pct) || 0;
-    const appliedItems = itens.map((item) => ({
-      ...item,
-      preco_desconto: item.preco_bruto * (1 - appliedPct / 100),
-    }));
+    const appliedItems = itens.map((item) => {
+      const produto = PRODUTO_INDEX[item.codigo];
+      const precoBruto = Number(produto?.preco) || 0;
+      return {
+        ...item,
+        preco_bruto: precoBruto,
+        preco_desconto: precoBruto * (1 - appliedPct / 100),
+      };
+    });
     const serverTotals = res.totais || {};
 
     // Persiste o pedido enviado para o comprador visualizar depois
@@ -2471,18 +2479,9 @@ const app = {
     const opt = sel.options[sel.selectedIndex];
     const codigo = sel.value;
     const nome = opt.dataset.nome;
-    const precoBruto = parseFloat(opt.dataset.preco);
-    const cat = opt.dataset.cat;
-    const pct = this.state.discountPct || 0;
-    const precoDesconto = pct > 0 ? precoBruto * (1 - pct / 100) : precoBruto;
-
     const r = await this.api(`pedidos/${pedidoId}/itens`, "PUT", {
       codigo,
-      nome,
       quantidade: qty,
-      preco_bruto: precoBruto,
-      preco_desconto: precoDesconto,
-      categoria: cat,
     });
 
     document.getElementById("confirmModalWrap").innerHTML = "";
@@ -2816,6 +2815,12 @@ const app = {
   },
 
   /* ----------------- LocalStorage ----------------- */
+  storageKey(key) {
+    const identity = this.state.user.phone || this.state.user.email || this.state.user.name || "anonymous";
+    const safeIdentity = encodeURIComponent(String(identity).trim().toLowerCase());
+    return `cc:${safeIdentity}:${key}`;
+  },
+
   /* ----------------- Pagamentos ----------------- */
   async renderPagamentos() {
     const c = document.getElementById("adminContent");
@@ -3081,16 +3086,16 @@ const app = {
   },
 
   saveLocal() {
-    localStorage.setItem("cart", JSON.stringify(this.state.cart));
-    localStorage.setItem("discountPct", String(this.state.discountPct || 0));
-    localStorage.setItem("lastOrder", JSON.stringify(this.state.lastOrder || null));
+    localStorage.setItem(this.storageKey("cart"), JSON.stringify(this.state.cart));
+    localStorage.setItem(this.storageKey("discountPct"), String(this.state.discountPct || 0));
+    localStorage.setItem(this.storageKey("lastOrder"), JSON.stringify(this.state.lastOrder || null));
   },
   loadLocal() {
     try {
-      const c = localStorage.getItem("cart");
-      const d = localStorage.getItem("discountPct");
+      const c = localStorage.getItem(this.storageKey("cart"));
+      const d = localStorage.getItem(this.storageKey("discountPct"));
       const theme = localStorage.getItem("theme");
-      const lo = localStorage.getItem("lastOrder");
+      const lo = localStorage.getItem(this.storageKey("lastOrder"));
       if (c) this.state.cart = JSON.parse(c);
       if (d) this.state.discountPct = parseFloat(d) || 0;
       if (theme === "dark" || theme === "light") this.state.theme = theme;
