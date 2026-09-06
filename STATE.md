@@ -661,3 +661,22 @@ Para melhorar UX, categorias semelhantes foram agrupadas:
 - Validação pós-cutover: schema destino retornando `31` pedidos, `143` itens, `31` pagamentos e `247` produtos; origem preservada com as mesmas contagens.
 - Smoke no ar: health `200`; progresso público para o ciclo ativo retornando `total_final=8148.66` e `48%`; ciclo histórico também conferido.
 - Funções Node sensíveis publicadas em `gru1`; `api/db` permanece Edge global, executando próximo do usuário, enquanto o banco está em São Paulo.
+
+## Atualização 06/09/2026 — auditoria de performance e segurança (rodada 1)
+
+**Status:** implementada, publicada e validada em produção.
+
+- Auditoria independente identificou que o polling público de `desconto-progresso` podia executar auto-healing com transação, lock global e reprecificação de todo o ciclo.
+- O GET agora é estritamente somente leitura; reprecificação continua restrita às mutações transacionais.
+- Consultas de ciclo histórico exigem sessão administrativa; o ciclo ativo continua público e agregado.
+- Health e listagem de tabelas passaram a respeitar `POSTGRES_SCHEMA` configurado.
+- Gates: 124 testes aprovados, `git diff --check` e sintaxe validados.
+- Produção: health `200`, progresso ativo `200`, ciclo histórico sem sessão `401`, deployment `READY`.
+- Commit: `d435ac0`.
+
+### Backlog priorizado da auditoria
+
+- **P0:** validar preço/código no endpoint admin de inclusão de item; hoje o navegador ainda envia valores de preço que devem ser recalculados pelo catálogo.
+- **P1:** corrigir preços exibidos no `lastOrder` imediatamente após finalizar pedido.
+- **P1:** isolar chaves de `localStorage` por comprador/sessão.
+- **P1:** medir `EXPLAIN ANALYZE` e criar índices compostos conforme plano real antes de otimizar queries.
