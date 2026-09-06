@@ -3011,7 +3011,11 @@ const app = {
       c.innerHTML = `<div class="card"><div class="empty-state">${icon("user")}<h3>Faça login para ver seu histórico</h3><p>Entre com seu nome, telefone e PIN para visualizar suas compras anteriores.</p><button class="btn btn-primary" onclick="app.showRegistrationModal(false,'login')">Entrar</button></div></div>`;
       return;
     }
-    c.innerHTML = `<div class="card"><div class="empty-state">${icon("refresh")}<h3>Carregando histórico...</h3></div></div>`;
+    // SECTION: Stale-while-revalidate — render cached view instantly, refresh in background
+    const cacheKey = `historico:${forcedUsuario ? "admin" : "buyer"}:${usuario}`;
+    this._htmlCache = this._htmlCache || {};
+    const cached = this._htmlCache[cacheKey];
+    c.innerHTML = cached || `<div class="card"><div class="empty-state">${icon("refresh")}<h3>Carregando histórico...</h3></div></div>`;
     const params = new URLSearchParams();
     if (forcedUsuario) {
       params.set("usuario", usuario);
@@ -3030,6 +3034,7 @@ const app = {
       : `<div class="card" style="margin-bottom:14px"><div style="padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><strong>Olá, ${fmt.escape(usuario.split(" ")[0])}</strong><br><small style="color:var(--c-text-muted)">${pedidos.length} pedido(s) no histórico</small></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.showEditProfileModal()">${icon("user")||'👤'} Meus dados</button><button class="btn btn-ghost btn-sm" onclick="app.logoutUser()">Sair da conta</button></div></div></div>`;
     if (!pedidos.length) {
       c.innerHTML = header + `<div class="card"><div class="empty-state">${icon("receipt")}<h3>Nenhum pedido encontrado</h3><p>Assim que você finalizar um pedido, ele aparecerá aqui.</p></div></div>`;
+      this._htmlCache[cacheKey] = c.innerHTML;
       return;
     }
     const blocks = pedidos.map((p) => {
@@ -3072,6 +3077,7 @@ const app = {
         </div>`;
     }).join("");
     c.innerHTML = header + blocks;
+    this._htmlCache[cacheKey] = c.innerHTML;
   },
 
   saveLocal() {
