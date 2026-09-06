@@ -605,7 +605,11 @@ async function getClient() {
   }
   const client = createClient({ connectionString });
   await client.connect();
-  await client.query('SET search_path TO compras_coletivas');
+  const schema = process.env.POSTGRES_SCHEMA || 'compras_coletivas';
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(schema)) {
+    throw new Error('Invalid POSTGRES_SCHEMA');
+  }
+  await client.query(`SET search_path TO "${schema}"`);
   return client;
 }
 
