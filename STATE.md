@@ -680,3 +680,15 @@ Para melhorar UX, categorias semelhantes foram agrupadas:
 - **P1:** corrigir preços exibidos no `lastOrder` imediatamente após finalizar pedido.
 - **P1:** isolar chaves de `localStorage` por comprador/sessão.
 - **P1:** medir `EXPLAIN ANALYZE` e criar índices compostos conforme plano real antes de otimizar queries.
+
+## Atualização 06/09/2026 — auditoria de performance e segurança (rodada 2)
+
+**Status:** implementada, publicada e validada em produção.
+
+- Inclusão de item pelo admin agora aceita somente código e quantidade; preço, nome e categoria são buscados e validados no catálogo server-side.
+- Quantidades inválidas ou acima de 99 são rejeitadas também quando somadas a um item existente.
+- `lastOrder` agora recebe o preço canônico do catálogo, evitando valores zerados logo após o envio.
+- Carrinho, desconto e último pedido foram isolados por comprador no `localStorage`; logout limpa os dados locais do comprador atual.
+- Gates: 125 testes aprovados, sintaxe e `git diff --check` validados.
+- Smoke no ar: health `200`, progresso ativo `200`, histórico sem sessão `401`, deployment `READY`.
+- Commit: `d815a9d`.
