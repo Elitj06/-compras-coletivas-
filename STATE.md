@@ -627,3 +627,33 @@ Para melhorar UX, categorias semelhantes foram agrupadas:
 - A barra agora mantém a próxima meta e o progresso coerentes quando o pricing retém uma faixa superior; abaixo de R$ 8.000 líquidos, `maximo_alcancado` permanece falso.
 - O retorno de criação de pedido passou a informar o percentual efetivamente aplicado, evitando divergência no pedido salvo localmente.
 - Testes: 121 aprovados; build/deploy de produção validado e endpoint público respondendo com o novo contrato.
+
+## Atualização 06/09/2026 — revisão de performance e diagnóstico de região
+
+**Status:** publicado e validado em produção.
+
+- Diagnóstico confirmado: banco do app em Supabase `aws-0-us-west-2` (Oregon,
+  EUA) — projeto `vpmfuhvgnbqovclwaudz`, pooler `aws-0-us-west-2.pooler.supabase.com`.
+  `/api/db/health` em produção levando ~2,2s (função Vercel nos EUA + DB nos EUA,
+  duplo travessia). Causa raiz da lentidão de abas/carregamento, mesmo padrão do
+  fitflow antes da migração para sa-east-1.
+- Banco contém 247 produtos e 31 pedidos; nenhum dado foi alterado.
+- Melhoria publicada (segura): stale-while-revalidate no histórico — ao trocar de
+  aba, a última visão renderizada aparece instantaneamente e os dados frescos
+  substituem ao concluir. Testes locais 124 aprovados, `vercel build` OK.
+- Commit `c8fe8a2` publicado; deployment `dpl_4fgSo6MUJAu4FMvJPez14Pb3agGs` READY.
+- Pendente aprovação do Eliandro: migrar banco Supabase us-west-2 → sa-east-1
+  (com dump/restore e validação) e fixar região das funções Vercel em gru1.
+
+## Atualização 06/09/2026 — checkpoint e migração aditiva para sa-east-1
+
+**Status:** banco preparado e validado; troca de produção bloqueada apenas por atualização das variáveis do Vercel.
+
+- Checkpoint Git local: tag `rollback/2026-09-06-before-sa-east-1` apontando para `c8fe8a2`.
+- Backup lógico da origem criado e validado com `pg_restore --list`.
+- Origem preservada em Supabase `us-west-2`; nenhum registro alterado ou removido.
+- Como o projeto FitFlow já possui Supabase em `sa-east-1`, foi criado de forma aditiva o schema isolado `compras_coletivas_20260906`, sem tocar no schema existente `compras_coletivas`.
+- Validação origem → destino: categorias 76/76, produtos 247/247, compradores 39/39, ciclos 2/2, configurações 4/4, descontos 1/1, faixas 3/3, pedidos 31/31, itens 143/143, pagamentos 31/31, sessões/auditoria preservadas com contagens idênticas.
+- Rollback do banco: manter a origem ativa ou remover apenas o schema novo `compras_coletivas_20260906`; o dump permanece em `backups/2026-09-06-c8fe8a2/`.
+- `vercel.json` preparado para executar funções em `gru1`, mas **não deve ser publicado antes de atualizar POSTGRES_URL/DATABASE_URL** para o pooler sa-east-1 com `search_path=compras_coletivas_20260906`.
+- Bloqueio operacional atual: esta sessão não tem credencial Vercel conectada para alterar variáveis de produção. Nenhum deploy foi disparado para evitar apontar `gru1` para o banco antigo e piorar a latência.

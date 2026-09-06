@@ -1,6 +1,7 @@
 {
   "buildCommand": "",
   "outputDirectory": "public",
+  "regions": ["gru1"],
   "rewrites": [
     { "source": "/api/db/:path*", "destination": "/api/db" },
     { "source": "/api/(.*)", "destination": "/api/$1" }
