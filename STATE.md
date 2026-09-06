@@ -692,3 +692,13 @@ Para melhorar UX, categorias semelhantes foram agrupadas:
 - Gates: 125 testes aprovados, sintaxe e `git diff --check` validados.
 - Smoke no ar: health `200`, progresso ativo `200`, histórico sem sessão `401`, deployment `READY`.
 - Commit: `d815a9d`.
+
+## Atualização 06/09/2026 — índices e benchmark SQL
+
+**Status:** migração aplicada e validada nos bancos ativo e de rollback.
+
+- `EXPLAIN (ANALYZE, BUFFERS)` medido no schema brasileiro para painel, consolidação e progresso.
+- Com 31 pedidos, o PostgreSQL escolhe corretamente `Seq Scan`: leituras de aproximadamente `0,07–0,64 ms`; forçar índice seria pior neste volume.
+- Criados índices parciais para ciclo ativo e para histórico por comprador/data, preparados para crescimento sem alterar dados.
+- A mesma migração foi aplicada na origem preservada para manter o rollback equivalente.
+- SQL versionado em `sql/10_performance_indexes.sql`.
