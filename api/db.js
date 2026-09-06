@@ -381,36 +381,9 @@ async function getDiscountProgress(client, cycleId = null) {
     totalResult.rows[0]?.percentual_aplicado,
   );
 
-  // SECTION: Auto-healing de pricing — somente no ciclo ativo e quando a
-  // faixa exibida diverge do percentual efetivamente gravado nos itens.
-  // A operação é transacional, protegida por advisory lock e não altera
-  // quantidade, produto, pedido ou pagamento.
-  const appliedPercentual = totalResult.rows[0]?.percentual_aplicado;
-  const totalFinal = Number(totalResult.rows[0]?.total_final) || 0;
-  // NOTE: Compara contra o percentual aplicado (resolveDiscountTier, com
-  // retenção) — não contra o percentual visual (selectDiscountTier).  A
-  // barra pode mostrar 44% visualmente enquanto o pricing retém 48%.
-  const hasPricingMismatch = totalFinal > 0 && (
-    appliedPercentual === null ||
-    Number(appliedPercentual) !== Number(progress.percentual_aplicado)
-  );
-  if (!cycleId && cycle?.ativo && hasPricingMismatch) {
-    await client.query('BEGIN');
-    try {
-      await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
-      const repairedProgress = await repriceCycleOrders(client, cycle.id);
-      await client.query('COMMIT');
-      return {
-        ciclo_id: cycle.id,
-        ciclo_nome: cycle.nome,
-        ...repairedProgress,
-      };
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    }
-  }
-
+  // SECTION: GET estritamente somente leitura.
+  // Reprecificação ocorre nas mutações transacionais; polling público não
+  // pode adquirir lock global nem atualizar todos os pedidos do ciclo.
   return {
     ciclo_id: cycle?.id || null,
     ciclo_nome: cycle?.nome || null,
@@ -681,7 +654,8 @@ export default async function handler(req) {
     if (req.method === 'GET') {
 
       if (path === '' || path === 'health') {
-        const result = await client.query("SELECT COUNT(*) as tabelas FROM information_schema.tables WHERE table_schema = 'compras_coletivas'");
+        const schema = process.env.POSTGRES_SCHEMA || 'compras_coletivas';
+        const result = await client.query('SELECT COUNT(*) as tabelas FROM information_schema.tables WHERE table_schema = $1', [schema]);
         await client.end();
         return json({
           success: true,
@@ -696,7 +670,8 @@ export default async function handler(req) {
           await client.end();
           return unauthorized();
         }
-        const rows = await client.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'compras_coletivas' ORDER BY table_name");
+        const schema = process.env.POSTGRES_SCHEMA || 'compras_coletivas';
+        const rows = await client.query('SELECT table_name FROM information_schema.tables WHERE table_schema = $1 ORDER BY table_name', [schema]);
         await client.end();
         return json({ success: true, data: rows.rows });
       }
@@ -823,6 +798,10 @@ export default async function handler(req) {
       // Progresso coletivo: agregado público, sem dados pessoais ou de pedidos.
       if (path === 'desconto-progresso') {
         const cicloParam = url.searchParams.get('ciclo_id');
+        if (cicloParam && !adminSession) {
+          await client.end();
+          return unauthorized();
+        }
         const cicloId = cicloParam ? Number.parseInt(cicloParam, 10) : null;
         const progress = await getDiscountProgress(client, cicloId);
         await client.end();
