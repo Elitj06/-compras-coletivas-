@@ -702,3 +702,24 @@ Para melhorar UX, categorias semelhantes foram agrupadas:
 - Criados índices parciais para ciclo ativo e para histórico por comprador/data, preparados para crescimento sem alterar dados.
 - A mesma migração foi aplicada na origem preservada para manter o rollback equivalente.
 - SQL versionado em `sql/10_performance_indexes.sql`.
+
+## Atualização — 2026-10-02 — catálogo de outubro
+
+- **Status:** catálogo publicado em produção; schema canônico `compras_coletivas_20260906`. PR #1 mergeado no commit `1d8ed8e49a178f2b90f5c0003e71d344f8d57ae8`; alias `https://compras-coletivas-phi.vercel.app`.
+- Planilha de outubro importada: 216 códigos únicos; código/nome/preço/embalagem comparados campo a campo (216/216). `scripts/atualizar_catalogo.py` agora lê o layout `TABELA COMPLETA SEM FOTO` + `VITAPOWER.` e preserva imagens existentes por código.
+- Migração transacional `sql/11_catalogo_outubro_2026.sql` aplicada: 216 produtos atualizados, 19 códigos antigos inativados sem excluir linhas, pedidos ou itens. Pós-validação read-only: 247 produtos totais, 223 ativos, 19 registros antigos inativos; pedidos/itens preservados (31/143).
+- Sete outros produtos permanecem ativos no banco apesar de ausentes do catálogo público antigo; ficaram fora da autorização específica. Um, `WFT1800BA`, possui 1 linha histórica. Confirmar com Eliandro se deseja inativá-los também.
+- Evidência: `npm test` 125 aprovados; `vercel build --prod` concluído; produção home/CSS/catalog/health 200, catálogo 216, endpoint protegido sem sessão 401.
+- Rollback: snapshot pré-migração local `backups/catalog-2026-10-02/pre-image.json` (modo 0600, 235 produtos); o SQL é one-shot e não deve ser repetido.
+- Obsidian: página-raiz do projeto enviada ao vault Obsidian compartilhado pelo sincronizador isolado; nota movida à fila de entregues e SHA-256 conferido no destino.
+
+
+## Atualização — 2026-10-02 — sete itens indisponíveis
+
+- Solicitação de Eliandro: manter WFT1800BA, EF20, PA600, CLB30AH, ISP240, DR150 e WFT1800CH no catálogo, com aviso “Indisponível” e traço vermelho sobre a foto; impedir novas compras sem apagar histórico.
+- Conferência da planilha completa de outubro/2026 (todas as abas): nenhum dos sete códigos aparece como linha de produto e nenhuma coluna/célula os marca explicitamente como “descontinuados”. A ausência não comprova descontinuação.
+- Dados e fotos recuperados em leitura do schema do banco e arquivados em data/produtos-indisponiveis.json e public/images/unavailable-products/; gerador preserva os sete em execuções futuras do catálogo.
+- Frontend adiciona badge, risco vermelho diagonal e nota; remove controles de quantidade, e rotula variantes indisponíveis. A API do catálogo já filtra ativo=TRUE, portanto a migração sql/12_mark_products_unavailable.sql desativa apenas estes 7 e verifica preflight/postflight sem tocar pedidos/itens.
+- Pré-imagem restrita em backups/unavailable-products-2026-10-02/pre-image.json (modo 0600).
+- Verificação do schema de produção via env Vercel: 247 produtos/223 ativos; os sete estão ativos; 31 pedidos/143 itens. O schema local default apontava para outra base; não aplicar migração por .env.local isoladamente.
+- Testes atuais: 128 aprovados. Deploy/migração de produção pendentes.

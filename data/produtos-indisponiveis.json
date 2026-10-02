@@ -1,0 +1,72 @@
+[
+  {
+    "codigo": "CLB30AH",
+    "nome": "COLAGENTEK BEAUTY 30 SACHES DE 3,5g ABACAXI COM HORTELA",
+    "preco": 169,
+    "embalagem": 6,
+    "categoria": "colagenos",
+    "categoriaNome": "COLÁGENOS",
+    "imagem": "/images/unavailable-products/CLB30AH.jpg",
+    "disponivel": false
+  },
+  {
+    "codigo": "DR150",
+    "nome": "D RIBOSE POTE 150G",
+    "preco": 148,
+    "embalagem": 12,
+    "categoria": "d_ribose",
+    "categoriaNome": "D-RIBOSE",
+    "imagem": "/images/unavailable-products/DR150.jpg",
+    "disponivel": false
+  },
+  {
+    "codigo": "EF20",
+    "nome": "ESPEFOR 20 SACHES 4g",
+    "preco": 79,
+    "embalagem": 6,
+    "categoria": "espefor",
+    "categoriaNome": "ESPEFOR",
+    "imagem": "/images/unavailable-products/EF20.jpg",
+    "disponivel": false
+  },
+  {
+    "codigo": "ISP240",
+    "nome": "ISOCRISP PLANT  POUCH 240g",
+    "preco": 89,
+    "embalagem": 4,
+    "categoria": "isocrispplant_vegano_prote_nai",
+    "categoriaNome": "ISOCRISPPLANT-VEGANO-PROTEÍNAISOLADADEERVILHACOMFI",
+    "imagem": "/images/unavailable-products/ISP240.jpg",
+    "disponivel": false
+  },
+  {
+    "codigo": "PA600",
+    "nome": "PALATINOSE POUCH 600G",
+    "preco": 120,
+    "embalagem": 6,
+    "categoria": "palatinose_pouch_600g",
+    "categoriaNome": "PALATINOSE POUCH 600g",
+    "imagem": "/images/unavailable-products/PA600.jpg",
+    "disponivel": false
+  },
+  {
+    "codigo": "WFT1800BA",
+    "nome": "WHEY FORT 3W POTE 1800G BAUNILHA",
+    "preco": 589,
+    "embalagem": 4,
+    "categoria": "whey_protein",
+    "categoriaNome": "WHEY PROTEIN",
+    "imagem": "/images/unavailable-products/WFT1800BA.jpg",
+    "disponivel": false
+  },
+  {
+    "codigo": "WFT1800CH",
+    "nome": "WHEY FORT 3W POTE 1800G CHOCOLATE",
+    "preco": 589,
+    "embalagem": 4,
+    "categoria": "whey_protein",
+    "categoriaNome": "WHEY PROTEIN",
+    "imagem": "/images/unavailable-products/WFT1800CH.jpg",
+    "disponivel": false
+  }
+]

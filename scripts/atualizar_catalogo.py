@@ -39,6 +39,7 @@ from openpyxl.utils import get_column_letter
 # ----------------------------------------------------------------------
 ROOT = Path(__file__).resolve().parent.parent
 PRODUTOS_JS = ROOT / "public" / "produtos.js"
+UNAVAILABLE_PRODUCTS_JSON = ROOT / "data" / "produtos-indisponiveis.json"
 HEADER_KEYWORDS_VITA = {"CÓDIGO", "CODIGO"}
 HEADER_KEYWORDS_VPP = {"SKU"}
 PRICE_RE = re.compile(r"R?\$?\s*([\d\.]+,\d{2}|\d+\.\d{2}|\d+)")
@@ -404,7 +405,8 @@ def write_produtos_js(produtos: list[dict], categorias: list[dict]) -> None:
             f'categoria: "{cat}", '
             f'categoriaNome: "{cat_n}", '
             f'imagem: "{img}"'
-            " },"
+            + (', disponivel: false' if p.get("disponivel") is False else "")
+            + " },"
         )
     out.append("];")
     out.append("")
@@ -458,6 +460,15 @@ def main(xlsx_path: str) -> None:
 
     # SECTION: bloqueio permanente de itens descontinuados
     all_products = [p for p in all_products if p["codigo"] not in DISCONTINUED_CODES]
+
+    # SECTION: Preserve products in the catalog while blocking their purchase.
+    if UNAVAILABLE_PRODUCTS_JSON.exists():
+        unavailable = json.loads(UNAVAILABLE_PRODUCTS_JSON.read_text(encoding="utf-8"))
+        merged = {p["codigo"]: p for p in all_products}
+        for product in unavailable:
+            if product.get("disponivel") is False:
+                merged[product["codigo"]] = product
+        all_products = list(merged.values())
 
     # Mescla com produtos.js antigo
     legacy = load_existing_produtos()
