@@ -1983,7 +1983,7 @@ const app = {
           </div>
           <div class="modal-footer" style="display:flex;gap:10px;">
             <button class="btn btn-ghost" onclick="document.getElementById('adminLoginModal').remove()">Cancelar</button>
-            <button class="btn btn-primary" style="flex:1" onclick="app.loginAdmin()">Entrar</button>
+            <button id="adminLoginSubmit" class="btn btn-primary" style="flex:1" onclick="app.loginAdmin()">Entrar</button>
           </div>
         </div>
       </div>`;
@@ -2006,33 +2006,47 @@ const app = {
       this.toast("Digite a senha", "error");
       return;
     }
-    const res = await this.api("admin/login", "POST", { senha: pwd });
-    if (res && res.success) {
-      this.state.isAdminLoggedIn = true;
-      const adminBuyer = res?.comprador || res?.data?.comprador;
-      if (adminBuyer) {
-        this._saveUserSession(
-          adminBuyer.nome,
-          adminBuyer.telefone || "",
-          adminBuyer.email || "",
-          "",
-          { refreshHistory: false },
-        );
+
+    const submitButton = document.getElementById("adminLoginSubmit");
+    return this.runAuthSubmission(submitButton, "Entrando...", async () => {
+      const res = await this.api("admin/login", "POST", { senha: pwd });
+      if (res?.success) {
+        this.state.isAdminLoggedIn = true;
+        const adminBuyer = res?.comprador || res?.data?.comprador;
+        if (adminBuyer) {
+          this._saveUserSession(
+            adminBuyer.nome,
+            adminBuyer.telefone || "",
+            adminBuyer.email || "",
+            "",
+            { refreshHistory: false },
+          );
+        }
+        const tabAdmin = document.getElementById("tabAdmin");
+        if (tabAdmin) tabAdmin.hidden = false;
+        document
+          .getElementById("adminLoginSection")
+          ?.classList.add("hidden");
+        document.getElementById("adminContent")?.classList.remove("hidden");
+        document.getElementById("adminLoginModal")?.remove();
+        document.getElementById("registrationModal")?.remove();
+        this.switchTab("admin");
+        this.saveLocal();
+        this.toast("Acesso liberado", "success");
+        return;
       }
-      const tabAdmin = document.getElementById("tabAdmin");
-      if (tabAdmin) tabAdmin.hidden = false;
-      document
-        .getElementById("adminLoginSection")
-        ?.classList.add("hidden");
-      document.getElementById("adminContent")?.classList.remove("hidden");
-      document.getElementById("adminLoginModal")?.remove();
-      document.getElementById("registrationModal")?.remove();
-      this.switchTab("admin");
-      this.saveLocal();
-      this.toast("Acesso liberado", "success");
-    } else {
-      this.toast("Senha incorreta", "error");
-    }
+
+      if (res?.code === "ADMIN_LOGIN_RATE_LIMITED") {
+        const retryMinutes = Math.max(1, Math.ceil(Number(res.retryAfterSeconds || 0) / 60));
+        this.toast("Muitas tentativas. Aguarde " + retryMinutes + " min antes de tentar novamente.", "error");
+      } else if (res?.code === "AUTH_RATE_LIMIT_UNAVAILABLE") {
+        this.toast("Login temporariamente indisponível. Tente novamente mais tarde.", "error");
+      } else if (!res) {
+        this.toast("Não foi possível contatar o servidor. Verifique sua conexão e tente novamente.", "error");
+      } else {
+        this.toast(res.error || "Senha incorreta", "error");
+      }
+    });
   },
 
   async renderAdmin() {

@@ -194,14 +194,21 @@ export async function incrementRateLimit(client, bucket) {
      ), upserted AS (
        INSERT INTO pin_recovery_rate_limits (
          scope, bucket_hash, window_started_at, request_count, expires_at
-       ) VALUES (
-         $1, $2, $3::timestamptz, 1,
-         $3::timestamptz + ($4::text || ' seconds')::interval
        )
+       SELECT $1, $2, $3::timestamptz, 1,
+         $3::timestamptz + ($4::text || ' seconds')::interval
+       FROM active
+       WHERE active.blocked_until IS NULL
        ON CONFLICT (scope, bucket_hash, window_started_at)
        DO UPDATE SET
-         request_count = pin_recovery_rate_limits.request_count + 1,
+         request_count = CASE
+           WHEN pin_recovery_rate_limits.blocked_until > NOW()
+           THEN pin_recovery_rate_limits.request_count
+           ELSE pin_recovery_rate_limits.request_count + 1
+         END,
          blocked_until = CASE
+           WHEN pin_recovery_rate_limits.blocked_until > NOW()
+           THEN pin_recovery_rate_limits.blocked_until
            WHEN pin_recovery_rate_limits.request_count + 1 > $5::int
            THEN GREATEST(
              COALESCE(pin_recovery_rate_limits.blocked_until, NOW()),
@@ -210,8 +217,9 @@ export async function incrementRateLimit(client, bucket) {
          updated_at = NOW()
        RETURNING request_count, blocked_until
      )
-     SELECT u.request_count, GREATEST(u.blocked_until, a.blocked_until) AS blocked_until
-     FROM upserted u CROSS JOIN active a`,
+     SELECT COALESCE(u.request_count, 0) AS request_count,
+       GREATEST(u.blocked_until, a.blocked_until) AS blocked_until
+     FROM active a LEFT JOIN upserted u ON TRUE`,
     [
       bucket.scope,
       bucket.bucketHash,

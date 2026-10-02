@@ -98,6 +98,87 @@ test('excecao de rede no cadastro nunca deixa a acao inerte', async () => {
   }]);
 });
 
+test('login admin informa duracao do bloqueio e protege contra envio duplicado', async () => {
+  const { app, elements } = loadApp();
+  elements.set('adminLoginPwd', { value: 'senha-de-teste' });
+  const attributes = new Map();
+  const button = {
+    disabled: false,
+    isConnected: true,
+    textContent: 'Entrar',
+    setAttribute: (name, value) => attributes.set(name, value),
+    removeAttribute: (name) => attributes.delete(name),
+  };
+  elements.set('adminLoginSubmit', button);
+  const toasts = [];
+  let requestCount = 0;
+  let releaseRequest;
+  app.api = () => {
+    requestCount += 1;
+    return new Promise((resolve) => { releaseRequest = resolve; });
+  };
+  app.toast = (message, kind) => toasts.push({ message, kind });
+
+  const firstAttempt = app.loginAdmin();
+  assert.equal(button.disabled, true);
+  await app.loginAdmin();
+  assert.equal(requestCount, 1);
+  releaseRequest({ success: false, code: 'ADMIN_LOGIN_RATE_LIMITED', retryAfterSeconds: 61 });
+  await firstAttempt;
+
+  assert.deepEqual(toasts, [{ message: 'Muitas tentativas. Aguarde 2 min antes de tentar novamente.', kind: 'error' }]);
+  assert.equal(button.disabled, false);
+  assert.equal(button.textContent, 'Entrar');
+  assert.equal(attributes.has('aria-busy'), false);
+});
+
+test('login admin diferencia limite de rate limit indisponivel e senha incorreta', async () => {
+  const { app, elements } = loadApp();
+  elements.set('adminLoginPwd', { value: 'senha-de-teste' });
+  const toasts = [];
+  app.runAuthSubmission = async (_button, _label, operation) => operation();
+  app.toast = (message, kind) => toasts.push({ message, kind });
+
+  app.api = async () => ({ success: false, code: 'AUTH_RATE_LIMIT_UNAVAILABLE' });
+  await app.loginAdmin();
+  app.api = async () => ({ success: false, error: 'Senha incorreta' });
+  await app.loginAdmin();
+
+  assert.deepEqual(toasts, [
+    { message: 'Login temporariamente indisponível. Tente novamente mais tarde.', kind: 'error' },
+    { message: 'Senha incorreta', kind: 'error' },
+  ]);
+});
+
+test('login admin bem-sucedido libera a aba e limpa os modais', async () => {
+  const { app, elements } = loadApp();
+  elements.set('adminLoginPwd', { value: 'senha-de-teste' });
+  const tab = { hidden: true };
+  const adminLoginSection = { classList: { add: () => { adminLoginSection.hidden = true; } } };
+  const adminContent = { classList: { remove: () => { adminContent.hidden = false; } } };
+  elements.set('tabAdmin', tab);
+  elements.set('adminLoginSection', adminLoginSection);
+  elements.set('adminContent', adminContent);
+  const removed = [];
+  elements.set('adminLoginModal', { remove: () => removed.push('admin') });
+  elements.set('registrationModal', { remove: () => removed.push('registration') });
+  app.api = async () => ({ success: true });
+  app.switchTab = (name) => { app.selectedTab = name; };
+  app.saveLocal = () => {};
+  const toasts = [];
+  app.toast = (message, kind) => toasts.push({ message, kind });
+
+  await app.loginAdmin();
+
+  assert.equal(app.state.isAdminLoggedIn, true);
+  assert.equal(tab.hidden, false);
+  assert.equal(adminLoginSection.hidden, true);
+  assert.equal(adminContent.hidden, false);
+  assert.deepEqual(removed, ['admin', 'registration']);
+  assert.equal(app.selectedTab, 'admin');
+  assert.deepEqual(toasts, [{ message: 'Acesso liberado', kind: 'success' }]);
+});
+
 test('login administrativo restaura também o comprador vinculado', () => {
   assert.match(source, /this\.api\("admin\/session"\)/);
   assert.match(source, /adminSession\.data\?\.comprador/);

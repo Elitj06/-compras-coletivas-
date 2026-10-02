@@ -32,6 +32,7 @@ import {
 import { buildDiscountProgress, normalizeDiscountTiers, resolveDiscountTier } from '../server/services/discount-progress-service.js';
 import { priceItems, validateOrderItems } from '../server/services/order-pricing-service.js';
 import { consumeAuthRateLimit } from '../server/services/auth-rate-limit-service.js';
+import { hashRateLimitKey } from '../server/lib/rate-limit.js';
 import {
   appendCookies,
   constantTimeEqual,
@@ -219,11 +220,31 @@ async function consumeAdminLoginLimit(client, req) {
     : (req.headers.get('x-test-client-ip') || req.headers.get('x-forwarded-for') || process.env.DEV_TRUSTED_CLIENT_IP || '127.0.0.1');
   if (!isCanonicalIp(value)) return { configured: false };
   const trusted = new Request(req.url, { headers: { 'x-forwarded-for': value } });
+  const ipBucketHash = await hashRateLimitKey(secret, 'admin_login_ip', value);
+  const globalBucketHash = await hashRateLimitKey(secret, 'admin_login_global', 'global');
   await client.query('BEGIN');
   try {
+    await client.query(
+      'SELECT pg_advisory_xact_lock(hashtext($1::text), hashtext($2::text))',
+      ['admin_login_ip', ipBucketHash]
+    );
     const ip = await consumeAuthRateLimit(client, trusted, {
       scope: 'admin_login_ip', key: 'ip', limit: 5, windowSeconds: 900, blockSeconds: 1800,
     }, process.env);
+    if (!ip.configured || ip.blocked) {
+      await client.query('COMMIT');
+      const until = ip.blockedUntil ? new Date(ip.blockedUntil).getTime() : 0;
+      return {
+        configured: ip.configured,
+        blocked: Boolean(ip.blocked),
+        retryAfter: until ? Math.max(1, Math.ceil((until - Date.now()) / 1000)) : 0,
+      };
+    }
+
+    await client.query(
+      'SELECT pg_advisory_xact_lock(hashtext($1::text), hashtext($2::text))',
+      ['admin_login_global', globalBucketHash]
+    );
     const global = await consumeAuthRateLimit(client, trusted, {
       scope: 'admin_login_global', key: 'global', limit: 60, windowSeconds: 60, blockSeconds: 60,
     }, process.env);
@@ -1254,7 +1275,7 @@ export default async function handler(req) {
         }
         if (limit.blocked) {
           await client.end();
-          const response = json({ success: false, code: 'ADMIN_LOGIN_RATE_LIMITED', error: 'Credenciais inválidas' }, 429);
+          const response = json({ success: false, code: 'ADMIN_LOGIN_RATE_LIMITED', error: 'Credenciais inválidas', retryAfterSeconds: limit.retryAfter }, 429);
           response.headers.set('Retry-After', String(limit.retryAfter));
           return response;
         }

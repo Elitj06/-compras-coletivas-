@@ -725,4 +725,12 @@ Para melhorar UX, categorias semelhantes foram agrupadas:
 - Testes: 128 aprovados; build de produção concluído. PR #2 integrado em 7bbc7958ebc90b3750dd67be4c77a03b5a4eae73; deployment READY https://compras-coletivas-bq9mu4j97-eliandro-tjader.vercel.app com aliases de produção. Preview e produção serviram 223 produtos e todas as sete fotos; JS/CSS incluem badge/traço. Health 200.
 - Migração SQL 12 aplicada no schema de produção compras_coletivas_20260906: 7 produtos inativos; contagem 247 totais/216 ativos, pedidos 31 e itens 143 preservados.
 - Preço na planilha outubro: estes códigos não aparecem e não estão explicitamente identificados como descontinuados. Nenhum pedido/linha foi alterado.
-- Release SemVer 5.3.0 e GitHub Release ainda pendentes de fechamento.
+- Release SemVer v5.3.0 publicada em https://github.com/Elitj06/-compras-coletivas-/releases/tag/v5.3.0, tag no SHA final de produção a06d0344be9b0084d191e8daa144ce5ad466ff77.
+
+## Atualização — 2026-10-02 — confiabilidade do login administrativo
+
+- Investigação read-only: o frontend exibia “Senha incorreta” para qualquer falha (incluindo HTTP 429/503/rede); assim, um lockout parecia erro de credencial. O contador de rate limit continuava incrementando e estendia a expiração a cada tentativa já bloqueada, incentivando o ciclo de novas tentativas.
+- Correção: lockout existente não é incrementado/renovado; IP bloqueado/indisponível deixa de consumir o bucket global. Locks advisory transacionais por hash HMAC de IP/global serializam requests inclusive nas transições de janela. UI impede submits duplicados, exibe o tempo de espera e separa senha inválida, rate limit indisponível e falha de rede. Nenhuma tabela de negócio, sessão ativa, senha, pedido ou item foi alterado; nenhuma migração SQL foi executada.
+- Gates finais: 132 testes passaram, `node --check` passou nos arquivos alterados e `vercel build --prod` concluiu; integração PostgreSQL concorrente não executada por falta de banco descartável.
+- Revisão independente: Opus indisponível por billing; fallback GPT-6 Luna revisou o diff, detectou e ajudou a fechar corrida concorrente. Revisão final confirma locks advisory transacionais por HMAC do IP/global, ordem fixa sem ciclo de deadlock e SQL com tipos explícitos; colisão de hash pode causar contenção extra, sem misturar buckets. Nenhum bug crítico identificado. Teste de concorrência PostgreSQL permanece ausente por falta de banco descartável.
+- Release de produção v5.3.1 ainda pendente: aguardar a revisão, executar gates finais, enviar ao GitHub/Vercel e verificar endpoint protegido/smokes no alias canônico.
