@@ -239,6 +239,56 @@ def extract_products(ws, header_keywords) -> list[dict]:
     return produtos
 
 
+def extract_current_full_table(ws) -> list[dict]:
+    """Extrai a tabela outubro/2026: categoria, código, nome, embalagem e preço."""
+    produtos = []
+    last_category = ""
+    for row in range(1, ws.max_row + 1):
+        category = cell_str(ws, row, 2)
+        code = cell_str(ws, row, 3).replace(" ", "")
+        if category and category == category.upper() and not CODE_RE.match(category):
+            if not any(word in category.upper() for word in ("CATEGORIA", "TOTAL", "DESCONTO", "PREÇO", "EMBALAGEM")):
+                last_category = category.strip()
+        if not CODE_RE.fullmatch(code):
+            continue
+        name = cell_str(ws, row, 4)
+        price = parse_price(ws.cell(row=row, column=9).value)
+        if not name or price is None or price <= 0:
+            continue
+        category_name = last_category or "OUTROS"
+        produtos.append({
+            "row": row, "codigo": code, "nome": name.strip(), "preco": price,
+            "embalagem": parse_int(ws.cell(row=row, column=7).value) or 1,
+            "categoriaNome": category_name, "categoria": slugify(category_name), "imagem": "",
+        })
+    return produtos
+
+
+def extract_current_vitapower(ws) -> list[dict]:
+    """Extrai os produtos da aba Vitapower outubro/2026."""
+    produtos = []
+    last_category = ""
+    for row in range(1, ws.max_row + 1):
+        code = cell_str(ws, row, 2).replace(" ", "")
+        category = cell_str(ws, row, 2)
+        if category and category == category.upper() and not CODE_RE.match(category):
+            if not any(word in category.upper() for word in ("SKU", "TOTAL", "DESCONTO", "PREÇO", "EMBARQUE")):
+                last_category = category.strip()
+        if not CODE_RE.fullmatch(code):
+            continue
+        name = cell_str(ws, row, 3)
+        price = parse_price(ws.cell(row=row, column=5).value)
+        if not name or price is None or price <= 0:
+            continue
+        category_name = last_category or "VITAPOWER"
+        produtos.append({
+            "row": row, "codigo": code, "nome": name.strip(), "preco": price,
+            "embalagem": parse_int(ws.cell(row=row, column=4).value) or 1,
+            "categoriaNome": category_name, "categoria": slugify(category_name), "imagem": "",
+        })
+    return produtos
+
+
 # ----------------------------------------------------------------------
 # Extração de imagens
 # ----------------------------------------------------------------------
@@ -372,36 +422,39 @@ def main(xlsx_path: str) -> None:
     print(f"→ Carregando {path.name}")
     wb = openpyxl.load_workbook(path, data_only=True)
 
-    sheets = [
-        ("TABELA DE PEDIDO VITAFOR", HEADER_KEYWORDS_VITA),
-        ("TABELA PEDIDO VITAPOWER", HEADER_KEYWORDS_VPP),
-    ]
-
     all_products: list[dict] = []
-    for name, kw in sheets:
-        if name not in wb.sheetnames:
-            print(f"  ⚠ aba '{name}' não encontrada, pulando")
-            continue
-        ws = wb[name]
-        prods = extract_products(ws, kw)
-        imgs = extract_images_by_row(ws)
-        print(f"  • {name}: {len(prods)} produtos, {len(imgs)} imagens")
-
-        # Para cada produto, busca imagem na própria linha ou nas vizinhas.
-        # Em planilhas Vitafor a âncora de imagem cai geralmente 1-3 linhas
-        # acima do número da linha do código (a imagem ocupa várias linhas).
-        used = set()
-        for p in prods:
-            row = p["row"]
-            uri = ""
-            for delta in (0, -1, 1, -2, 2, -3, 3):
-                key = row + delta
-                if key in imgs and key not in used:
-                    uri = imgs[key]
-                    used.add(key)
-                    break
-            p["imagem"] = uri
+    if "TABELA COMPLETA SEM FOTO" in wb.sheetnames:
+        prods = extract_current_full_table(wb["TABELA COMPLETA SEM FOTO"])
+        print(f"  • TABELA COMPLETA SEM FOTO: {len(prods)} produtos")
         all_products.extend(prods)
+        if "VITAPOWER." in wb.sheetnames:
+            prods = extract_current_vitapower(wb["VITAPOWER."])
+            print(f"  • VITAPOWER.: {len(prods)} produtos")
+            all_products.extend(prods)
+    else:
+        sheets = [
+            ("TABELA DE PEDIDO VITAFOR", HEADER_KEYWORDS_VITA),
+            ("TABELA PEDIDO VITAPOWER", HEADER_KEYWORDS_VPP),
+        ]
+        for name, kw in sheets:
+            if name not in wb.sheetnames:
+                print(f"  ⚠ aba '{name}' não encontrada, pulando")
+                continue
+            ws = wb[name]
+            prods = extract_products(ws, kw)
+            imgs = extract_images_by_row(ws)
+            print(f"  • {name}: {len(prods)} produtos, {len(imgs)} imagens")
+            used = set()
+            for p in prods:
+                for delta in (0, -1, 1, -2, 2, -3, 3):
+                    key = p["row"] + delta
+                    if key in imgs and key not in used:
+                        p["imagem"] = imgs[key]
+                        used.add(key)
+                        break
+            all_products.extend(prods)
+
+    all_products = list({p["codigo"]: p for p in all_products}.values())
 
     # SECTION: bloqueio permanente de itens descontinuados
     all_products = [p for p in all_products if p["codigo"] not in DISCONTINUED_CODES]
