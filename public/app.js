@@ -1078,6 +1078,7 @@ const app = {
           : this.renderProductCard(entry.produto)
       )
       .join("");
+    this.decorateUnavailableProducts(grid);
     this.renderPagination(totalPages);
   },
 
@@ -1244,6 +1245,41 @@ const app = {
   pickVariant(grupoId, codigo) {
     this.state.variantSelection[grupoId] = codigo;
     this.renderProducts();
+  },
+
+  // SECTION: Keep unavailable products visible while preventing new cart entries.
+  decorateUnavailableProducts(grid) {
+    const unavailable = new Set(PRODUTOS.filter((p) => p.disponivel === false).map((p) => p.codigo));
+    for (const card of grid.querySelectorAll(".product-card")) {
+      const code = card.querySelector(".product-code")?.textContent.trim();
+      if (!unavailable.has(code)) continue;
+      card.classList.add("product-card-unavailable");
+      const image = card.querySelector(".product-img-wrap");
+      if (image) {
+        image.classList.add("product-img-unavailable");
+        if (!image.querySelector(".product-unavailable-badge")) {
+          const badge = document.createElement("span");
+          badge.className = "product-unavailable-badge";
+          badge.textContent = "Indisponível";
+          const strike = document.createElement("span");
+          strike.className = "product-unavailable-strike";
+          strike.setAttribute("aria-hidden", "true");
+          image.append(badge, strike);
+        }
+      }
+      card.querySelector(".qty-control")?.remove();
+      if (!card.querySelector(".product-unavailable-note")) {
+        const note = document.createElement("div");
+        note.className = "product-unavailable-note";
+        note.textContent = "Produto indisponível para compra";
+        card.querySelector(".product-body")?.append(note);
+      }
+    }
+    for (const option of grid.querySelectorAll("select option")) {
+      if (unavailable.has(option.value) && !option.textContent.includes("Indisponível")) {
+        option.textContent += " — Indisponível";
+      }
+    }
   },
 
   renderPagination(totalPages) {

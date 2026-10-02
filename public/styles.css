@@ -1468,3 +1468,24 @@ svg { width: 18px; height: 18px; flex-shrink: 0; }
     gap: 10px;
   }
 }
+
+
+/* SECTION: Explicit visual state for unavailable products. */
+.product-img-unavailable img { opacity: 0.62; filter: grayscale(0.35); }
+.product-unavailable-badge {
+  position: absolute; top: 10px; right: 10px; z-index: 2;
+  padding: 5px 9px; border-radius: 999px; background: #b42318; color: #fff;
+  font-size: 0.72rem; font-weight: 800; letter-spacing: 0.02em;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
+}
+.product-unavailable-strike {
+  position: absolute; z-index: 1; left: 7%; top: 50%; width: 86%; height: 5px;
+  border-radius: 999px; background: #c62828; transform: rotate(-24deg);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 28%); pointer-events: none;
+}
+.product-unavailable-note {
+  margin-top: auto; padding: 9px 10px; border-radius: var(--radius-sm);
+  background: rgb(180 35 24 / 9%); color: #a11b14;
+  border: 1px solid rgb(180 35 24 / 28%); font-size: 0.8rem; font-weight: 700; text-align: center;
+}
+.product-card-unavailable { border-color: rgb(180 35 24 / 42%); }
