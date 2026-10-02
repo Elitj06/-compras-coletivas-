@@ -722,4 +722,7 @@ Para melhorar UX, categorias semelhantes foram agrupadas:
 - Frontend adiciona badge, risco vermelho diagonal e nota; remove controles de quantidade, e rotula variantes indisponíveis. A API do catálogo já filtra ativo=TRUE, portanto a migração sql/12_mark_products_unavailable.sql desativa apenas estes 7 e verifica preflight/postflight sem tocar pedidos/itens.
 - Pré-imagem restrita em backups/unavailable-products-2026-10-02/pre-image.json (modo 0600).
 - Verificação do schema de produção via env Vercel: 247 produtos/223 ativos; os sete estão ativos; 31 pedidos/143 itens. O schema local default apontava para outra base; não aplicar migração por .env.local isoladamente.
-- Testes atuais: 128 aprovados. Deploy/migração de produção pendentes.
+- Testes: 128 aprovados; build de produção concluído. PR #2 integrado em 7bbc7958ebc90b3750dd67be4c77a03b5a4eae73; deployment READY https://compras-coletivas-bq9mu4j97-eliandro-tjader.vercel.app com aliases de produção. Preview e produção serviram 223 produtos e todas as sete fotos; JS/CSS incluem badge/traço. Health 200.
+- Migração SQL 12 aplicada no schema de produção compras_coletivas_20260906: 7 produtos inativos; contagem 247 totais/216 ativos, pedidos 31 e itens 143 preservados.
+- Preço na planilha outubro: estes códigos não aparecem e não estão explicitamente identificados como descontinuados. Nenhum pedido/linha foi alterado.
+- Release SemVer 5.3.0 e GitHub Release ainda pendentes de fechamento.
