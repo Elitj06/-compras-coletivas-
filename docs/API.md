@@ -32,6 +32,7 @@ Access-Control-Allow-Origin: *
 - [Exportar CSV](#get-exportar-csv)
 
 ### POST
+- [Iniciar Novo Ciclo](#post-ciclos-compra)
 - [Criar Pedido](#post-pedidos)
 - [Aplicar Desconto](#post-descontos)
 - [Registrar Comprador](#post-compradorregistro)
@@ -418,6 +419,16 @@ Colunas: `Comprador;Código;Produto;Qtd;Preço Unit.;Desconto %;Preço c/ Desc.;
 ---
 
 ## POST
+
+### POST /ciclos-compra
+
+Inicia um ciclo novo, encerra o ciclo anterior e transfere para o ciclo novo todos os pedidos com data de criação de hoje no fuso `America/Sao_Paulo`. A alteração e o recálculo do desconto coletivo são atômicos. O endpoint é serializado com a criação de pedidos; chamadas repetidas no mesmo dia retornam `409 CYCLE_ALREADY_STARTED_TODAY`.
+
+**Autorização:** sessão administrativa e validação CSRF. Não exige body (`{}` aceito).
+
+**Response `201`:** inclui o ciclo criado, a contagem `pedidos_transferidos` e o progresso recalculado.
+
+**Response `409`:** já existe ciclo ativo iniciado hoje; nenhum dado é alterado.
 
 ### POST /pedidos
 

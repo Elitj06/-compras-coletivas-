@@ -2116,6 +2116,7 @@ const app = {
         <label style="display:flex;align-items:center;gap:8px;font-size:.85rem">Ciclo
           <select onchange="app.selectAdminCycle(this.value)">${cycles.map((cycle) => `<option value="${cycle.id}" ${Number(cycle.id) === Number(selectedCycle?.id) ? "selected" : ""}>${fmt.escape(cycle.nome)}${cycle.ativo ? " · ativo" : ""}</option>`).join("")}</select>
         </label>
+        ${!isHistoricalCycle ? '<button class="btn btn-primary btn-sm" onclick="app.startNewCycle()">Iniciar novo ciclo</button>' : ''}
       </div>
       <div class="stats-grid">
         ${statCard("users", "Compradores", stats.total_compradores || 0)}
@@ -2553,6 +2554,24 @@ const app = {
   selectAdminCycle(cycleId) {
     this.state.adminCycleId = Number(cycleId) || null;
     this.renderAdmin();
+  },
+
+  async startNewCycle() {
+    const confirmed = await customConfirm(
+      'Iniciar um novo ciclo agora?\nO ciclo atual será encerrado.\nTodos os pedidos feitos hoje serão movidos para o novo ciclo, e o desconto coletivo será recalculado.\nEssa ação não pode ser desfeita pelo app.'
+    );
+    if (!confirmed) return;
+
+    const result = await this.api('ciclos-compra', 'POST', {});
+    if (!result?.success) {
+      this.toast(result?.error || 'Não foi possível iniciar o ciclo', 'error');
+      return;
+    }
+
+    this.state.adminCycleId = null;
+    const moved = Number(result.data?.pedidos_transferidos) || 0;
+    this.toast(`Novo ciclo iniciado. ${moved} pedido(s) de hoje incluído(s).`, 'success');
+    await this.renderAdmin();
   },
 
   canManageSelectedCycle() {

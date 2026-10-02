@@ -1044,6 +1044,54 @@ export default async function handler(req) {
         return csrfError;
       }
 
+      // POST /ciclos-compra — abre um ciclo e encaminha os pedidos de hoje.
+      // A mudança é atômica para que nenhum pedido entre em um ciclo encerrado.
+      if (path === 'ciclos-compra') {
+        if (!adminSession) {
+          await client.end();
+          return unauthorized();
+        }
+        try {
+          await client.query('BEGIN');
+          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras-coletivas:start-cycle'))");
+          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
+          const dateResult = await client.query("SELECT TO_CHAR((NOW() AT TIME ZONE 'America/Sao_Paulo')::date, 'YYYY-MM-DD') AS today");
+          const today = dateResult.rows[0].today;
+          const currentResult = await client.query('SELECT id, inicio_em FROM ciclos_compra WHERE ativo = TRUE FOR UPDATE');
+          const current = currentResult.rows[0] || null;
+          const currentStart = current?.inicio_em instanceof Date
+            ? current.inicio_em.toISOString().slice(0, 10)
+            : String(current?.inicio_em || '').slice(0, 10);
+          if (current && currentStart >= today) {
+            await client.query('ROLLBACK');
+            await client.end();
+            return json({ success: false, code: 'CYCLE_ALREADY_STARTED_TODAY', error: 'O ciclo ativo já começou hoje' }, 409);
+          }
+
+          const [year, month, day] = today.split('-');
+          const baseName = 'Ciclo ' + day + '/' + month + '/' + year;
+          const priorCount = await client.query('SELECT COUNT(*)::int AS count FROM ciclos_compra WHERE inicio_em = $1::date', [today]);
+          const suffix = Number(priorCount.rows[0]?.count) > 0 ? ' #' + (Number(priorCount.rows[0].count) + 1) : '';
+
+          if (current) {
+            await client.query("UPDATE ciclos_compra SET ativo = FALSE, status = 'encerrado', fim_em = $1::date - 1, updated_at = NOW() WHERE id = $2", [today, current.id]);
+          }
+          const created = await client.query("INSERT INTO ciclos_compra (nome, inicio_em, status, ativo) VALUES ($1, $2::date, 'aberto', TRUE) RETURNING id, nome, inicio_em, fim_em, status, ativo", [baseName + suffix, today]);
+          const nextCycle = created.rows[0];
+          let movedOrders = { rowCount: 0 };
+          if (current) {
+            movedOrders = await client.query("UPDATE pedidos SET ciclo_id = $1, updated_at = NOW() WHERE ciclo_id = $2 AND created_at >= ($3::date::timestamp AT TIME ZONE 'America/Sao_Paulo') AND created_at < (($3::date + INTERVAL '1 day')::timestamp AT TIME ZONE 'America/Sao_Paulo') RETURNING id", [nextCycle.id, current.id, today]);
+          }
+          const progress = await repriceCycleOrders(client, nextCycle.id);
+          await client.query('COMMIT');
+          await client.end();
+          return json({ success: true, message: 'Novo ciclo iniciado', data: { ...nextCycle, pedidos_transferidos: movedOrders.rowCount, progresso: progress } }, 201);
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        }
+      }
+
       if (path === 'admin/logout') {
         await client.query('DELETE FROM admin_sessions WHERE id = $1', [adminSession.id]);
         const response = new Response(null, { status: 204, headers });
@@ -1118,6 +1166,9 @@ export default async function handler(req) {
 
         await client.query('BEGIN');
         try {
+          // Lock compartilhado com POST /ciclos-compra: pedidos concorrentes ficam
+          // no ciclo anterior e são transferidos, ou entram já no novo ciclo.
+          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras-coletivas:start-cycle'))");
           await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
           const cycle = await getActiveCycle(client);
           if (!cycle) {
