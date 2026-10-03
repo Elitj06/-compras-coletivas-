@@ -2116,7 +2116,7 @@ const app = {
         <label style="display:flex;align-items:center;gap:8px;font-size:.85rem">Ciclo
           <select onchange="app.selectAdminCycle(this.value)">${cycles.map((cycle) => `<option value="${cycle.id}" ${Number(cycle.id) === Number(selectedCycle?.id) ? "selected" : ""}>${fmt.escape(cycle.nome)}${cycle.ativo ? " · ativo" : ""}</option>`).join("")}</select>
         </label>
-        ${!isHistoricalCycle ? '<button class="btn btn-primary btn-sm" onclick="app.startNewCycle()">Iniciar novo ciclo</button>' : ''}
+        ${!isHistoricalCycle ? '<button class="btn btn-secondary btn-sm" onclick="app.recoverYesterdayOrders()">Recuperar pedidos de ontem</button><button class="btn btn-primary btn-sm" onclick="app.startNewCycle()">Iniciar novo ciclo</button>' : ''}
       </div>
       <div class="stats-grid">
         ${statCard("users", "Compradores", stats.total_compradores || 0)}
@@ -2571,6 +2571,24 @@ const app = {
     this.state.adminCycleId = null;
     const moved = Number(result.data?.pedidos_transferidos) || 0;
     this.toast(`Novo ciclo iniciado. ${moved} pedido(s) de hoje incluído(s).`, 'success');
+    await this.renderAdmin();
+  },
+
+  async recoverYesterdayOrders() {
+    if (!this.canManageSelectedCycle()) return;
+    const confirmed = await customConfirm(
+      'Incorporar ao ciclo ativo somente os pedidos não cancelados criados ontem (data de Brasília), que ainda estejam em outro ciclo? Pedidos de datas anteriores não serão alterados. O desconto coletivo do ciclo atual será recalculado.'
+    );
+    if (!confirmed) return;
+
+    const result = await this.api('ciclos-compra/recuperar-ontem', 'POST', {});
+    if (!result?.success) {
+      this.toast(result?.error || 'Não foi possível recuperar os pedidos de ontem', 'error');
+      return;
+    }
+
+    const moved = Number(result.data?.pedidos_transferidos) || 0;
+    this.toast(`${moved} pedido(s) de ontem incorporado(s) ao ciclo atual.`, 'success');
     await this.renderAdmin();
   },
 

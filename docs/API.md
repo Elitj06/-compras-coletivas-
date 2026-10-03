@@ -33,6 +33,7 @@ Access-Control-Allow-Origin: *
 
 ### POST
 - [Iniciar Novo Ciclo](#post-ciclos-compra)
+- [Recuperar Pedidos de Ontem](#post-ciclos-comprarecuperar-ontem)
 - [Criar Pedido](#post-pedidos)
 - [Aplicar Desconto](#post-descontos)
 - [Registrar Comprador](#post-compradorregistro)
@@ -429,6 +430,16 @@ Inicia um ciclo novo, encerra o ciclo anterior e transfere para o ciclo novo tod
 **Response `201`:** inclui o ciclo criado, a contagem `pedidos_transferidos` e o progresso recalculado.
 
 **Response `409`:** já existe ciclo ativo iniciado hoje; nenhum dado é alterado.
+
+### POST /ciclos-compra/recuperar-ontem
+
+Transfere para o ciclo ativo apenas pedidos não cancelados criados no dia civil anterior em America/Sao_Paulo. Pedidos de datas anteriores ou já associados ao ciclo ativo permanecem intactos; preços coletivos do ciclo de destino são recalculados na mesma transação.
+
+**Autorização:** sessão administrativa e validação CSRF. Body `{}`.
+
+**Response `200`:** inclui `pedidos_transferidos`; chamada repetida é idempotente e retorna zero se todos já estiverem no ciclo ativo.
+
+**Response `409`:** não há ciclo ativo.
 
 ### POST /pedidos
 
