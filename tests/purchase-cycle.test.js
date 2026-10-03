@@ -21,6 +21,19 @@ test('POST /ciclos-compra inicia o ciclo e transfere os pedidos feitos hoje', ()
   assert.match(route, /CYCLE_ALREADY_STARTED_TODAY/);
 });
 
+test('recuperação move só pedidos ativos de ontem, em BRT, para o ciclo atual', () => {
+  const route = api.slice(api.indexOf("if (path === 'ciclos-compra/recuperar-ontem')"), api.indexOf("if (path === 'admin/logout')"));
+  assert.ok(route.includes("pg_advisory_xact_lock(hashtext('compras-coletivas:start-cycle'))"));
+  assert.ok(route.includes("pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))"));
+  assert.ok(route.includes('America/Sao_Paulo'));
+  assert.ok(route.includes("p.status != 'cancelado'"));
+  assert.ok(route.includes('p.ciclo_id IS DISTINCT FROM $2'));
+  assert.ok(route.includes('movedOrders.rowCount ? await repriceCycleOrders(client, current.id) : null'));
+  assert.ok(route.includes("await client.query('COMMIT')"));
+  assert.ok(route.includes("await client.query('ROLLBACK')"));
+  assert.ok(route.includes('ACTIVE_CYCLE_NOT_FOUND'));
+});
+
 test('pedido e abertura do ciclo compartilham lock para resolver concorrência', () => {
   const orderStart = api.indexOf("pg_advisory_xact_lock(hashtext('compras-coletivas:start-cycle'))", api.indexOf("if (req.method === 'POST')", api.indexOf('POST /ciclos-compra')));
   const activeCycleRead = api.indexOf('const cycle = await getActiveCycle(client)', orderStart);
@@ -33,6 +46,14 @@ test('Admin só oferece início de ciclo na visão ativa e confirma a transferê
   assert.match(app, /async startNewCycle()/);
   assert.match(app, /Todos os pedidos feitos hoje serão movidos/);
   assert.ok(app.includes("this.api('ciclos-compra', 'POST', {})"));
+  assert.match(app, /pedidos_transferidos/);
+});
+
+test('Admin confirma recuperação de ontem e atualiza a visão do painel', () => {
+  assert.match(app, /Recuperar pedidos de ontem/);
+  assert.ok(app.includes('async recoverYesterdayOrders()'));
+  assert.match(app, /Pedidos de datas anteriores não serão alterados/);
+  assert.ok(app.includes("this.api('ciclos-compra/recuperar-ontem', 'POST', {})"));
   assert.match(app, /pedidos_transferidos/);
 });
 
