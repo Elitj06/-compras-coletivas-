@@ -1092,27 +1092,39 @@ export default async function handler(req) {
         }
       }
 
-      // POST /ciclos-compra/recuperar-ontem — transfere apenas pedidos ativos do dia anterior em BRT.
+      // POST /ciclos-compra/recuperar-ontem — recupera somente pedidos pendentes do dia anterior em BRT.
       if (path === 'ciclos-compra/recuperar-ontem') {
         if (!adminSession) { await client.end(); return unauthorized(); }
         try {
           await client.query('BEGIN');
           await client.query("SELECT pg_advisory_xact_lock(hashtext('compras-coletivas:start-cycle'))");
           await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
-          const dateResult = await client.query("SELECT (NOW() AT TIME ZONE 'America/Sao_Paulo')::date AS today");
           const currentResult = await client.query('SELECT id FROM ciclos_compra WHERE ativo = TRUE FOR UPDATE');
           const current = currentResult.rows[0] || null;
-          if (!current) {
+          if (currentResult.rowCount !== 1) {
             await client.query('ROLLBACK'); await client.end();
-            return json({ success: false, code: 'ACTIVE_CYCLE_NOT_FOUND', error: 'Não há ciclo ativo para receber os pedidos' }, 409);
+            const code = currentResult.rowCount ? 'MULTIPLE_ACTIVE_CYCLES' : 'ACTIVE_CYCLE_NOT_FOUND';
+            return json({ success: false, code, error: 'É necessário haver exatamente um ciclo ativo para recuperar pedidos' }, 409);
           }
+          await client.query('SELECT id FROM pedidos WHERE ciclo_id = $1 FOR UPDATE', [current.id]);
+          const finalizedOrders = await client.query(
+            `SELECT p.id FROM pedidos p LEFT JOIN pagamentos pg ON pg.pedido_id = p.id
+             WHERE p.ciclo_id = $1 AND (p.status IN ('confirmado', 'entregue') OR pg.id IS NOT NULL) LIMIT 1`,
+            [current.id],
+          );
+          if (finalizedOrders.rowCount > 0) {
+            await client.query('ROLLBACK'); await client.end();
+            return json({ success: false, code: 'CYCLE_HAS_FINALIZED_ORDERS', error: 'O ciclo atual tem pedidos finalizados ou pagos; a recuperação foi cancelada para preservar esses valores' }, 409);
+          }
+          const dateResult = await client.query("SELECT (clock_timestamp() AT TIME ZONE 'America/Sao_Paulo')::date AS today");
           const movedOrders = await client.query(`WITH bounds AS (
             SELECT (($1::date - 1)::date::timestamp AT TIME ZONE 'America/Sao_Paulo') AS day_start,
                    ($1::date::timestamp AT TIME ZONE 'America/Sao_Paulo') AS day_end
           ), candidates AS (
             SELECT p.id FROM pedidos p CROSS JOIN bounds b
-            WHERE p.ciclo_id IS DISTINCT FROM $2 AND p.status != 'cancelado'
-              AND p.created_at >= b.day_start AND p.created_at < b.day_end
+            WHERE p.ciclo_id IS DISTINCT FROM $2 AND p.status = 'pendente'
+              AND (p.created_at AT TIME ZONE 'UTC') >= b.day_start
+              AND (p.created_at AT TIME ZONE 'UTC') < b.day_end
             FOR UPDATE OF p
           )
           UPDATE pedidos p SET ciclo_id = $2, updated_at = NOW()

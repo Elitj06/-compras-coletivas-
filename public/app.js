@@ -2577,7 +2577,7 @@ const app = {
   async recoverYesterdayOrders() {
     if (!this.canManageSelectedCycle()) return;
     const confirmed = await customConfirm(
-      'Incorporar ao ciclo ativo somente os pedidos não cancelados criados ontem (data de Brasília), que ainda estejam em outro ciclo? Pedidos de datas anteriores não serão alterados. O desconto coletivo do ciclo atual será recalculado.'
+      'Incorporar ao ciclo ativo somente os pedidos pendentes criados ontem (data de Brasília), que ainda estejam em outro ciclo? Pedidos antigos não serão alterados. Se houver pedido finalizado/pago no ciclo atual, a operação será bloqueada para preservar os valores.'
     );
     if (!confirmed) return;
 

@@ -26,7 +26,11 @@ test('recuperação move só pedidos ativos de ontem, em BRT, para o ciclo atual
   assert.ok(route.includes("pg_advisory_xact_lock(hashtext('compras-coletivas:start-cycle'))"));
   assert.ok(route.includes("pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))"));
   assert.ok(route.includes('America/Sao_Paulo'));
-  assert.ok(route.includes("p.status != 'cancelado'"));
+  assert.ok(route.includes("p.status = 'pendente'"));
+  assert.ok(route.includes("p.created_at AT TIME ZONE 'UTC'"));
+  assert.ok(route.includes('clock_timestamp()'));
+  assert.ok(route.includes('CYCLE_HAS_FINALIZED_ORDERS'));
+  assert.ok(route.includes('pg.id IS NOT NULL'));
   assert.ok(route.includes('p.ciclo_id IS DISTINCT FROM $2'));
   assert.ok(route.includes('movedOrders.rowCount ? await repriceCycleOrders(client, current.id) : null'));
   assert.ok(route.includes("await client.query('COMMIT')"));
@@ -52,7 +56,7 @@ test('Admin só oferece início de ciclo na visão ativa e confirma a transferê
 test('Admin confirma recuperação de ontem e atualiza a visão do painel', () => {
   assert.match(app, /Recuperar pedidos de ontem/);
   assert.ok(app.includes('async recoverYesterdayOrders()'));
-  assert.match(app, /Pedidos de datas anteriores não serão alterados/);
+  assert.match(app, /Pedidos antigos não serão alterados/);
   assert.ok(app.includes("this.api('ciclos-compra/recuperar-ontem', 'POST', {})"));
   assert.match(app, /pedidos_transferidos/);
 });
