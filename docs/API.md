@@ -433,13 +433,13 @@ Inicia um ciclo novo, encerra o ciclo anterior e transfere para o ciclo novo tod
 
 ### POST /ciclos-compra/recuperar-ontem
 
-Transfere para o ciclo ativo apenas pedidos não cancelados criados no dia civil anterior em America/Sao_Paulo. Pedidos de datas anteriores ou já associados ao ciclo ativo permanecem intactos; preços coletivos do ciclo de destino são recalculados na mesma transação.
+Transfere para o ciclo ativo apenas pedidos pendentes criados no dia civil anterior em America/Sao_Paulo, interpretando created_at como UTC. Pedidos de outras datas ou já associados ao ciclo ativo permanecem intactos. A operação é bloqueada se o destino tiver pedido confirmado, entregue ou pagamento registrado; se houver transferência, o desconto coletivo é recalculado na mesma transação.
 
 **Autorização:** sessão administrativa e validação CSRF. Body `{}`.
 
 **Response `200`:** inclui `pedidos_transferidos`; chamada repetida é idempotente e retorna zero se todos já estiverem no ciclo ativo.
 
-**Response `409`:** não há ciclo ativo.
+**Response `409`:** não há exatamente um ciclo ativo ou o ciclo de destino contém pedido finalizado/pago; nenhum dado é alterado.
 
 ### POST /pedidos
 
