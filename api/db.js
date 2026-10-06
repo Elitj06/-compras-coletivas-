@@ -1044,8 +1044,8 @@ export default async function handler(req) {
         return csrfError;
       }
 
-      // POST /ciclos-compra — abre um ciclo e encaminha os pedidos de hoje.
-      // A mudança é atômica para que nenhum pedido entre em um ciclo encerrado.
+      // POST /ciclos-compra — abre um ciclo sem reclassificar pedidos existentes.
+      // Novos pedidos são vinculados ao ciclo ativo após o lock compartilhado.
       if (path === 'ciclos-compra') {
         if (!adminSession) {
           await client.end();
@@ -1074,18 +1074,15 @@ export default async function handler(req) {
           const suffix = Number(priorCount.rows[0]?.count) > 0 ? ' #' + (Number(priorCount.rows[0].count) + 1) : '';
 
           if (current) {
-            await client.query("UPDATE ciclos_compra SET ativo = FALSE, status = 'encerrado', fim_em = $1::date - 1, updated_at = NOW() WHERE id = $2", [today, current.id]);
+            await client.query("UPDATE ciclos_compra SET ativo = FALSE, status = 'encerrado', fim_em = $1::date, updated_at = NOW() WHERE id = $2", [today, current.id]);
           }
           const created = await client.query("INSERT INTO ciclos_compra (nome, inicio_em, status, ativo) VALUES ($1, $2::date, 'aberto', TRUE) RETURNING id, nome, inicio_em, fim_em, status, ativo", [baseName + suffix, today]);
           const nextCycle = created.rows[0];
-          let movedOrders = { rowCount: 0 };
-          if (current) {
-            movedOrders = await client.query("UPDATE pedidos SET ciclo_id = $1, updated_at = NOW() WHERE ciclo_id = $2 AND created_at >= ($3::date::timestamp AT TIME ZONE 'America/Sao_Paulo') AND created_at < (($3::date + INTERVAL '1 day')::timestamp AT TIME ZONE 'America/Sao_Paulo') RETURNING id", [nextCycle.id, current.id, today]);
-          }
+          // NOTE: pedidos anteriores permanecem no ciclo de origem, mesmo se criados hoje.
           const progress = await repriceCycleOrders(client, nextCycle.id);
           await client.query('COMMIT');
           await client.end();
-          return json({ success: true, message: 'Novo ciclo iniciado', data: { ...nextCycle, pedidos_transferidos: movedOrders.rowCount, progresso: progress } }, 201);
+          return json({ success: true, message: 'Novo ciclo iniciado', data: { ...nextCycle, pedidos_transferidos: 0, progresso: progress } }, 201);
         } catch (error) {
           await client.query('ROLLBACK');
           throw error;

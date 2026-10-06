@@ -2558,7 +2558,7 @@ const app = {
 
   async startNewCycle() {
     const confirmed = await customConfirm(
-      'Iniciar um novo ciclo agora?\nO ciclo atual será encerrado.\nTodos os pedidos feitos hoje serão movidos para o novo ciclo, e o desconto coletivo será recalculado.\nEssa ação não pode ser desfeita pelo app.'
+      'Iniciar um novo ciclo agora?\nO ciclo atual será encerrado.\nPedidos já existentes permanecem no ciclo anterior; somente novos pedidos entrarão no novo ciclo.\nEssa ação não pode ser desfeita pelo app.'
     );
     if (!confirmed) return;
 
@@ -2569,8 +2569,7 @@ const app = {
     }
 
     this.state.adminCycleId = null;
-    const moved = Number(result.data?.pedidos_transferidos) || 0;
-    this.toast(`Novo ciclo iniciado. ${moved} pedido(s) de hoje incluído(s).`, 'success');
+    this.toast('Novo ciclo iniciado. Pedidos anteriores foram preservados no ciclo de origem.', 'success');
     await this.renderAdmin();
   },
 

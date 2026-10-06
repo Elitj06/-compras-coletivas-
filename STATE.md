@@ -742,3 +742,10 @@ Para melhorar UX, categorias semelhantes foram agrupadas:
 - Documentação API/README e testes de contrato adicionados. Suíte: 136 aprovados; build Vercel local, sintaxe e `git diff --check` aprovados. Integração PostgreSQL não executada: `TEST_DATABASE_URL` ausente.
 - Preços: catálogo de outubro já comparado campo a campo com a tabela Vitafor (216/216) e migração aplicada; validação pública nesta tarefa confirmou home e `produtos.js` em HTTP 200. Nenhuma atualização de preço foi necessária.
 - Status desta mudança: branch e versão local v5.4.0 preparados; publicação/deploy e smoke ainda pendentes. Não iniciar ciclo nem migrar pedidos em produção nesta implementação; a transferência ocorre somente quando Admin confirmar no app.
+
+## Atualização — 2026-10-06 — isolamento de ciclos
+
+- Causa identificada: ao iniciar ciclo, a API movia automaticamente para o novo ciclo todos os pedidos criados no mesmo dia BRT no ciclo anterior, misturando registros de ciclos diferentes. <!-- project: github.com/Elitj06/memory-workspace -->
+- Correção: iniciar ciclo agora preserva todos os pedidos já existentes no ciclo de origem; pedidos enviados depois da abertura continuam sendo vinculados ao ciclo ativo sob lock transacional compartilhado. Nenhum dado/migração do banco alterado nesta correção. <!-- project: github.com/Elitj06/memory-workspace -->
+- Atualizada a confirmação do Admin, contrato da API e regressões para garantir zero transferências automáticas e nova associação de pedidos ao ciclo ativo. <!-- project: github.com/Elitj06/memory-workspace -->
+- Validação local: 138 testes aprovados; sintaxe, diff check e build de produção aprovados. Publicação e smoke em produção pendentes. <!-- project: github.com/Elitj06/memory-workspace -->

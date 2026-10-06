@@ -423,11 +423,11 @@ Colunas: `Comprador;Código;Produto;Qtd;Preço Unit.;Desconto %;Preço c/ Desc.;
 
 ### POST /ciclos-compra
 
-Inicia um ciclo novo, encerra o ciclo anterior e transfere para o ciclo novo todos os pedidos com data de criação de hoje no fuso `America/Sao_Paulo`. A alteração e o recálculo do desconto coletivo são atômicos. O endpoint é serializado com a criação de pedidos; chamadas repetidas no mesmo dia retornam `409 CYCLE_ALREADY_STARTED_TODAY`.
+Inicia um ciclo novo e encerra o anterior sem transferir, reclassificar ou recalcular pedidos existentes. Pedidos anteriores permanecem vinculados ao ciclo de origem, inclusive quando feitos na mesma data; pedidos submetidos depois da abertura são associados ao novo ciclo ativo. A operação é transacional e serializada com a criação de pedidos para evitar corrida. Chamadas repetidas no mesmo dia retornam `409 CYCLE_ALREADY_STARTED_TODAY`.
 
 **Autorização:** sessão administrativa e validação CSRF. Não exige body (`{}` aceito).
 
-**Response `201`:** inclui o ciclo criado, a contagem `pedidos_transferidos` e o progresso recalculado.
+**Response `201`:** inclui o ciclo criado, `pedidos_transferidos: 0` e o progresso recalculado.
 
 **Response `409`:** já existe ciclo ativo iniciado hoje; nenhum dado é alterado.
 
