@@ -2198,8 +2198,8 @@ const app = {
 
     let html = `
       ${linkedBuyerNotice}
-      <div class="card" style="margin-bottom:16px;padding:14px 20px;display:flex;align-items:center;gap:10px">
-        ${icon("calendar")} <div style="flex:1"><strong>Ciclo em exibição: ${fmt.escape(selectedCycle?.nome || "não configurado")}</strong><br><small style="color:var(--c-text-muted)">${isHistoricalCycle ? "Ciclo encerrado: pedidos são somente leitura; lançamentos de pagamento continuam permitidos." : "Ciclo ativo: novos pedidos, pagamentos e exportações usam este período."}</small></div>
+      <div class="card admin-cycle-bar" style="margin-bottom:16px;padding:14px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        ${icon("calendar")} <div style="flex:1;min-width:200px"><strong>Ciclo em exibição: ${fmt.escape(selectedCycle?.nome || "não configurado")}</strong><br><small style="color:var(--c-text-muted)">${isHistoricalCycle ? "Ciclo encerrado: pedidos são somente leitura; lançamentos de pagamento continuam permitidos." : "Ciclo ativo: novos pedidos, pagamentos e exportações usam este período."}</small></div>
         <label style="display:flex;align-items:center;gap:8px;font-size:.85rem">Ciclo
           <select onchange="app.selectAdminCycle(this.value)">${cycles.map((cycle) => `<option value="${cycle.id}" ${Number(cycle.id) === Number(selectedCycle?.id) ? "selected" : ""}>${fmt.escape(cycle.nome)}${cycle.ativo ? " · ativo" : ""}</option>`).join("")}</select>
         </label>
@@ -2452,10 +2452,12 @@ const app = {
                 : ''}
               <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();app.deletePedidoUsuario('${usuarioEsc}')">${icon("trash")} Apagar pedido</button>
             </div>
-            <table class="data-table">
-              <thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Bruto</th><th>Final</th><th></th></tr></thead>
-              <tbody>${itensRows}</tbody>
-            </table>
+            <div class="table-scroll">
+              <table class="data-table buyer-items-table">
+                <thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Bruto</th><th>Final</th><th></th></tr></thead>
+                <tbody>${itensRows}</tbody>
+              </table>
+            </div>
             <div class="user-total-row">
               ${qtdItens} itens · Bruto: <strong>${fmt.brl(totalBruto)}</strong> · Final: <strong>${fmt.brl(totalFinal)}</strong>
             </div>
@@ -2824,6 +2826,7 @@ const app = {
       })
       .join("");
     return `
+      <div class="table-scroll">
       <table class="data-table supplier-table">
         <thead>
           <tr>
@@ -2841,7 +2844,8 @@ const app = {
             <td>${fmt.brl(totalValor)}</td>
           </tr>
         </tbody>
-      </table>`;
+      </table>
+      </div>`;
   },
 
   async exportPedidoFornecedor() {

@@ -1582,6 +1582,18 @@ svg { width: 18px; height: 18px; flex-shrink: 0; }
     gap: 10px;
   }
 }
+/* Tabela de itens dentro do card do comprador: rola dentro do card,
+   coluna de produto quebra linha e paddings compactos no mobile */
+.buyer-items-table { min-width: 430px; }
+.buyer-items-table th,
+.buyer-items-table td { white-space: nowrap; }
+.buyer-items-table td:nth-child(2) { white-space: normal; min-width: 130px; }
+@media (max-width: 768px) {
+  .buyer-items-table { min-width: 390px; }
+  .buyer-items-table th,
+  .buyer-items-table td { padding: 8px 10px; font-size: 0.78rem; }
+  .buyer-items-table .admin-qty-input { width: 40px; }
+}
 
 
 /* SECTION: Explicit visual state for unavailable products. */
