@@ -6,12 +6,14 @@ const api = readFileSync(new URL('../api/db.js', import.meta.url), 'utf8');
 const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 const docs = readFileSync(new URL('../docs/API.md', import.meta.url), 'utf8');
 
-test('POST /ciclos-compra abre um ciclo sem mover pedidos da origem', () => {
+test('POST /ciclos-compra abre um ciclo preservando o anterior, sem encerrá-lo', () => {
   const route = api.slice(api.indexOf('// POST /ciclos-compra'), api.indexOf("if (path === 'admin/logout')"));
   assert.ok(route.includes("if (path === 'ciclos-compra')"));
   assert.ok(route.includes("pg_advisory_xact_lock(hashtext('compras-coletivas:start-cycle'))"));
   assert.match(route, /America\/Sao_Paulo/);
-  assert.ok(route.includes("UPDATE ciclos_compra SET ativo = FALSE, status = 'encerrado'"));
+  assert.ok(route.includes("UPDATE ciclos_compra SET ativo = FALSE, updated_at = NOW() WHERE id = $1"));
+  assert.doesNotMatch(route, /status = 'encerrado'/);
+  assert.doesNotMatch(route, /fim_em = \$1/);
   assert.ok(route.includes("INSERT INTO ciclos_compra (nome, inicio_em, status, ativo) VALUES ($1, $2::date, 'aberto', TRUE)"));
   assert.doesNotMatch(route, /UPDATE pedidos SET ciclo_id/);
   assert.ok(route.includes('pedidos_transferidos: 0'));
@@ -19,23 +21,6 @@ test('POST /ciclos-compra abre um ciclo sem mover pedidos da origem', () => {
   assert.ok(route.includes("await client.query('COMMIT')"));
   assert.ok(route.includes("await client.query('ROLLBACK')"));
   assert.match(route, /CYCLE_ALREADY_STARTED_TODAY/);
-});
-
-test('recuperação move só pedidos ativos de ontem, em BRT, para o ciclo atual', () => {
-  const route = api.slice(api.indexOf("if (path === 'ciclos-compra/recuperar-ontem')"), api.indexOf("if (path === 'admin/logout')"));
-  assert.ok(route.includes("pg_advisory_xact_lock(hashtext('compras-coletivas:start-cycle'))"));
-  assert.ok(route.includes("pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))"));
-  assert.ok(route.includes('America/Sao_Paulo'));
-  assert.ok(route.includes("p.status = 'pendente'"));
-  assert.ok(route.includes("p.created_at AT TIME ZONE 'UTC'"));
-  assert.ok(route.includes('clock_timestamp()'));
-  assert.ok(route.includes('CYCLE_HAS_FINALIZED_ORDERS'));
-  assert.ok(route.includes('pg.id IS NOT NULL'));
-  assert.ok(route.includes('p.ciclo_id IS DISTINCT FROM $2'));
-  assert.ok(route.includes('movedOrders.rowCount ? await repriceCycleOrders(client, current.id) : null'));
-  assert.ok(route.includes("await client.query('COMMIT')"));
-  assert.ok(route.includes("await client.query('ROLLBACK')"));
-  assert.ok(route.includes('ACTIVE_CYCLE_NOT_FOUND'));
 });
 
 test('novos pedidos entram no ciclo ativo após o lock compartilhado', () => {
@@ -52,17 +37,10 @@ test('Admin só oferece início de ciclo na visão ativa e avisa que os pedidos 
   assert.match(app, /!isHistoricalCycle[^\n]*app.startNewCycle/);
   assert.match(app, /async startNewCycle()/);
   assert.match(app, /Pedidos já existentes permanecem no ciclo anterior/);
-  assert.match(app, /somente novos pedidos entrarão no novo ciclo/);
+  assert.match(app, /dados e pagamentos preservados/);
   assert.ok(app.includes("this.api('ciclos-compra', 'POST', {})"));
-  assert.match(app, /pedidos_transferidos/);
-});
-
-test('Admin confirma recuperação de ontem e atualiza a visão do painel', () => {
-  assert.match(app, /Recuperar pedidos de ontem/);
-  assert.ok(app.includes('async recoverYesterdayOrders()'));
-  assert.match(app, /Pedidos antigos não serão alterados/);
-  assert.ok(app.includes("this.api('ciclos-compra/recuperar-ontem', 'POST', {})"));
-  assert.match(app, /pedidos_transferidos/);
+  assert.doesNotMatch(app, /recoverYesterdayOrders/);
+  assert.doesNotMatch(app, /recuperar-ontem/);
 });
 
 test('API documenta autorização, data local e proteção contra repetição', () => {

@@ -73,7 +73,7 @@ compras-coletivas/
 - Histórico de pedidos com detalhes
 
 ### Administrador
-- Iniciar novo ciclo manualmente; o ciclo anterior é encerrado e os pedidos do dia são transferidos
+- Iniciar novo ciclo manualmente; o ciclo anterior deixa de receber pedidos, mas mantém dados, pedidos e pagamentos preservados e acessíveis
 - Login por senha (armazenada no banco)
 - Dashboard com estatísticas (compradores, unidades, valores)
 - Desconto global aplicável a todos os pedidos

@@ -1497,7 +1497,7 @@ const app = {
       const res = await this.api("pedidos/historico");
       const pedidos = res?.data || [];
       // Mostra em “Meu Pedido” somente o pedido do ciclo ativo. Pedidos de
-      // ciclos encerrados continuam exclusivamente no Histórico.
+      // ciclos anteriores continuam exclusivamente no Histórico.
       const pendente = pedidos.find(p => p.ciclo_ativo && p.status === "pendente")
         || pedidos.find(p => p.ciclo_ativo);
       if (!pendente) return false;
@@ -2199,11 +2199,11 @@ const app = {
     let html = `
       ${linkedBuyerNotice}
       <div class="card admin-cycle-bar" style="margin-bottom:16px;padding:14px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        ${icon("calendar")} <div style="flex:1;min-width:200px"><strong>Ciclo em exibição: ${fmt.escape(selectedCycle?.nome || "não configurado")}</strong><br><small style="color:var(--c-text-muted)">${isHistoricalCycle ? "Ciclo encerrado: pedidos são somente leitura; lançamentos de pagamento continuam permitidos." : "Ciclo ativo: novos pedidos, pagamentos e exportações usam este período."}</small></div>
+        ${icon("calendar")} <div style="flex:1;min-width:200px"><strong>Ciclo em exibição: ${fmt.escape(selectedCycle?.nome || "não configurado")}</strong><br><small style="color:var(--c-text-muted)">${isHistoricalCycle ? "Ciclo anterior: dados preservados; pedidos somente leitura; lançamentos de pagamento continuam permitidos." : "Ciclo ativo: novos pedidos, pagamentos e exportações usam este período."}</small></div>
         <label style="display:flex;align-items:center;gap:8px;font-size:.85rem">Ciclo
           <select onchange="app.selectAdminCycle(this.value)">${cycles.map((cycle) => `<option value="${cycle.id}" ${Number(cycle.id) === Number(selectedCycle?.id) ? "selected" : ""}>${fmt.escape(cycle.nome)}${cycle.ativo ? " · ativo" : ""}</option>`).join("")}</select>
         </label>
-        ${!isHistoricalCycle ? '<button class="btn btn-secondary btn-sm" onclick="app.recoverYesterdayOrders()">Recuperar pedidos de ontem</button><button class="btn btn-primary btn-sm" onclick="app.startNewCycle()">Iniciar novo ciclo</button>' : ''}
+        ${!isHistoricalCycle ? '<button class="btn btn-primary btn-sm" onclick="app.startNewCycle()">Iniciar novo ciclo</button>' : ''}
       </div>
       <div class="stats-grid">
         ${statCard("users", "Compradores", stats.total_compradores || 0)}
@@ -2649,7 +2649,7 @@ const app = {
 
   async startNewCycle() {
     const confirmed = await customConfirm(
-      'Iniciar um novo ciclo agora?\nO ciclo atual será encerrado.\nPedidos já existentes permanecem no ciclo anterior; somente novos pedidos entrarão no novo ciclo.\nEssa ação não pode ser desfeita pelo app.'
+      'Iniciar um novo ciclo agora?\nO ciclo atual deixa de receber novos pedidos.\nPedidos já existentes permanecem no ciclo anterior, com dados e pagamentos preservados.\nEssa ação não pode ser desfeita pelo app.'
     );
     if (!confirmed) return;
 
@@ -2660,36 +2660,18 @@ const app = {
     }
 
     this.state.adminCycleId = null;
-    this.toast('Novo ciclo iniciado. Pedidos anteriores foram preservados no ciclo de origem.', 'success');
-    await this.renderAdmin();
-  },
-
-  async recoverYesterdayOrders() {
-    if (!this.canManageSelectedCycle()) return;
-    const confirmed = await customConfirm(
-      'Incorporar ao ciclo ativo somente os pedidos pendentes criados ontem (data de Brasília), que ainda estejam em outro ciclo? Pedidos antigos não serão alterados. Se houver pedido finalizado/pago no ciclo atual, a operação será bloqueada para preservar os valores.'
-    );
-    if (!confirmed) return;
-
-    const result = await this.api('ciclos-compra/recuperar-ontem', 'POST', {});
-    if (!result?.success) {
-      this.toast(result?.error || 'Não foi possível recuperar os pedidos de ontem', 'error');
-      return;
-    }
-
-    const moved = Number(result.data?.pedidos_transferidos) || 0;
-    this.toast(`${moved} pedido(s) de ontem incorporado(s) ao ciclo atual.`, 'success');
+    this.toast('Novo ciclo iniciado. O ciclo anterior segue acessível com seus dados e pagamentos preservados.', 'success');
     await this.renderAdmin();
   },
 
   canManageSelectedCycle() {
     if (this.state.adminCycleIsActive) return true;
-    this.toast("O ciclo encerrado é somente para consulta", "info");
+    this.toast("Ciclos anteriores são somente para consulta e lançamento de pagamentos", "info");
     return false;
   },
 
   // Lançamentos de pagamento podem ser registrados/ajustados em qualquer
-  // ciclo (inclusive encerrados), pois o recebimento pode acontecer depois
+  // ciclo (inclusive os anteriores), pois o recebimento pode acontecer depois
   // do fechamento. Pedidos e itens continuam restritos ao ciclo ativo.
   canManagePagamentos() {
     return this.state.isAdminLoggedIn;
@@ -3033,7 +3015,7 @@ const app = {
             <strong>Ciclo em lançamento: ${fmt.escape(selectedCycle.nome)}</strong><br>
             <small style="color:var(--c-text-muted)">${
               isHistoricalCycle
-                ? "Ciclo encerrado: pedidos ficam somente leitura, mas o lançamento de pagamentos recebidos continua permitido."
+                ? "Ciclo anterior: dados preservados; o lançamento de pagamentos recebidos continua permitido."
                 : "Ciclo ativo: novos pedidos e pagamentos usam este período."
             }</small>
           </div>

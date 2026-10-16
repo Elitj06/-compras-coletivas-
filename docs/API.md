@@ -33,7 +33,6 @@ Access-Control-Allow-Origin: *
 
 ### POST
 - [Iniciar Novo Ciclo](#post-ciclos-compra)
-- [Recuperar Pedidos de Ontem](#post-ciclos-comprarecuperar-ontem)
 - [Criar Pedido](#post-pedidos)
 - [Aplicar Desconto](#post-descontos)
 - [Registrar Comprador](#post-compradorregistro)
@@ -423,23 +422,13 @@ Colunas: `Comprador;Código;Produto;Qtd;Preço Unit.;Desconto %;Preço c/ Desc.;
 
 ### POST /ciclos-compra
 
-Inicia um ciclo novo e encerra o anterior sem transferir, reclassificar ou recalcular pedidos existentes. Pedidos anteriores permanecem vinculados ao ciclo de origem, inclusive quando feitos na mesma data; pedidos submetidos depois da abertura são associados ao novo ciclo ativo. A operação é transacional e serializada com a criação de pedidos para evitar corrida. Chamadas repetidas no mesmo dia retornam `409 CYCLE_ALREADY_STARTED_TODAY`.
+Inicia um ciclo novo sem encerrar o anterior: o ciclo vigente apenas deixa de ser ativo (não recebe mais pedidos), mantendo `status`, `fim_em` e todos os seus dados intactos. Nenhum pedido é transferido, reclassificado ou recalculado; pedidos anteriores permanecem vinculados ao ciclo de origem, inclusive quando feitos na mesma data. Pedidos submetidos depois da abertura são associados ao novo ciclo ativo. A operação é transacional e serializada com a criação de pedidos para evitar corrida. O "dia" é calculado no fuso America/Sao_Paulo; chamadas repetidas no mesmo dia retornam `409 CYCLE_ALREADY_STARTED_TODAY`.
 
 **Autorização:** sessão administrativa e validação CSRF. Não exige body (`{}` aceito).
 
 **Response `201`:** inclui o ciclo criado, `pedidos_transferidos: 0` e o progresso recalculado.
 
 **Response `409`:** já existe ciclo ativo iniciado hoje; nenhum dado é alterado.
-
-### POST /ciclos-compra/recuperar-ontem
-
-Transfere para o ciclo ativo apenas pedidos pendentes criados no dia civil anterior em America/Sao_Paulo, interpretando created_at como UTC. Pedidos de outras datas ou já associados ao ciclo ativo permanecem intactos. A operação é bloqueada se o destino tiver pedido confirmado, entregue ou pagamento registrado; se houver transferência, o desconto coletivo é recalculado na mesma transação.
-
-**Autorização:** sessão administrativa e validação CSRF. Body `{}`.
-
-**Response `200`:** inclui `pedidos_transferidos`; chamada repetida é idempotente e retorna zero se todos já estiverem no ciclo ativo.
-
-**Response `409`:** não há exatamente um ciclo ativo ou o ciclo de destino contém pedido finalizado/pago; nenhum dado é alterado.
 
 ### POST /pedidos
 
@@ -1016,13 +1005,13 @@ Desativa todos os descontos (set `ativo = FALSE`).
 
 ### GET /api/db/pedidos/historico
 
-Retorna os pedidos do comprador autenticado, inclusive de ciclos encerrados. Cada pedido inclui `ciclo_nome` e `ciclo_ativo` para que o histórico não se misture ao pedido atual.
+Retorna os pedidos do comprador autenticado, inclusive de ciclos anteriores. Cada pedido inclui `ciclo_nome` e `ciclo_ativo` para que o histórico não se misture ao pedido atual.
 
 O administrador pode consultar o histórico de um comprador informado no painel; essa consulta exige o token administrativo.
 
 ### GET /api/db/stats, /pedidos/consolidado, /pedidos/por-usuario
 
-Para administrador, aceitam `?ciclo_id=<id>`. Sem o parâmetro, retornam o ciclo ativo. Um ciclo encerrado é consulta histórica e não altera seus pedidos.
+Para administrador, aceitam `?ciclo_id=<id>`. Sem o parâmetro, retornam o ciclo ativo. Um ciclo anterior é consulta histórica e não altera seus pedidos.
 
 ### POST /api/db/admin/login
 

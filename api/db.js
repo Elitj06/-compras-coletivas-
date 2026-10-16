@@ -1046,6 +1046,8 @@ export default async function handler(req) {
 
       // POST /ciclos-compra — abre um ciclo sem reclassificar pedidos existentes.
       // Novos pedidos são vinculados ao ciclo ativo após o lock compartilhado.
+      // O ciclo anterior é apenas desativado (deixa de receber pedidos); seus
+      // dados, status e pagamentos permanecem preservados e acessíveis.
       if (path === 'ciclos-compra') {
         if (!adminSession) {
           await client.end();
@@ -1074,7 +1076,7 @@ export default async function handler(req) {
           const suffix = Number(priorCount.rows[0]?.count) > 0 ? ' #' + (Number(priorCount.rows[0].count) + 1) : '';
 
           if (current) {
-            await client.query("UPDATE ciclos_compra SET ativo = FALSE, status = 'encerrado', fim_em = $1::date, updated_at = NOW() WHERE id = $2", [today, current.id]);
+            await client.query("UPDATE ciclos_compra SET ativo = FALSE, updated_at = NOW() WHERE id = $1", [current.id]);
           }
           const created = await client.query("INSERT INTO ciclos_compra (nome, inicio_em, status, ativo) VALUES ($1, $2::date, 'aberto', TRUE) RETURNING id, nome, inicio_em, fim_em, status, ativo", [baseName + suffix, today]);
           const nextCycle = created.rows[0];
@@ -1087,50 +1089,6 @@ export default async function handler(req) {
           await client.query('ROLLBACK');
           throw error;
         }
-      }
-
-      // POST /ciclos-compra/recuperar-ontem — recupera somente pedidos pendentes do dia anterior em BRT.
-      if (path === 'ciclos-compra/recuperar-ontem') {
-        if (!adminSession) { await client.end(); return unauthorized(); }
-        try {
-          await client.query('BEGIN');
-          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras-coletivas:start-cycle'))");
-          await client.query("SELECT pg_advisory_xact_lock(hashtext('compras_coletivas:discount-progress:v1'))");
-          const currentResult = await client.query('SELECT id FROM ciclos_compra WHERE ativo = TRUE FOR UPDATE');
-          const current = currentResult.rows[0] || null;
-          if (currentResult.rowCount !== 1) {
-            await client.query('ROLLBACK'); await client.end();
-            const code = currentResult.rowCount ? 'MULTIPLE_ACTIVE_CYCLES' : 'ACTIVE_CYCLE_NOT_FOUND';
-            return json({ success: false, code, error: 'É necessário haver exatamente um ciclo ativo para recuperar pedidos' }, 409);
-          }
-          await client.query('SELECT id FROM pedidos WHERE ciclo_id = $1 FOR UPDATE', [current.id]);
-          const finalizedOrders = await client.query(
-            `SELECT p.id FROM pedidos p LEFT JOIN pagamentos pg ON pg.pedido_id = p.id
-             WHERE p.ciclo_id = $1 AND (p.status IN ('confirmado', 'entregue') OR pg.id IS NOT NULL) LIMIT 1`,
-            [current.id],
-          );
-          if (finalizedOrders.rowCount > 0) {
-            await client.query('ROLLBACK'); await client.end();
-            return json({ success: false, code: 'CYCLE_HAS_FINALIZED_ORDERS', error: 'O ciclo atual tem pedidos finalizados ou pagos; a recuperação foi cancelada para preservar esses valores' }, 409);
-          }
-          const dateResult = await client.query("SELECT (clock_timestamp() AT TIME ZONE 'America/Sao_Paulo')::date AS today");
-          const movedOrders = await client.query(`WITH bounds AS (
-            SELECT (($1::date - 1)::date::timestamp AT TIME ZONE 'America/Sao_Paulo') AS day_start,
-                   ($1::date::timestamp AT TIME ZONE 'America/Sao_Paulo') AS day_end
-          ), candidates AS (
-            SELECT p.id FROM pedidos p CROSS JOIN bounds b
-            WHERE p.ciclo_id IS DISTINCT FROM $2 AND p.status = 'pendente'
-              AND (p.created_at AT TIME ZONE 'UTC') >= b.day_start
-              AND (p.created_at AT TIME ZONE 'UTC') < b.day_end
-            FOR UPDATE OF p
-          )
-          UPDATE pedidos p SET ciclo_id = $2, updated_at = NOW()
-          FROM candidates c WHERE p.id = c.id RETURNING p.id`,
-          [dateResult.rows[0].today, current.id]);
-          const progress = movedOrders.rowCount ? await repriceCycleOrders(client, current.id) : null;
-          await client.query('COMMIT'); await client.end();
-          return json({ success: true, message: 'Pedidos de ontem incorporados ao ciclo ativo', data: { ciclo_id: current.id, pedidos_transferidos: movedOrders.rowCount, progresso: progress } });
-        } catch (error) { await client.query('ROLLBACK'); throw error; }
       }
 
       if (path === 'admin/logout') {
@@ -1342,7 +1300,7 @@ export default async function handler(req) {
 
       // POST /pagamentos/inicializar — cria registros de pagamento para os
       // pedidos do ciclo informado (ou do ciclo ativo, por omissão). Permite
-      // lançar pagamentos de ciclos encerrados que ainda não foram quitados.
+      // lançar pagamentos de ciclos anteriores que ainda não foram quitados.
       if (path === 'pagamentos/inicializar') {
         if (!adminSession) {
           await client.end();
