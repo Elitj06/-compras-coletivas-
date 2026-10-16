@@ -1340,20 +1340,37 @@ export default async function handler(req) {
         return json({ success: true, message: `Desconto de ${percentual}% aplicado em ${categoria}` });
       }
 
-      // POST /pagamentos/inicializar — cria registros de pagamento para pedidos pendentes
+      // POST /pagamentos/inicializar — cria registros de pagamento para os
+      // pedidos do ciclo informado (ou do ciclo ativo, por omissão). Permite
+      // lançar pagamentos de ciclos encerrados que ainda não foram quitados.
       if (path === 'pagamentos/inicializar') {
         if (!adminSession) {
           await client.end();
           return unauthorized();
+        }
+        const bodyCycle = Number(body.ciclo_id);
+        let cycle;
+        if (Number.isSafeInteger(bodyCycle) && bodyCycle >= 1) {
+          const found = await client.query(
+            'SELECT id, nome, inicio_em, fim_em, status, ativo FROM ciclos_compra WHERE id = $1 LIMIT 1',
+            [bodyCycle]
+          );
+          cycle = found.rows[0] || null;
+        } else {
+          cycle = await getRequestedAdminCycle(client, url);
+        }
+        if (!cycle) {
+          await client.end();
+          return json({ success: false, error: 'Ciclo de compra não encontrado' }, 404);
         }
         const r = await client.query(`
           INSERT INTO pagamentos (pedido_id, comprador, valor_compra)
           SELECT p.id, p.usuario, p.total_final
           FROM pedidos p
           WHERE p.status != 'cancelado'
-          AND p.ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)
+          AND p.ciclo_id = $1
           AND NOT EXISTS (SELECT 1 FROM pagamentos pg WHERE pg.pedido_id = p.id)
-        `);
+        `, [cycle.id]);
         await client.end();
         return json({ success: true, message: `${r.rowCount} registro(s) de pagamento criado(s)`, created: r.rowCount });
       }

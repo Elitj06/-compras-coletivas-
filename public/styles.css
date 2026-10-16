@@ -777,6 +777,7 @@ svg { width: 18px; height: 18px; flex-shrink: 0; }
   padding: 10px 14px;
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 10px;
   transition: var(--transition);
 }
@@ -808,6 +809,16 @@ svg { width: 18px; height: 18px; flex-shrink: 0; }
   font-size: 1.05rem;
   font-weight: 800;
   color: var(--c-text);
+  overflow-wrap: anywhere;
+}
+
+.stat-card-body { min-width: 0; }
+
+@media (max-width: 480px) {
+  .stat-card { padding: 8px 10px; gap: 8px; }
+  .stat-card-icon { width: 26px; height: 26px; }
+  .stat-card-icon svg { width: 14px; height: 14px; }
+  .stat-card-body strong { font-size: 0.9rem; }
 }
 
 .admin-toolbar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -866,6 +877,24 @@ svg { width: 18px; height: 18px; flex-shrink: 0; }
   font-weight: 700;
   color: var(--c-brand-700);
 }
+
+/* ===== Contêiner de rolagem para tabelas largas (não vazam da tela) ===== */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+.table-scroll .data-table { min-width: 560px; }
+.pagamentos-table th,
+.pagamentos-table td { white-space: nowrap; }
+.pagamentos-table { min-width: 760px; }
+.pagamentos-table td:nth-child(1) { min-width: 150px; }
+@media (max-width: 768px) {
+  .pagamentos-table th,
+  .pagamentos-table td { padding: 10px 12px; font-size: 0.78rem; }
+  .table-scroll .data-table { min-width: 520px; }
+  .pagamentos-table { min-width: 680px; }
+}
 .user-section-header {
   padding: 14px 20px;
   background: var(--c-brand-softer);
@@ -892,6 +921,8 @@ svg { width: 18px; height: 18px; flex-shrink: 0; }
   position: fixed; inset: 0;
   background: rgba(15, 31, 26, 0.55);
   display: grid; place-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  overflow-y: auto;
   z-index: 1000;
   padding: 20px;
   animation: fadeIn 0.2s ease;
@@ -903,6 +934,8 @@ svg { width: 18px; height: 18px; flex-shrink: 0; }
   border-radius: var(--radius-lg);
   width: 100%;
   max-width: 440px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
   box-shadow: var(--shadow-lg);
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
@@ -1318,6 +1351,87 @@ svg { width: 18px; height: 18px; flex-shrink: 0; }
 .product-card-group { min-height: 430px; }
 @media (max-width: 768px) {
   .product-card-group { min-height: 400px; }
+}
+
+/* ===== Botão "Adicionar ao pedido" + chips do cesto ===== */
+.btn-add-order {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  margin-top: 4px;
+}
+.btn-add-order svg { width: 16px; height: 16px; }
+.btn-add-order span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.btn-add-order .btn-add-label-short { display: none; }
+@media (max-width: 480px) {
+  .btn-add-order { padding: 10px 8px; }
+  .btn-add-order .btn-add-label-full { display: none; }
+  .btn-add-order .btn-add-label-short { display: inline; }
+}
+.cart-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+}
+.cart-chips-title {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+.cart-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--c-brand-soft);
+  border-radius: 999px;
+  background: var(--c-brand-softer);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--c-brand-700);
+}
+.cart-chip.cart-chip-active {
+  border-color: var(--c-brand);
+  box-shadow: 0 0 0 2px var(--c-brand-soft);
+}
+.cart-chip-name {
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  padding: 2px;
+  max-width: 132px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.cart-chip-name:hover { text-decoration: underline; }
+.cart-chip-remove {
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.cart-chip-remove:hover {
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
 }
 [data-theme="dark"] .variant-select select {
   background-color: var(--c-surface-2);

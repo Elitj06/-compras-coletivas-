@@ -1,0 +1,3 @@
+# Força LF no ativo vendido: o hash SRI em index.html e o teste
+# calculam o conteúdo com LF; conversão CRLF local quebra a verificação.
+public/vendor/sheetjs-0.20.3/xlsx.full.min.js text eol=lf

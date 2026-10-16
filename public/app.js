@@ -57,7 +57,9 @@ const fmt = {
     new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
-    }).format(Number(n) || 0),
+    })
+      .format(Number(n) || 0)
+      .replace(/\u00a0/g, " "),
   initials: (name) => {
     if (!name) return "?";
     const parts = name.trim().split(/\s+/);
@@ -133,6 +135,8 @@ const ICONS = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>',
   minus:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>',
+  edit:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
 };
 
 const icon = (name, attrs = "") => {
@@ -708,7 +712,7 @@ const app = {
     btn.className = "btn btn-ghost btn-sm";
     btn.style.cssText = "margin-right:4px;font-size:0.8rem;padding:4px 10px";
     btn.title = "Editar nome, telefone e e-mail";
-    btn.innerHTML = `${icon("user")||'👤'} Meus dados`;
+    btn.innerHTML = `${icon("user")} Meus dados`;
     btn.onclick = () => this.showEditProfileModal();
     // Insert before the icon-only edit button
     const iconBtn = wrap.querySelector("button[onclick='app.showEditProfileModal()']");
@@ -1114,6 +1118,9 @@ const app = {
               onchange="app.setQty('${p.codigo}',this.value)" />
             <button class="qty-btn qty-btn-add" onclick="app.updateQty('${p.codigo}',1)" aria-label="Adicionar">${icon("plus")}</button>
           </div>
+          <button type="button" class="btn btn-primary btn-add-order" onclick="app.addToOrder('${p.codigo}')" aria-label="Adicionar ao pedido">
+            ${icon("cart")} <span class="btn-add-label-full">Adicionar ao pedido</span><span class="btn-add-label-short">Adicionar</span>
+          </button>
         </div>
       </div>`;
   },
@@ -1159,7 +1166,42 @@ const app = {
               onchange="app.setQty('${p.codigo}',this.value)" />
             <button class="qty-btn qty-btn-add" onclick="app.updateQty('${p.codigo}',1)" aria-label="Adicionar">${icon("plus")}</button>
           </div>
+          ${this.renderVariantCartChips(entry, active)}
+          <button type="button" class="btn btn-primary btn-add-order" onclick="app.addToOrder('${g.id}')" aria-label="Adicionar ao pedido">
+            ${icon("cart")} <span class="btn-add-label-full">Adicionar ao pedido</span><span class="btn-add-label-short">Adicionar</span>
+          </button>
         </div>
+      </div>`;
+  },
+
+  // Lista compacta do que já está no pedido para as variantes deste grupo.
+  // Clicar no nome troca a variante ativa; o × remove do pedido.
+  renderVariantCartChips(entry, active) {
+    const g = entry.grupo;
+    const chips = entry.variantes
+      .map((v) => ({
+        codigo: v.codigo,
+        label: [g.hasFlavor ? v.flavor : null, g.hasSize ? v.size : null]
+          .filter(Boolean)
+          .join(" · ") || v.produto.nome,
+        qty: this.state.cart[v.codigo] || 0,
+      }))
+      .filter((c) => c.qty > 0);
+    if (!chips.length) return "";
+    return `
+      <div class="cart-chips">
+        <span class="cart-chips-title">No pedido:</span>
+        ${chips
+          .map(
+            (c) => `
+        <span class="cart-chip ${
+          c.codigo === active.codigo ? "cart-chip-active" : ""
+        }">
+          <button type="button" class="cart-chip-name" title="Selecionar esta opção" onclick="app.pickVariant('${g.id}','${c.codigo}')">${fmt.escape(c.label)} ×${c.qty}</button>
+          <button type="button" class="cart-chip-remove" title="Remover do pedido" aria-label="Remover ${fmt.escape(c.label)} do pedido" onclick="app.removeFromCart('${c.codigo}')">×</button>
+        </span>`
+          )
+          .join("")}
       </div>`;
   },
 
@@ -1247,6 +1289,50 @@ const app = {
     this.renderProducts();
   },
 
+  // SECTION: Adiciona 1 unidade ao pedido mantendo o card pronto para
+  // escolher outra variante (sabor/tamanho) em seguida.
+  // `key` é o id do grupo (cards com variantes) ou o código do produto.
+  addToOrder(key) {
+    if (!this.requireRegistration()) return;
+    let cod = key;
+    let label = null;
+    const grupo = typeof VARIANTES !== "undefined"
+      ? VARIANTES.find((g) => g.id === key)
+      : null;
+    if (grupo) {
+      const sel = this.state.variantSelection[grupo.id];
+      const variante =
+        grupo.variantes.find((v) => v.codigo === sel) || grupo.variantes[0];
+      if (!variante) return;
+      cod = variante.codigo;
+      label =
+        [grupo.hasFlavor ? variante.flavor : null, grupo.hasSize ? variante.size : null]
+          .filter(Boolean)
+          .join(" · ") || null;
+    }
+    const p = PRODUTO_INDEX[cod];
+    if (!p) return;
+    if (p.disponivel === false) {
+      this.toast("Produto indisponível para compra", "error");
+      return;
+    }
+    const next = (this.state.cart[cod] || 0) + 1;
+    if (next > 99) {
+      this.toast("Quantidade máxima é 99", "error");
+      return;
+    }
+    this.state.cart[cod] = next;
+    this.toast(
+      `${label ? label : p.nome} adicionado ao pedido`,
+      "success"
+    );
+    this.saveLocal();
+    this.renderProducts();
+    this.updateCartBar();
+    const tab = document.getElementById("tab-meu-pedido");
+    if (tab && !tab.classList.contains("hidden")) this.renderInvoice();
+  },
+
   // SECTION: Keep unavailable products visible while preventing new cart entries.
   decorateUnavailableProducts(grid) {
     const unavailable = new Set(PRODUTOS.filter((p) => p.disponivel === false).map((p) => p.codigo));
@@ -1268,6 +1354,7 @@ const app = {
         }
       }
       card.querySelector(".qty-control")?.remove();
+      card.querySelector(".btn-add-order")?.remove();
       if (!card.querySelector(".product-unavailable-note")) {
         const note = document.createElement("div");
         note.className = "product-unavailable-note";
@@ -2112,7 +2199,7 @@ const app = {
     let html = `
       ${linkedBuyerNotice}
       <div class="card" style="margin-bottom:16px;padding:14px 20px;display:flex;align-items:center;gap:10px">
-        ${icon("calendar")} <div style="flex:1"><strong>Ciclo em exibição: ${fmt.escape(selectedCycle?.nome || "não configurado")}</strong><br><small style="color:var(--c-text-muted)">${isHistoricalCycle ? "Consulta histórica: este ciclo é somente leitura." : "Ciclo ativo: novos pedidos, pagamentos e exportações usam este período."}</small></div>
+        ${icon("calendar")} <div style="flex:1"><strong>Ciclo em exibição: ${fmt.escape(selectedCycle?.nome || "não configurado")}</strong><br><small style="color:var(--c-text-muted)">${isHistoricalCycle ? "Ciclo encerrado: pedidos são somente leitura; lançamentos de pagamento continuam permitidos." : "Ciclo ativo: novos pedidos, pagamentos e exportações usam este período."}</small></div>
         <label style="display:flex;align-items:center;gap:8px;font-size:.85rem">Ciclo
           <select onchange="app.selectAdminCycle(this.value)">${cycles.map((cycle) => `<option value="${cycle.id}" ${Number(cycle.id) === Number(selectedCycle?.id) ? "selected" : ""}>${fmt.escape(cycle.nome)}${cycle.ativo ? " · ativo" : ""}</option>`).join("")}</select>
         </label>
@@ -2275,6 +2362,7 @@ const app = {
       })
       .join("");
     return `
+      <div class="table-scroll">
       <table class="data-table">
         <thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Bruto</th><th>Final</th><th></th></tr></thead>
         <tbody>
@@ -2287,7 +2375,8 @@ const app = {
             <td></td>
           </tr>
         </tbody>
-      </table>`;
+      </table>
+      </div>`;
   },
 
   renderBuyerCards(users) {
@@ -2595,6 +2684,13 @@ const app = {
     if (this.state.adminCycleIsActive) return true;
     this.toast("O ciclo encerrado é somente para consulta", "info");
     return false;
+  },
+
+  // Lançamentos de pagamento podem ser registrados/ajustados em qualquer
+  // ciclo (inclusive encerrados), pois o recebimento pode acontecer depois
+  // do fechamento. Pedidos e itens continuam restritos ao ciclo ativo.
+  canManagePagamentos() {
+    return this.state.isAdminLoggedIn;
   },
 
   async deletePedidoUsuario(usuario) {
@@ -2913,22 +3009,43 @@ const app = {
     c.innerHTML = `<div class="card"><div class="empty-state">${icon("refresh")}<h3>Carregando pagamentos...</h3></div></div>`;
 
     const cycleQuery = this.state.adminCycleId ? `?ciclo_id=${this.state.adminCycleId}` : "";
-    const [pgRes, resRes] = await Promise.all([
+    const [pgRes, resRes, cyclesRes] = await Promise.all([
       this.api(`pagamentos${cycleQuery}`),
       this.api(`pagamentos/resumo${cycleQuery}`),
+      this.api("ciclos-compra"),
     ]);
 
     const pagamentos = pgRes?.data || [];
     const resumo = resRes?.data || {};
+    const cycles = cyclesRes?.data || [];
+    const selectedCycle = cycles.find(
+      (cycle) => Number(cycle.id) === Number(this.state.adminCycleId)
+    );
+    const isHistoricalCycle = selectedCycle && !selectedCycle.ativo;
+    const cycleBanner = selectedCycle
+      ? `<div class="card" style="margin-bottom:16px;padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          ${icon("calendar")}
+          <div style="flex:1;min-width:220px">
+            <strong>Ciclo em lançamento: ${fmt.escape(selectedCycle.nome)}</strong><br>
+            <small style="color:var(--c-text-muted)">${
+              isHistoricalCycle
+                ? "Ciclo encerrado: pedidos ficam somente leitura, mas o lançamento de pagamentos recebidos continua permitido."
+                : "Ciclo ativo: novos pedidos e pagamentos usam este período."
+            }</small>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="app.renderAdmin()">← Voltar ao painel</button>
+        </div>`
+      : "";
 
     if (!pagamentos.length) {
       c.innerHTML = `
+        ${cycleBanner}
         <div class="card">
           <div class="empty-state">
             ${icon("receipt")}
             <h3>Nenhum pagamento registrado</h3>
             <p>Clique em "Inicializar pagamentos" para criar registros a partir dos pedidos existentes.</p>
-            <div style="display:flex;gap:10px;justify-content:center;margin-top:12px">
+            <div style="display:flex;gap:10px;justify-content:center;margin-top:12px;flex-wrap:wrap">
               <button class="btn btn-primary" onclick="app.initPagamentos()">${icon("plus")} Inicializar pagamentos</button>
               <button class="btn btn-ghost" onclick="app.renderAdmin()">← Voltar</button>
             </div>
@@ -2955,11 +3072,12 @@ const app = {
           <td>${pg.parc3 != null ? fmt.brl(pg.parc3) : "—"}</td>
           <td><strong>${fmt.brl(tp)}</strong></td>
           <td style="font-weight:700;${td <= 0 ? 'color:var(--c-success)' : 'color:#dc2626'}">${fmt.brl(td)}</td>
-          <td><button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();app.editPagamento(${pg.id})">${icon("edit") || '✏'} Editar</button></td>
+          <td><button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();app.editPagamento(${pg.id})">${icon("edit")} Editar</button></td>
         </tr>`;
     }).join("");
 
     c.innerHTML = `
+      ${cycleBanner}
       <div class="card" style="margin-bottom:16px">
         <div style="padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:10px">
@@ -2990,8 +3108,8 @@ const app = {
             <div class="stat-card-body"><small>Total Pendente</small><strong style="color:#dc2626">${fmt.brl(totalPendente)}</strong></div>
           </div>
         </div>
-        <div style="overflow-x:auto">
-          <table class="data-table">
+        <div class="table-scroll">
+          <table class="data-table pagamentos-table">
             <thead>
               <tr>
                 <th>Nome</th>
@@ -3021,9 +3139,10 @@ const app = {
   },
 
   async initPagamentos() {
-    if (!this.canManageSelectedCycle()) return;
-    if (!(await customConfirm("Inicializar registros de pagamento para pedidos que ainda não têm?\n\nIsso criará um registro para cada pedido ativo (não cancelado)."))) return;
-    const r = await this.api("pagamentos/inicializar", "POST");
+    if (!this.canManagePagamentos()) return;
+    const cycleQuery = this.state.adminCycleId ? `?ciclo_id=${this.state.adminCycleId}` : "";
+    if (!(await customConfirm("Inicializar registros de pagamento para pedidos que ainda não têm?\n\nIsso criará um registro para cada pedido ativo (não cancelado) do ciclo em exibição."))) return;
+    const r = await this.api(`pagamentos/inicializar${cycleQuery}`, "POST");
     if (r?.success) {
       this.toast(r.message || "Pagamentos inicializados", "success");
       this.renderPagamentos();
@@ -3033,7 +3152,7 @@ const app = {
   },
 
   editPagamento(id) {
-    if (!this.canManageSelectedCycle()) return;
+    if (!this.canManagePagamentos()) return;
     // Busca dados do pagamento do estado atual
     // Primeiro precisa ter os dados carregados; se não, busca
     const openEditModal = (pg) => {
@@ -3075,7 +3194,7 @@ const app = {
   },
 
   async savePagamento(id) {
-    if (!this.canManageSelectedCycle()) return;
+    if (!this.canManagePagamentos()) return;
     const parc = {};
     for (let i = 1; i <= 3; i++) {
       const val = document.getElementById(`pgParc${i}`).value;
@@ -3122,7 +3241,7 @@ const app = {
     const isAdminView = !!forcedUsuario;
     const header = isAdminView
       ? `<div class="card" style="margin-bottom:14px"><div style="padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><strong>Histórico de ${fmt.escape(usuario)}</strong><br><small style="color:var(--c-text-muted)">${pedidos.length} pedido(s)</small></div><button class="btn btn-ghost btn-sm" onclick="app.renderAdmin()">← Voltar ao painel</button></div></div>`
-      : `<div class="card" style="margin-bottom:14px"><div style="padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><strong>Olá, ${fmt.escape(usuario.split(" ")[0])}</strong><br><small style="color:var(--c-text-muted)">${pedidos.length} pedido(s) no histórico</small></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.showEditProfileModal()">${icon("user")||'👤'} Meus dados</button><button class="btn btn-ghost btn-sm" onclick="app.logoutUser()">Sair da conta</button></div></div></div>`;
+      : `<div class="card" style="margin-bottom:14px"><div style="padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><strong>Olá, ${fmt.escape(usuario.split(" ")[0])}</strong><br><small style="color:var(--c-text-muted)">${pedidos.length} pedido(s) no histórico</small></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.showEditProfileModal()">${icon("user")} Meus dados</button><button class="btn btn-ghost btn-sm" onclick="app.logoutUser()">Sair da conta</button></div></div></div>`;
     if (!pedidos.length) {
       c.innerHTML = header + `<div class="card"><div class="empty-state">${icon("receipt")}<h3>Nenhum pedido encontrado</h3><p>Assim que você finalizar um pedido, ele aparecerá aqui.</p></div></div>`;
       this._htmlCache[cacheKey] = c.innerHTML;
@@ -3155,10 +3274,12 @@ const app = {
             <span>${icon("receipt")} ${fmt.escape(p.ciclo_nome || "Ciclo não identificado")} · Pedido #${p.id} · ${data}</span>
             <span style="font-size:0.85rem;color:var(--c-text-muted)">${statusLabel}</span>
           </div>
+          <div class="table-scroll">
           <table class="data-table">
             <thead><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Bruto</th><th>Final</th></tr></thead>
             <tbody>${itens}</tbody>
           </table>
+          </div>
           <div class="user-total-row">
             Bruto: <strong>${fmt.brl(p.total_bruto)}</strong> ·
             Desconto: <strong>${fmt.brl(p.total_desconto || 0)}</strong> ·
