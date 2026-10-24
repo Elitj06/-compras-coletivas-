@@ -1,0 +1,258 @@
+{
+  "captured_at_utc": "2026-10-03T12:30:02.184Z",
+  "cycle_id": 3,
+  "cycle_name": "Ciclo 03/10/2026",
+  "business_date_yesterday": "2026-10-02",
+  "candidates": [
+    {
+      "id": 62,
+      "ciclo_id": 2,
+      "status": "pendente",
+      "created_at": "2026-10-02T19:22:37.270Z",
+      "total_bruto": "114.00",
+      "total_final": "59.28",
+      "total_desconto": "54.72",
+      "updated_at": "2026-10-02T19:56:57.743Z"
+    },
+    {
+      "id": 63,
+      "ciclo_id": 2,
+      "status": "pendente",
+      "created_at": "2026-10-02T19:24:39.759Z",
+      "total_bruto": "95.00",
+      "total_final": "49.40",
+      "total_desconto": "45.60",
+      "updated_at": "2026-10-02T19:56:57.743Z"
+    },
+    {
+      "id": 66,
+      "ciclo_id": 2,
+      "status": "pendente",
+      "created_at": "2026-10-02T19:49:50.669Z",
+      "total_bruto": "349.00",
+      "total_final": "181.48",
+      "total_desconto": "167.52",
+      "updated_at": "2026-10-02T19:56:57.743Z"
+    },
+    {
+      "id": 67,
+      "ciclo_id": 2,
+      "status": "pendente",
+      "created_at": "2026-10-02T19:56:57.743Z",
+      "total_bruto": "254.00",
+      "total_final": "132.08",
+      "total_desconto": "121.92",
+      "updated_at": "2026-10-02T19:56:57.743Z"
+    }
+  ],
+  "items": [
+    {
+      "id": 313,
+      "pedido_id": 62,
+      "quantidade": 1,
+      "preco_bruto": "114.00",
+      "preco_unitario": "114.00",
+      "preco_com_desconto": "59.28",
+      "preco_desconto": "59.28",
+      "desconto_percentual": "48.00",
+      "subtotal_bruto": "114.00",
+      "subtotal_final": "59.28"
+    },
+    {
+      "id": 314,
+      "pedido_id": 63,
+      "quantidade": 1,
+      "preco_bruto": "95.00",
+      "preco_unitario": "95.00",
+      "preco_com_desconto": "49.40",
+      "preco_desconto": "49.40",
+      "desconto_percentual": "48.00",
+      "subtotal_bruto": "95.00",
+      "subtotal_final": "49.40"
+    },
+    {
+      "id": 317,
+      "pedido_id": 66,
+      "quantidade": 1,
+      "preco_bruto": "349.00",
+      "preco_unitario": "349.00",
+      "preco_com_desconto": "181.48",
+      "preco_desconto": "181.48",
+      "desconto_percentual": "48.00",
+      "subtotal_bruto": "349.00",
+      "subtotal_final": "181.48"
+    },
+    {
+      "id": 318,
+      "pedido_id": 67,
+      "quantidade": 1,
+      "preco_bruto": "254.00",
+      "preco_unitario": "254.00",
+      "preco_com_desconto": "132.08",
+      "preco_desconto": "132.08",
+      "desconto_percentual": "48.00",
+      "subtotal_bruto": "254.00",
+      "subtotal_final": "132.08"
+    }
+  ],
+  "historical_order_scope": {
+    "count": 31,
+    "rows": [
+      {
+        "id": 11,
+        "ciclo_id": 1,
+        "status": "pendente"
+      },
+      {
+        "id": 14,
+        "ciclo_id": 1,
+        "status": "pendente"
+      },
+      {
+        "id": 15,
+        "ciclo_id": 1,
+        "status": "pendente"
+      },
+      {
+        "id": 16,
+        "ciclo_id": 1,
+        "status": "pendente"
+      },
+      {
+        "id": 17,
+        "ciclo_id": 1,
+        "status": "pendente"
+      },
+      {
+        "id": 18,
+        "ciclo_id": 1,
+        "status": "pendente"
+      },
+      {
+        "id": 20,
+        "ciclo_id": 1,
+        "status": "pendente"
+      },
+      {
+        "id": 21,
+        "ciclo_id": 1,
+        "status": "pendente"
+      },
+      {
+        "id": 22,
+        "ciclo_id": 1,
+        "status": "pendente"
+      },
+      {
+        "id": 23,
+        "ciclo_id": 1,
+        "status": "pendente"
+      },
+      {
+        "id": 24,
+        "ciclo_id": 1,
+        "status": "pendente"
+      },
+      {
+        "id": 25,
+        "ciclo_id": 1,
+        "status": "pendente"
+      },
+      {
+        "id": 29,
+        "ciclo_id": 1,
+        "status": "pendente"
+      },
+      {
+        "id": 31,
+        "ciclo_id": 1,
+        "status": "pendente"
+      },
+      {
+        "id": 32,
+        "ciclo_id": 1,
+        "status": "pendente"
+      },
+      {
+        "id": 33,
+        "ciclo_id": 1,
+        "status": "pendente"
+      },
+      {
+        "id": 34,
+        "ciclo_id": 1,
+        "status": "pendente"
+      },
+      {
+        "id": 38,
+        "ciclo_id": 2,
+        "status": "pendente"
+      },
+      {
+        "id": 41,
+        "ciclo_id": 2,
+        "status": "pendente"
+      },
+      {
+        "id": 42,
+        "ciclo_id": 2,
+        "status": "pendente"
+      },
+      {
+        "id": 43,
+        "ciclo_id": 2,
+        "status": "pendente"
+      },
+      {
+        "id": 44,
+        "ciclo_id": 2,
+        "status": "pendente"
+      },
+      {
+        "id": 46,
+        "ciclo_id": 2,
+        "status": "pendente"
+      },
+      {
+        "id": 47,
+        "ciclo_id": 2,
+        "status": "pendente"
+      },
+      {
+        "id": 49,
+        "ciclo_id": 2,
+        "status": "pendente"
+      },
+      {
+        "id": 52,
+        "ciclo_id": 2,
+        "status": "pendente"
+      },
+      {
+        "id": 56,
+        "ciclo_id": 2,
+        "status": "pendente"
+      },
+      {
+        "id": 58,
+        "ciclo_id": 2,
+        "status": "pendente"
+      },
+      {
+        "id": 59,
+        "ciclo_id": 2,
+        "status": "pendente"
+      },
+      {
+        "id": 60,
+        "ciclo_id": 2,
+        "status": "pendente"
+      },
+      {
+        "id": 61,
+        "ciclo_id": 2,
+        "status": "pendente"
+      }
+    ]
+  }
+}
