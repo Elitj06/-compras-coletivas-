@@ -19,6 +19,7 @@
  */
 
 import { createClient } from '@vercel/postgres';
+import { buildAllowedOrigins } from '../server/lib/allowed-origins.js';
 import {
   namesEquivalent,
   normalizeNomeTel,
@@ -46,10 +47,7 @@ import {
 // Bypasses POSTGRES_URL_NON_POOLING env var check
 // Supabase pooler URL doesn't match Vercel's "-pooler." pattern so we pass it explicitly
 
-const ALLOWED_ORIGINS = new Set([
-  'https://compras-coletivas-phi.vercel.app',
-  'http://localhost:3000',
-]);
+const ALLOWED_ORIGINS = buildAllowedOrigins(process.env.COMPRAS_EXTRA_ALLOWED_ORIGINS || '');
 
 const BASE_HEADERS = {
   'Content-Type': 'application/json',

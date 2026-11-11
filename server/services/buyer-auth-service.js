@@ -16,6 +16,7 @@ import {
 } from '../data/buyer-auth-data.js';
 import {
   getPhoneLookupCandidates,
+  namesEquivalent,
   normalizeEmail,
   normalizeIdentifier,
   normalizeNomeTel,

@@ -109,6 +109,21 @@ suite('buyer auth integration', () => {
     assert.equal(sends, 0);
   });
 
+  it('supports legacy name and phone login without accepting a different name', async () => {
+    const buyer = await seedBuyer(client, 'Pessoa de Andrade', '21999990106', 'legacy@example.com', '1234');
+    const login = await loginBuyer({
+      client, req: makeRequest('36'),
+      input: { nome: 'Pessoa de Andrade', telefone: '21999990106', pin: '1234' },
+      createBuyerSession, env: ENV,
+    });
+    assert.equal(login.buyer.id, buyer.id);
+    await assert.rejects(() => loginBuyer({
+      client, req: makeRequest('37'),
+      input: { nome: 'Outra Pessoa', telefone: '21999990106', pin: '1234' },
+      createBuyerSession, env: ENV,
+    }), /Credenciais inválidas/);
+  });
+
   it('recovers and logs in through the equivalent record that owns the order history', async () => {
     const historical = await seedBuyer(
       client, 'Pessoa de Andrade', '21999990101', 'historico@example.com', '1234',
@@ -117,10 +132,22 @@ suite('buyer auth integration', () => {
       client, 'Pessoa Andrade', '21988880101', 'HISTORICO@example.com', '9876',
     );
     await seedOrder(client, historical.id);
-    await assert.rejects(() => loginBuyer({
+    const duplicateLogin = await loginBuyer({
       client,
       req: makeRequest('30'),
       input: { identificador: '21988880101', pin: '9876' },
+      createBuyerSession,
+      env: ENV,
+    });
+    assert.equal(duplicateLogin.buyer.id, duplicate.id);
+    const duplicateOrders = await client.query(
+      'SELECT COUNT(*)::int AS orders FROM pedidos WHERE comprador_id = $1', [duplicateLogin.buyer.id],
+    );
+    assert.equal(duplicateOrders.rows[0].orders, 0);
+    await assert.rejects(() => loginBuyer({
+      client,
+      req: makeRequest('34'),
+      input: { identificador: '21988880101', pin: '0000' },
       createBuyerSession,
       env: ENV,
     }), /Credenciais inválidas/);
