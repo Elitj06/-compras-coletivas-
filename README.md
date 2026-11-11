@@ -2,7 +2,8 @@
 
 Plataforma de compras coletivas para a igreja Vida Forte. Membros fazem pedidos de produtos Vitafor/VitaPower, o administrador consolida e compra em grupo com desconto.
 
-**URL de produção:** [compras-coletivas-phi.vercel.app](https://compras-coletivas-phi.vercel.app)
+**URL de produção:** [compras-coletivas-ashy.vercel.app](https://compras-coletivas-ashy.vercel.app)  
+**URL anterior:** [compras-coletivas-phi.vercel.app](https://compras-coletivas-phi.vercel.app) redireciona para a produção atual.
 
 ---
 
