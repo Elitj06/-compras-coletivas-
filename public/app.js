@@ -12,8 +12,9 @@
  *
  * Regras de negócio:
  *  - Desconto é um percentual global progressivo, calculado pelo ciclo ativo.
- *  - Cards do catálogo mostram apenas o preço cheio (sem desconto).
- *  - No carrinho/fatura o comprador vê preço cheio + preço com desconto.
+ *  - Cards, carrinho rápido e fatura mostram o preço cheio e o preço com o
+ *    desconto coletivo em vigor, para o comprador conferir a qualquer momento.
+ *  - O valor final é recalculado pelo servidor ao enviar o pedido.
  *  - Cadastro (nome + telefone) é obrigatório na entrada do app.
  *  - Tema claro/escuro alternável via botão no header.
  * ============================================================ */
@@ -240,6 +241,15 @@ const app = {
     document.getElementById("themeToggle")?.addEventListener("click", () => {
       this.toggleTheme();
     });
+    document.addEventListener("keydown", (event) => {
+      if (!this.isCartDrawerOpen()) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        this.closeCartDrawer();
+      } else if (event.key === "Tab") {
+        this.trapCartDrawerFocus(event);
+      }
+    });
   },
 
   /* ----------------- Tema ----------------- */
@@ -362,8 +372,15 @@ const app = {
     // NOTE: discountPct reflects the APPLIED (pricing) percentual, not the
     // visual tier — the cart/admin need the effective discount, not the bar
     // position.
-    this.state.discountPct = Number(res.data.percentual_aplicado ?? res.data.percentual_atual) || 0;
+    const previousPct = Number(this.state.discountPct) || 0;
+    const nextPct = Number(res.data.percentual_aplicado ?? res.data.percentual_atual) || 0;
+    const pctChanged = nextPct !== previousPct;
+    this.state.discountPct = nextPct;
     this.renderDiscountProgress();
+    // Evita redesenhar cards/carrinho a cada polling quando o percentual
+    // continua o mesmo, preservando foco e digitação do comprador.
+    if (!pctChanged) return;
+    this.updateCatalogPrices();
     this.updateCartBar();
     if (
       document.getElementById("tab-meu-pedido") &&
@@ -457,6 +474,7 @@ const app = {
     localStorage.removeItem("registeredPhone");
     localStorage.removeItem("registeredEmail");
     this.state.lastOrder = null;
+    this.closeCartDrawer();
     this.renderHeaderUser();
     this.saveLocal();
     if (showModal && !this.state.isAdminLoggedIn) this.showRegistrationModal(true, "login");
@@ -887,7 +905,31 @@ const app = {
   /* ----------------- Descontos ----------------- */
   applyDiscountTo(preco) {
     const pct = this.state.discountPct || 0;
-    return pct > 0 ? preco * (1 - pct / 100) : preco;
+    if (!pct) return preco;
+    return Math.round(preco * (1 - pct / 100) * 100) / 100;
+  },
+
+  /** Preço de catálogo com o desconto coletivo em vigor, sempre com o cheio ao lado. */
+  renderPriceHtml(preco) {
+    const pct = Number(this.state.discountPct) || 0;
+    if (pct <= 0) {
+      return `<span class="price-main">${fmt.brl(preco)}</span>`;
+    }
+    const final = this.applyDiscountTo(preco);
+    return `
+      <span class="price-main">${fmt.brl(final)}</span>
+      <span class="price-original">${fmt.brl(preco)}</span>
+      <span class="discount-tag">-${pct}%</span>`;
+  },
+
+  /** Atualiza só os preços já renderizados, sem perder busca/foco/scroll. */
+  updateCatalogPrices() {
+    document.querySelectorAll(".product-prices[data-price-code]").forEach((el) => {
+      const produto = PRODUTO_INDEX[el.getAttribute("data-price-code")];
+      if (!produto) return;
+      el.innerHTML = this.renderPriceHtml(produto.preco);
+      el.classList.toggle("has-discount", Number(this.state.discountPct) > 0);
+    });
   },
 
   /* ----------------- Entradas do catálogo (com variantes) -----------------
@@ -1109,8 +1151,8 @@ const app = {
           <div class="product-name" title="${fmt.escape(p.nome)}">${fmt.escape(
       p.nome
     )}</div>
-          <div class="product-prices">
-            <span class="price-main">${fmt.brl(p.preco)}</span>
+          <div class="product-prices ${Number(this.state.discountPct) > 0 ? "has-discount" : ""}" data-price-code="${p.codigo}">
+            ${this.renderPriceHtml(p.preco)}
           </div>
           <div class="qty-control">
             <button class="qty-btn" onclick="app.updateQty('${p.codigo}',-1)" aria-label="Diminuir">${icon("minus")}</button>
@@ -1157,8 +1199,8 @@ const app = {
       g.nome
     )}</div>
           ${selectorsHtml}
-          <div class="product-prices">
-            <span class="price-main">${fmt.brl(p.preco)}</span>
+          <div class="product-prices ${Number(this.state.discountPct) > 0 ? "has-discount" : ""}" data-price-code="${p.codigo}">
+            ${this.renderPriceHtml(p.preco)}
           </div>
           <div class="qty-control">
             <button class="qty-btn" onclick="app.updateQty('${p.codigo}',-1)" aria-label="Diminuir">${icon("minus")}</button>
@@ -1433,6 +1475,7 @@ const app = {
     if (q <= 0) delete this.state.cart[cod];
     else this.state.cart[cod] = q;
     this.saveLocal();
+    this.renderProducts();
     this.updateCartBar();
     if (document.getElementById("tab-meu-pedido") &&
         !document.getElementById("tab-meu-pedido").classList.contains("hidden"))
@@ -1449,17 +1492,18 @@ const app = {
 
   calcTotals() {
     let bruto = 0;
+    let total = 0;
     for (const [cod, qty] of Object.entries(this.state.cart)) {
       const p = PRODUTO_INDEX[cod];
       if (!p) continue;
       bruto += p.preco * qty;
+      total += this.applyDiscountTo(p.preco) * qty;
     }
     const pct = this.state.discountPct || 0;
-    const total = bruto * (1 - pct / 100);
     return {
       bruto,
       total,
-      economia: bruto - total,
+      economia: Math.round((bruto - total) * 100) / 100,
       pct,
     };
   },
@@ -1471,12 +1515,19 @@ const app = {
     const t = this.calcTotals();
     const bar = document.getElementById("cartBar");
     bar?.classList.toggle("empty", distinct === 0);
+    bar?.classList.toggle("has-discount", t.pct > 0);
 
     document.getElementById("cartCount").textContent = items;
-    document.getElementById("cartTotal").textContent = fmt.brl(t.bruto);
+    const totalLabel = document.getElementById("cartTotalLabel");
+    if (totalLabel) {
+      totalLabel.textContent = t.pct > 0
+        ? `Total com ${t.pct}% de desconto`
+        : "Total estimado";
+    }
+    document.getElementById("cartTotal").textContent = fmt.brl(t.pct > 0 ? t.total : t.bruto);
     const td = document.getElementById("cartTotalDisc");
     if (t.economia > 0) {
-      td.textContent = `Com ${t.pct}% off: ${fmt.brl(t.total)}`;
+      td.textContent = `De ${fmt.brl(t.bruto)} · economia de ${fmt.brl(t.economia)}`;
     } else {
       td.textContent = "";
     }
@@ -1485,6 +1536,171 @@ const app = {
     if (badge) {
       badge.hidden = distinct === 0;
       badge.textContent = distinct;
+    }
+
+    if (this.isCartDrawerOpen()) this.renderCartDrawer();
+  },
+
+  /* ----------------- Carrinho rápido (drawer) -----------------
+   * Acessível a qualquer momento pela barra fixa. Mostra item a item
+   * o preço cheio, o desconto coletivo em vigor e o subtotal final.
+   * O valor final continua sendo recalculado pelo servidor no envio. */
+  isCartDrawerOpen() {
+    return document.getElementById("cartDrawerWrap")?.classList.contains("open") || false;
+  },
+
+  openCartDrawer() {
+    const wrap = document.getElementById("cartDrawerWrap");
+    if (!wrap) return;
+    this._cartDrawerTrigger = document.activeElement;
+    wrap.classList.add("open");
+    document.body.classList.add("cart-drawer-open");
+    this.renderCartDrawer();
+    wrap.querySelector("[data-cart-drawer-close]")?.focus();
+  },
+
+  closeCartDrawer() {
+    const wrap = document.getElementById("cartDrawerWrap");
+    if (!wrap) return;
+    wrap.classList.remove("open");
+    document.body.classList.remove("cart-drawer-open");
+    this._cartDrawerTrigger?.focus?.();
+  },
+
+  trapCartDrawerFocus(event) {
+    const drawer = document.querySelector("#cartDrawerWrap.open .cart-drawer");
+    if (!drawer) return;
+    const focusable = Array.from(
+      drawer.querySelectorAll("button, input, select, textarea, a[href], [tabindex]:not([tabindex='-1'])")
+    ).filter((el) => !el.disabled && el.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  },
+
+  renderCartDrawer() {
+    const wrap = document.getElementById("cartDrawerWrap");
+    if (!wrap || !wrap.classList.contains("open")) return;
+
+    const entries = Object.entries(this.state.cart).filter(([, qty]) => Number(qty) > 0);
+    const totals = this.calcTotals();
+    const pct = totals.pct;
+    // Preserva o foco ao alterar quantidade, pois o drawer é redesenhado.
+    const active = document.activeElement;
+    const focusAction = active?.getAttribute?.("data-cart-action");
+    const focusCode = active?.getAttribute?.("data-cart-code");
+    const focusPosition = active?.selectionStart;
+
+    const discountBanner = pct > 0
+      ? `<div class="cart-drawer-discount">
+           <span class="discount-tag">-${pct}%</span>
+           <div>
+             <strong>Desconto coletivo em vigor</strong>
+             <small>O percentual abaixo já está aplicado em cada produto. O valor final é reconferido ao enviar o pedido.</small>
+           </div>
+         </div>`
+      : `<div class="cart-drawer-discount is-muted">
+           <div>
+             <strong>Nenhum desconto coletivo em vigor</strong>
+             <small>Os preços abaixo são os cheios. O desconto entra quando o grupo atinge uma faixa.</small>
+           </div>
+         </div>`;
+
+    const items = entries.map(([codigo, qty]) => {
+      const produto = PRODUTO_INDEX[codigo];
+      if (!produto) return "";
+      const unitFinal = this.applyDiscountTo(produto.preco);
+      const subtotalBruto = produto.preco * qty;
+      const subtotalFinal = unitFinal * qty;
+      const priceHtml = pct > 0
+        ? `<span class="cart-drawer-price-main">${fmt.brl(subtotalFinal)}</span>
+           <span class="cart-drawer-price-old">${fmt.brl(subtotalBruto)}</span>
+           <span class="discount-tag">-${pct}%</span>`
+        : `<span class="cart-drawer-price-main">${fmt.brl(subtotalBruto)}</span>`;
+      const unitLine = pct > 0
+        ? `Un.: ${fmt.brl(produto.preco)} → ${fmt.brl(unitFinal)} com ${pct}% off`
+        : `Un.: ${fmt.brl(produto.preco)}`;
+      return `
+        <div class="cart-drawer-item" data-cart-item="${produto.codigo}">
+          <div class="cart-drawer-item-main">
+            <div class="cart-drawer-item-info">
+              <span class="cart-drawer-item-code">${fmt.escape(produto.codigo)}</span>
+              <strong>${fmt.escape(produto.nome)}</strong>
+              <small>${fmt.escape(unitLine)}</small>
+            </div>
+            <div class="cart-drawer-item-price">${priceHtml}</div>
+          </div>
+          <div class="cart-drawer-item-actions">
+            <div class="cart-drawer-qty">
+              <button type="button" data-cart-action="dec" data-cart-code="${produto.codigo}" onclick="app.updateQty('${produto.codigo}',-1)" aria-label="Diminuir ${fmt.escape(produto.nome)}">−</button>
+              <input type="number" data-cart-action="qty" data-cart-code="${produto.codigo}" value="${qty}" min="1" max="99"
+                onchange="app.setQty('${produto.codigo}',this.value)" aria-label="Quantidade de ${fmt.escape(produto.nome)}" />
+              <button type="button" data-cart-action="inc" data-cart-code="${produto.codigo}" onclick="app.updateQty('${produto.codigo}',1)" aria-label="Aumentar ${fmt.escape(produto.nome)}">+</button>
+            </div>
+            <button type="button" class="cart-drawer-remove" onclick="app.removeFromCart('${produto.codigo}')">Remover</button>
+          </div>
+        </div>`;
+    }).join("");
+
+    const summary = pct > 0
+      ? `<div class="cart-drawer-summary-row"><span>Subtotal sem desconto</span><strong>${fmt.brl(totals.bruto)}</strong></div>
+         <div class="cart-drawer-summary-row is-discount"><span>Desconto coletivo (${pct}%)</span><strong>− ${fmt.brl(totals.economia)}</strong></div>
+         <div class="cart-drawer-summary-total"><span>Total com desconto</span><strong>${fmt.brl(totals.total)}</strong></div>`
+      : `<div class="cart-drawer-summary-total"><span>Total do pedido</span><strong>${fmt.brl(totals.bruto)}</strong></div>`;
+
+    const body = entries.length
+      ? `${discountBanner}
+         <div class="cart-drawer-items">${items}</div>
+         <footer class="cart-drawer-footer">
+           <div class="cart-drawer-summary">${summary}</div>
+           <div class="cart-drawer-actions">
+             <button type="button" class="btn btn-secondary btn-block" onclick="app.closeCartDrawer()">Continuar comprando</button>
+             <button type="button" class="btn btn-ghost btn-block" onclick="app.closeCartDrawer();app.switchTab('meu-pedido')">Ver fatura completa</button>
+             <button type="button" class="btn btn-primary btn-block" onclick="app.closeCartDrawer();app.finalizeOrder()">Finalizar pedido</button>
+           </div>
+           <small class="cart-drawer-note">O desconto coletivo é recalculado ao enviar o pedido e pode mudar até o fechamento do ciclo.</small>
+         </footer>`
+      : `<div class="cart-drawer-empty">
+           ${icon("cart")}
+           <h3>Seu carrinho está vazio</h3>
+           <p>Escolha produtos na aba Produtos para montar seu pedido.</p>
+           <button type="button" class="btn btn-primary" onclick="app.closeCartDrawer();app.switchTab('produtos')">Ver produtos</button>
+         </div>`;
+
+    wrap.innerHTML = `
+      <div class="cart-drawer-overlay" onclick="app.closeCartDrawer()"></div>
+      <aside class="cart-drawer" role="dialog" aria-modal="true" aria-labelledby="cartDrawerTitle">
+        <header class="cart-drawer-header">
+          <div>
+            <span class="cart-drawer-eyebrow">Seu pedido</span>
+            <h2 id="cartDrawerTitle">Carrinho</h2>
+          </div>
+          <button type="button" class="cart-drawer-close" data-cart-drawer-close aria-label="Fechar carrinho" onclick="app.closeCartDrawer()">×</button>
+        </header>
+        ${body}
+      </aside>`;
+
+    if (focusAction && focusCode) {
+      const target = wrap.querySelector(
+        `[data-cart-action="${focusAction}"][data-cart-code="${focusCode}"]`
+      );
+      if (target) {
+        target.focus();
+        if (
+          focusPosition != null &&
+          target.type !== "number" &&
+          typeof target.setSelectionRange === "function"
+        ) {
+          target.setSelectionRange(focusPosition, focusPosition);
+        }
+      }
     }
   },
 
@@ -1638,20 +1854,23 @@ const app = {
         const p = PRODUTO_INDEX[cod];
         if (!p) return "";
         const sub = p.preco * qty;
-        const subD = this.applyDiscountTo(p.preco) * qty;
+        const unitD = this.applyDiscountTo(p.preco);
+        const subD = unitD * qty;
         const subPriceHtml =
           pct > 0
             ? `<span class="invoice-strike">${fmt.brl(sub)}</span>
-               <span class="invoice-final">${fmt.brl(subD)}</span>`
+               <span class="invoice-final">${fmt.brl(subD)}</span>
+               <span class="invoice-discount-note">${pct}% off</span>`
             : `<span class="invoice-final">${fmt.brl(sub)}</span>`;
+        const metaHtml = pct > 0
+          ? `${fmt.escape(p.codigo)} · ${fmt.brl(p.preco)} un. → ${fmt.brl(unitD)} com ${pct}% off`
+          : `${fmt.escape(p.codigo)} · ${fmt.brl(p.preco)} un.`;
         return `
         <tr>
           <td>
             <div class="invoice-product">
               <span class="invoice-product-name">${fmt.escape(p.nome)}</span>
-              <span class="invoice-product-meta">${fmt.escape(
-                p.codigo
-              )} · ${fmt.brl(p.preco)} un.</span>
+              <span class="invoice-product-meta">${metaHtml}</span>
             </div>
           </td>
           <td>

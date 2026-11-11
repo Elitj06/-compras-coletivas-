@@ -64,6 +64,7 @@ compras-coletivas/
 - Catálogo de produtos com busca, filtro por categoria e ordenação
 - Grupos com variantes (sabor, tamanho) — ex: Aminovita (Limão/Maracujá × 240g/30 sachês)
 - Carrinho persistido no localStorage
+- Carrinho rápido acessível durante a compra, com preço cheio, desconto coletivo em vigor e valor final por produto
 - Cadastro com nome, telefone, e-mail e PIN (4-6 dígitos)
 - Login via PIN para acessar histórico
 - Login simplificado por telefone ou e-mail e PIN
