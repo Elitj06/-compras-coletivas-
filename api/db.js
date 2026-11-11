@@ -25,7 +25,12 @@ import {
   normalizeNomeTel,
   phonesEquivalent,
 } from '../server/lib/buyer-identity.js';
-import { timingSafeEqual } from '../server/lib/pin-crypto.js';
+import {
+  hashPbkdf2Pin,
+  isLegacyPinHash,
+  timingSafeEqual,
+  verifyPinHash,
+} from '../server/lib/pin-crypto.js';
 import {
   handleBuyerAuthPost,
   handleBuyerAuthPut,
@@ -578,6 +583,33 @@ async function verifyAdminPassword(client, password) {
     [await hashAdminPassword(password)]
   );
   return true;
+}
+
+/**
+ * Protege cadastros que ainda usam o hash legado dependente de nome+telefone.
+ * Alterar a identidade sem rehash quebraria o PIN antigo.
+ * Retorna `pinHash` novo quando o PIN atual foi confirmado.
+ */
+async function legacyPinIdentityGuard(client, buyerId, nextNome, nextPhone, currentPin) {
+  const result = await client.query(
+    'SELECT nome, telefone, pin_hash FROM compradores WHERE id = $1',
+    [buyerId]
+  );
+  const buyer = result.rows[0];
+  if (!buyer) return { error: 'BUYER_NOT_FOUND' };
+  const nameChanged = String(nextNome || '').trim() !== String(buyer.nome || '').trim();
+  const phoneChanged =
+    String(nextPhone || '').replace(/\D/g, '') !== String(buyer.telefone || '').replace(/\D/g, '');
+  if (!nameChanged && !phoneChanged) return { buyer, pinHash: null };
+  if (!isLegacyPinHash(buyer.pin_hash)) return { buyer, pinHash: null };
+  if (!/^\d{4,6}$/.test(String(currentPin || ''))) {
+    return { error: 'PIN_REHASH_REQUIRED', buyer };
+  }
+  const legacySalt = `${buyer.nome}:${String(buyer.telefone || '').replace(/\D/g, '')}`;
+  if (!(await verifyPinHash(currentPin, buyer.pin_hash, legacySalt))) {
+    return { error: 'PIN_REHASH_REQUIRED', buyer };
+  }
+  return { buyer, pinHash: await hashPbkdf2Pin(currentPin) };
 }
 
 function unauthorized(message = 'Não autorizado') {
@@ -1391,8 +1423,18 @@ export default async function handler(req) {
         env: process.env,
       });
       if (authResult) {
+        const token = authResult.body?.token;
+        if (token) {
+          delete authResult.body.token;
+          if (authResult.body.data) delete authResult.body.data.token;
+        }
+        const response = authResponse(authResult);
+        if (token) {
+          const csrf = randomHex(32);
+          appendCookies(response, await issueSessionCookies(client, 'buyer', token, csrf, BUYER_SESSION_TTL_SECONDS));
+        }
         await client.end();
-        return authResponse(authResult);
+        return response;
       }
 
       // PUT /comprador/perfil — Atualiza nome, telefone e e-mail do comprador autenticado
@@ -1428,10 +1470,30 @@ export default async function handler(req) {
           await client.end();
           return json({ success: false, code: 'IDENTITY_ALREADY_REGISTERED', error: 'Telefone ou e-mail já cadastrado para outro comprador' }, 409);
         }
+        const guard = await legacyPinIdentityGuard(
+          client,
+          buyerSession.id,
+          nome,
+          telNorm,
+          body.current_pin
+        );
+        if (guard.error === 'BUYER_NOT_FOUND') {
+          await client.end();
+          return json({ success: false, error: 'Comprador não encontrado' }, 404);
+        }
+        if (guard.error === 'PIN_REHASH_REQUIRED') {
+          await client.end();
+          return json({
+            success: false,
+            code: 'PIN_REHASH_REQUIRED',
+            error: 'Confirme seu PIN atual para alterar nome ou telefone',
+          }, 409);
+        }
         const updated = await client.query(
-          `UPDATE compradores SET nome = $1, telefone = $2, email = $3, updated_at = NOW()
-           WHERE id = $4 RETURNING id, nome, telefone, email`,
-          [String(nome).trim(), telNorm, (email || '').trim() || null, buyerSession.id]
+          `UPDATE compradores SET nome = $1, telefone = $2, email = $3,
+             pin_hash = COALESCE($4, pin_hash), updated_at = NOW()
+           WHERE id = $5 RETURNING id, nome, telefone, email`,
+          [String(nome).trim(), telNorm, (email || '').trim() || null, guard.pinHash, buyerSession.id]
         );
         // Sincroniza o nome em pedidos existentes do ciclo ativo
         await client.query(
@@ -1478,12 +1540,20 @@ export default async function handler(req) {
           await client.end();
           return json({ success: false, code: 'IDENTITY_ALREADY_REGISTERED', error: 'Telefone ou e-mail já cadastrado para outro comprador' }, 409);
         }
-        const oldBuyer = await client.query('SELECT nome FROM compradores WHERE id = $1', [buyerId]);
-        if (!oldBuyer.rows.length) {
+        const guard = await legacyPinIdentityGuard(client, buyerId, nome, telNorm, null);
+        if (guard.error === 'BUYER_NOT_FOUND') {
           await client.end();
           return json({ success: false, error: 'Comprador não encontrado' }, 404);
         }
-        const oldNome = oldBuyer.rows[0].nome;
+        if (guard.error === 'PIN_REHASH_REQUIRED') {
+          await client.end();
+          return json({
+            success: false,
+            code: 'PIN_REHASH_REQUIRED',
+            error: 'Este comprador ainda usa o PIN antigo. Peça para entrar uma vez antes de alterar nome ou telefone, ou gere um novo acesso.',
+          }, 409);
+        }
+        const oldNome = guard.buyer.nome;
         const updated = await client.query(
           `UPDATE compradores SET nome = $1, telefone = $2, email = $3, updated_at = NOW()
            WHERE id = $4 RETURNING id, nome, telefone, email`,

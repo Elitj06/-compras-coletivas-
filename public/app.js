@@ -161,7 +161,8 @@ const app = {
     perPage: 24,
     isAdminLoggedIn: false,
     isRegistered: false,
-    user: { name: "", phone: "", email: "" },
+    sessionExpired: false,
+    user: { id: null, name: "", phone: "", email: "" },
     adminCycleId: null,
     adminCycleIsActive: true,
     useServer: true,
@@ -320,7 +321,7 @@ const app = {
           this.clearAdminSession();
         }
         if (path.includes("historico") || path === "pedidos") {
-          this.clearBuyerSession(false);
+          this.clearBuyerSession(false, { preserveLocal: true });
         }
       }
       return data;
@@ -342,7 +343,7 @@ const app = {
           linkedBuyer.telefone || "",
           linkedBuyer.email || "",
           "",
-          { announce: false, refreshHistory: false },
+          { id: linkedBuyer.id, announce: false, refreshHistory: false },
         );
       }
     } else {
@@ -351,11 +352,14 @@ const app = {
     const buyerSession = await this.api("comprador/session");
     if (buyerSession?.success) {
       this.state.isRegistered = true;
+      this.state.sessionExpired = false;
+      this.state.user.id = buyerSession.data.id || this.state.user.id;
       this.state.user.name = buyerSession.data.nome || this.state.user.name;
       this.state.user.phone = buyerSession.data.telefone || this.state.user.phone;
       this.state.user.email = buyerSession.data.email || this.state.user.email;
+      if (this.state.user.id) localStorage.setItem("registeredId", String(this.state.user.id));
     } else if (!this.state.isAdminLoggedIn) {
-      this.clearBuyerSession(false);
+      this.clearBuyerSession(false, { preserveLocal: true });
     }
   },
 
@@ -450,26 +454,71 @@ const app = {
 
   /* ----------------- Cadastro ----------------- */
   checkRegistration() {
-    const reg = localStorage.getItem("userRegistered");
-    if (reg === "true") {
-      this.state.isRegistered = true;
-      this.state.user.name = localStorage.getItem("registeredName") || "";
-      this.state.user.phone = localStorage.getItem("registeredPhone") || "";
-      this.state.user.email = localStorage.getItem("registeredEmail") || "";
-    }
+    // A identidade continua disponível mesmo com a sessão expirada para que
+    // o carrinho local permaneça associado ao mesmo comprador.
+    const savedId = localStorage.getItem("registeredId");
+    this.state.user.id = savedId && /^\d+$/.test(savedId) ? Number(savedId) : (savedId || null);
+    this.state.user.name = localStorage.getItem("registeredName") || "";
+    this.state.user.phone = localStorage.getItem("registeredPhone") || "";
+    this.state.user.email = localStorage.getItem("registeredEmail") || "";
+    this.state.isRegistered = localStorage.getItem("userRegistered") === "true";
   },
 
   hasAppAccess() {
     return this.state.isRegistered || this.state.isAdminLoggedIn;
   },
 
-  clearBuyerSession(showModal = true) {
-    const scopedKeys = ["cart", "discountPct", "lastOrder"].map((key) => this.storageKey(key));
-    scopedKeys.forEach((key) => localStorage.removeItem(key));
+  storageIdentities() {
+    const values = [
+      this.state.user.id ? `id:${this.state.user.id}` : null,
+      this.state.user.phone,
+      this.state.user.email,
+      this.state.user.name,
+      "anonymous",
+    ].filter(Boolean);
+    return [...new Set(values.map((value) => encodeURIComponent(String(value).trim().toLowerCase())))];
+  },
+
+  clearScopedLocalStorage() {
+    for (const identity of this.storageIdentities()) {
+      for (const key of ["cart", "discountPct", "lastOrder"]) {
+        localStorage.removeItem(`cc:${identity}:${key}`);
+      }
+    }
+  },
+
+  /**
+   * Encerra a sessão do comprador.
+   * `preserveLocal` mantém carrinho, último pedido, desconto e identidade para
+   * que uma sessão expirada não apague o trabalho do comprador. A limpeza total
+   * fica reservada ao logout explícito ou à redefinição de credenciais.
+   */
+  clearBuyerSession(showModal = true, { preserveLocal = false } = {}) {
+    if (preserveLocal) {
+      const hadIdentity = Boolean(
+        this.state.user.id || this.state.user.name || this.state.user.phone || this.state.user.email
+      );
+      this.state.isRegistered = false;
+      this.state.sessionExpired = true;
+      localStorage.removeItem("userRegistered");
+      this.closeCartDrawer();
+      this.renderHeaderUser();
+      this.saveLocal();
+      if (hadIdentity && !this._sessionExpiredToastShown) {
+        this._sessionExpiredToastShown = true;
+        this.toast("Sua sessão expirou. Entre novamente; seu carrinho foi mantido.", "info");
+      }
+      if (showModal && !this.state.isAdminLoggedIn) this.showRegistrationModal(true, "login");
+      return;
+    }
+
+    this.clearScopedLocalStorage();
     this.state.cart = {};
     this.state.isRegistered = false;
-    this.state.user = { name: "", phone: "", email: "" };
+    this.state.sessionExpired = false;
+    this.state.user = { id: null, name: "", phone: "", email: "" };
     localStorage.removeItem("userRegistered");
+    localStorage.removeItem("registeredId");
     localStorage.removeItem("registeredName");
     localStorage.removeItem("registeredPhone");
     localStorage.removeItem("registeredEmail");
@@ -607,7 +656,8 @@ const app = {
           res?.data?.nome || name,
           res?.data?.telefone || identifier,
           res?.data?.email || email,
-          res?.token || res?.data?.token || ""
+          res?.token || res?.data?.token || "",
+          { id: res?.data?.id }
         );
       });
       return;
@@ -635,7 +685,8 @@ const app = {
         comprador.nome,
         comprador.telefone || "",
         comprador.email || "",
-        res?.token || comprador.token || ""
+        res?.token || comprador.token || "",
+        { id: comprador.id }
       );
     });
   },
@@ -672,15 +723,67 @@ const app = {
     this.toast("Este telefone ou e-mail já possui cadastro. Entre com seu PIN ou use “Esqueci meu PIN”.", "error");
   },
 
-  _saveUserSession(name, phone, email, token, { announce = true, refreshHistory = true } = {}) {
+  _saveUserSession(name, phone, email, token, { id = null, announce = true, refreshHistory = true } = {}) {
+    const previousUser = { ...this.state.user };
+    const previousKeys = [
+      previousUser.id ? `id:${previousUser.id}` : null,
+      previousUser.phone,
+      previousUser.email,
+      previousUser.name,
+    ].filter(Boolean).map((value) => encodeURIComponent(String(value).trim().toLowerCase()));
+
+    this.state.user.id = id != null && String(id).trim() !== "" ? id : this.state.user.id;
     this.state.user.name = name;
     this.state.user.phone = phone;
     this.state.user.email = email;
     this.state.isRegistered = true;
+    this.state.sessionExpired = false;
+    this._sessionExpiredToastShown = false;
     localStorage.setItem("userRegistered", "true");
+    if (this.state.user.id) localStorage.setItem("registeredId", String(this.state.user.id));
     localStorage.setItem("registeredName", name);
     localStorage.setItem("registeredPhone", phone);
     localStorage.setItem("registeredEmail", email);
+
+    // Nunca carrega o carrinho de outra conta para o comprador que acabou de
+    // entrar. Visitante anônimo ou o mesmo comprador mantêm o carrinho.
+    const sameUser = !previousUser.id || String(previousUser.id) === String(this.state.user.id);
+    if (!sameUser) {
+      this.state.cart = {};
+      this.state.lastOrder = null;
+    } else if (Object.keys(this.state.cart || {}).length) {
+      this.saveLocal();
+    }
+
+    // Migra carrinho/último pedido do formato antigo (telefone/e-mail) para
+    // a chave estável por id. Só migra quando é o mesmo comprador ou um
+    // visitante anônimo; nunca copia dados de outra conta.
+    if (this.state.user.id && sameUser) {
+      const newCartKey = this.storageKey("cart");
+      const newKeys = new Set(["cart", "discountPct", "lastOrder"].map((key) => this.storageKey(key)));
+      if (!localStorage.getItem(newCartKey)) {
+        for (const identity of previousKeys) {
+          const oldCartKey = `cc:${identity}:cart`;
+          if (oldCartKey === newCartKey) continue;
+          const oldCart = localStorage.getItem(oldCartKey);
+          if (!oldCart) continue;
+          localStorage.setItem(newCartKey, oldCart);
+          for (const key of ["discountPct", "lastOrder"]) {
+            const value = localStorage.getItem(`cc:${identity}:${key}`);
+            if (value) localStorage.setItem(this.storageKey(key), value);
+          }
+          break;
+        }
+      }
+      for (const identity of previousKeys) {
+        for (const key of ["cart", "discountPct", "lastOrder"]) {
+          const oldKey = `cc:${identity}:${key}`;
+          if (!newKeys.has(oldKey)) localStorage.removeItem(oldKey);
+        }
+      }
+    }
+
+    this.loadLocal();
     document.getElementById("registrationModal")?.remove();
     this.renderHeaderUser();
     if (announce) this.toast(`Olá, ${name.split(" ")[0]}!`, "success");
@@ -769,6 +872,11 @@ const app = {
               <label for="epEmail">E-mail</label>
               <input type="email" id="epEmail" value="${fmt.escape(this.state.user.email)}" placeholder="seu@email.com" autocomplete="email" />
             </div>
+            <div class="form-group">
+              <label for="epCurrentPin">PIN atual (se pedido)</label>
+              <input type="password" id="epCurrentPin" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="current-password" />
+              <small>Necessário apenas para alterar nome ou telefone em cadastros antigos.</small>
+            </div>
           </div>
           <div class="modal-footer" style="display:flex;gap:10px">
             <button class="btn btn-ghost" onclick="document.getElementById('editProfileModal')?.remove()">Cancelar</button>
@@ -798,18 +906,27 @@ const app = {
       return;
     }
 
-    const r = await this.api("comprador/perfil", "PUT", { nome, telefone, email });
+    const currentPin = (document.getElementById("epCurrentPin")?.value || "").replace(/\D/g, "");
+    const payload = { nome, telefone, email };
+    if (currentPin) payload.current_pin = currentPin;
+    const r = await this.api("comprador/perfil", "PUT", payload);
     if (r?.success) {
       const data = r.data || {};
+      this.state.user.id = data.id || this.state.user.id;
       this.state.user.name = data.nome || nome;
       this.state.user.phone = data.telefone || telefone;
       this.state.user.email = data.email || email;
+      if (this.state.user.id) localStorage.setItem("registeredId", String(this.state.user.id));
       localStorage.setItem("registeredName", this.state.user.name);
       localStorage.setItem("registeredPhone", this.state.user.phone);
       localStorage.setItem("registeredEmail", this.state.user.email);
       document.getElementById("editProfileModal")?.remove();
       this.renderHeaderUser();
+      this.saveLocal();
       this.toast("Dados atualizados com sucesso", "success");
+    } else if (r?.code === "PIN_REHASH_REQUIRED") {
+      this.toast("Informe seu PIN atual para alterar nome ou telefone. Ele será atualizado com segurança.", "error");
+      document.getElementById("epCurrentPin")?.focus();
     } else {
       this.toast(r?.error || "Não foi possível salvar. Tente novamente.", "error");
     }
@@ -2325,7 +2442,7 @@ const app = {
             adminBuyer.telefone || "",
             adminBuyer.email || "",
             "",
-            { refreshHistory: false },
+            { id: adminBuyer.id, refreshHistory: false },
           );
         }
         const tabAdmin = document.getElementById("tabAdmin");
@@ -3203,7 +3320,9 @@ const app = {
 
   /* ----------------- LocalStorage ----------------- */
   storageKey(key) {
-    const identity = this.state.user.phone || this.state.user.email || this.state.user.name || "anonymous";
+    const identity = this.state.user.id
+      ? `id:${this.state.user.id}`
+      : (this.state.user.phone || this.state.user.email || this.state.user.name || "anonymous");
     const safeIdentity = encodeURIComponent(String(identity).trim().toLowerCase());
     return `cc:${safeIdentity}:${key}`;
   },
