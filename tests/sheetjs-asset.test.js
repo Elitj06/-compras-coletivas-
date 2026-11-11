@@ -10,12 +10,15 @@ const assetUrl = new URL('../public/vendor/sheetjs-0.20.3/xlsx.full.min.js', imp
 const expectedSha384 = '127c98d3f1921d0192c5280cc1a20fcd21126eaa0e2d27b17e748c37600ffb7f429269fddacb700016729ead49cb3753';
 
 test('SheetJS is self-hosted with the pinned SHA-384 and exports a workbook', async () => {
-  const [asset, html] = await Promise.all([
+  const [asset, html, app] = await Promise.all([
     readFile(assetUrl),
     readFile(new URL('../public/index.html', import.meta.url), 'utf8'),
+    readFile(new URL('../public/app.js', import.meta.url), 'utf8'),
   ]);
   assert.equal(createHash('sha384').update(asset).digest('hex'), expectedSha384);
-  assert.match(html, /\/vendor\/sheetjs-0\.20\.3\/xlsx\.full\.min\.js/);
+  assert.match(app, /\/vendor\/sheetjs-0\.20\.3\/xlsx\.full\.min\.js/);
+  assert.match(app, /loadXlsxLib/);
+  assert.doesNotMatch(html, /xlsx\.full\.min\.js/);
   assert.doesNotMatch(html, /https?:\/\/[^"']*(?:sheetjs|xlsx)/i);
 
   const context = vm.createContext({ console });

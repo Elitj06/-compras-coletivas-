@@ -196,3 +196,17 @@ O projeto tem um agente WhatsApp (`guia-compras`) que ajuda compradores a fazer 
 ## Licença
 
 Projeto privado — uso exclusivo da Vida Forte.
+
+
+## PWA e desempenho
+
+- Instalavel em Android, iOS e desktop (manifest + service worker em `public/`).
+- App shell precacheado; navegacao e JS/CSS em network-first com fallback offline; dados da API sempre vindo da rede (`/api` nunca e cacheado).
+- Atualizacoes: o novo service worker fica em waiting e o banner "Nova versao disponivel" aparece no proximo acesso; aceitar atualiza preserva carrinho e credenciais.
+- Offline: identidade e carrinho continuam preservados; o PIN nunca e gravado no navegador (hash apenas no servidor).
+- Miniaturas do catalogo servidas pelo CDN em 320px (`thumbUrl`), com `loading="lazy"` e `decoding="async"`.
+- Exportacao Excel (SheetJS, ~930 KB) carregada sob demanda apenas no painel admin.
+- Headers de cache por tipo de arquivo em `vercel.json`; `sw.js` e o app shell sempre revalidam.
+- Ao alterar `sw.js`, manifest ou a lista de precache, incremente `VERSION` em `public/sw.js`.
+
+Arquivos: `public/manifest.webmanifest`, `public/sw.js`, `public/pwa.js`, `public/icons/`.

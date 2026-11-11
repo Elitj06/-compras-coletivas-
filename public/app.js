@@ -72,6 +72,25 @@ const fmt = {
     ),
 };
 
+/* Miniatura do CDN Vitafor: reduz o payload das imagens do catálogo.
+   O lightbox continua usando a imagem original. */
+const IMAGE_THUMB_SIZE = 320;
+function thumbUrl(url, size = IMAGE_THUMB_SIZE) {
+  if (!url) return url;
+  try {
+    const parsed = new URL(url, window.location.href);
+    if (parsed.hostname === "vteximg.com.br" || parsed.hostname.endsWith(".vteximg.com.br")) {
+      if (!parsed.searchParams.has("width")) parsed.searchParams.set("width", String(size));
+      if (!parsed.searchParams.has("height")) parsed.searchParams.set("height", String(size));
+      parsed.searchParams.set("aspect", "true");
+      return parsed.toString();
+    }
+  } catch (error) {
+    /* mantém a URL original */
+  }
+  return url;
+}
+
 /* ----------------------- Ícones SVG ------------------------ */
 const ICONS = {
   dumbbell:
@@ -200,9 +219,23 @@ const app = {
     }
     // Cadastro obrigatório logo na entrada
     const recoveryLink = new URLSearchParams(location.search).has("recover");
+    const requestedTab = new URLSearchParams(location.search).get("tab");
+    if (requestedTab && ["produtos", "meu-pedido", "historico"].includes(requestedTab)) {
+      // Atalhos do PWA: guarda a aba desejada para abrir após o login.
+      this.state.pendingTab = requestedTab;
+    }
     if (!this.hasAppAccess() && !recoveryLink) {
-      this.showRegistrationModal(true, "login");
+      if (navigator.onLine === false) {
+        this.toast("Você está offline. Conecte-se para entrar.", "info");
+      } else {
+        this.showRegistrationModal(true, "login");
+      }
     } else {
+      if (this.state.pendingTab && this.hasAppAccess()) {
+        const pendingTab = this.state.pendingTab;
+        this.state.pendingTab = null;
+        this.switchTab(pendingTab);
+      }
       // Detecta pedidos órfãos do banco para limpar histórico
       this.cleanupOrphanPedidos();
       // Pré-carrega pedido do servidor se não tem lastOrder local
@@ -314,7 +347,8 @@ const app = {
       };
       if (body) opts.body = JSON.stringify(body);
       const res = await fetch(`${API_BASE}/${path}`, opts);
-      if (res.status === 204) return { success: true };
+      this.state.useServer = true;
+      if (res.status === 204) return { success: true, status: 204 };
       const data = await res.json();
       if (res.status === 401) {
         if (path.startsWith("admin/") || path.startsWith("pagamentos") || path.startsWith("pedidos/por-usuario") || path.startsWith("pedidos/consolidado") || path.startsWith("stats") || path.startsWith("compradores") || path.startsWith("descontos")) {
@@ -324,7 +358,11 @@ const app = {
           this.clearBuyerSession(path === "pedidos", { preserveLocal: true });
         }
       }
-      return data;
+      return Array.isArray(data)
+        ? { data, status: res.status }
+        : data && typeof data === "object"
+          ? { ...data, status: res.status }
+          : { data, status: res.status };
     } catch (e) {
       console.warn("API offline:", e.message);
       this.state.useServer = false;
@@ -346,9 +384,11 @@ const app = {
           { id: linkedBuyer.id, announce: false, refreshHistory: false },
         );
       }
-    } else {
+    } else if (adminSession?.status === 401) {
       this.clearAdminSession();
     }
+    // adminSession === null: falha de rede/offline. Não apaga o estado local.
+
     const buyerSession = await this.api("comprador/session");
     if (buyerSession?.success) {
       this.state.isRegistered = true;
@@ -357,10 +397,19 @@ const app = {
       this.state.user.name = buyerSession.data.nome || this.state.user.name;
       this.state.user.phone = buyerSession.data.telefone || this.state.user.phone;
       this.state.user.email = buyerSession.data.email || this.state.user.email;
+      // Persiste a identidade também quando a sessão veio do cookie (ex.: PWA
+      // com storage isolado do navegador). O PIN continua apenas no servidor.
+      localStorage.setItem("userRegistered", "true");
       if (this.state.user.id) localStorage.setItem("registeredId", String(this.state.user.id));
-    } else if (!this.state.isAdminLoggedIn) {
+      localStorage.setItem("registeredName", this.state.user.name || "");
+      localStorage.setItem("registeredPhone", this.state.user.phone || "");
+      localStorage.setItem("registeredEmail", this.state.user.email || "");
+      this.renderHeaderUser();
+    } else if (buyerSession?.status === 401 && !this.state.isAdminLoggedIn) {
       this.clearBuyerSession(false, { preserveLocal: true });
     }
+    // buyerSession === null: rede indisponível. Preserva identidade e carrinho
+    // locais para o app continuar abrindo offline.
   },
 
   /** Carrega o agregado público do ciclo e atualiza o desconto de todos. */
@@ -796,6 +845,15 @@ const app = {
     if (announce) this.toast(`Olá, ${name.split(" ")[0]}!`, "success");
     this.updateCartBar();
     this.saveLocal();
+    // Atalho do PWA (?tab=...) escolhido antes do login.
+    if (this.state.pendingTab) {
+      const pendingTab = this.state.pendingTab;
+      this.state.pendingTab = null;
+      if (["produtos", "meu-pedido", "historico"].includes(pendingTab)) {
+        this.switchTab(pendingTab);
+        return;
+      }
+    }
     // Opcional: atualizar aba histórico se estiver aberta
     if (refreshHistory && typeof this.renderHistorico === "function") this.renderHistorico();
   },
@@ -1265,7 +1323,7 @@ const app = {
     const hasImg = p.imagem && p.imagem.length > 0;
 
     const imgHtml = hasImg
-      ? `<img src="${p.imagem}" alt="${fmt.escape(p.nome)}" loading="lazy" onclick="app.openLightbox('${p.imagem}','${fmt.escape(p.nome).replace(/'/g,"\\'")}')" style="cursor:zoom-in" />`
+      ? `<img src="${thumbUrl(p.imagem)}" alt="${fmt.escape(p.nome)}" loading="lazy" decoding="async" onclick="app.openLightbox('${p.imagem}','${fmt.escape(p.nome).replace(/'/g,"\\'")}')" style="cursor:zoom-in" />`
       : `<div class="product-img-placeholder">
            ${icon("package")}
            <span class="ph-code">${fmt.escape(p.codigo)}</span>
@@ -1307,7 +1365,7 @@ const app = {
     const hasImg = p.imagem && p.imagem.length > 0;
 
     const imgHtml = hasImg
-      ? `<img src="${p.imagem}" alt="${fmt.escape(p.nome)}" loading="lazy" onclick="app.openLightbox('${p.imagem}','${fmt.escape(p.nome).replace(/'/g,"\\'")}')" style="cursor:zoom-in" />`
+      ? `<img src="${thumbUrl(p.imagem)}" alt="${fmt.escape(p.nome)}" loading="lazy" decoding="async" onclick="app.openLightbox('${p.imagem}','${fmt.escape(p.nome).replace(/'/g,"\\'")}')" style="cursor:zoom-in" />`
       : `<div class="product-img-placeholder">
            ${icon("package")}
            <span class="ph-code">${fmt.escape(p.codigo)}</span>
@@ -3180,6 +3238,29 @@ const app = {
       </div>`;
   },
 
+  async loadXlsxLib() {
+    if (typeof XLSX !== "undefined") return true;
+    if (!this._xlsxLoad) {
+      this._xlsxLoad = new Promise((resolve) => {
+        const script = document.createElement("script");
+        const finish = (ok) => {
+          clearTimeout(timer);
+          if (!ok) this._xlsxLoad = null;
+          resolve(ok && typeof XLSX !== "undefined");
+        };
+        const timer = setTimeout(() => finish(false), 15000);
+        script.src = "/vendor/sheetjs-0.20.3/xlsx.full.min.js";
+        script.async = true;
+        script.integrity =
+          "sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT";
+        script.onload = () => finish(true);
+        script.onerror = () => finish(false);
+        document.head.appendChild(script);
+      });
+    }
+    return this._xlsxLoad;
+  },
+
   async exportPedidoFornecedor() {
     const cycleQuery = this.state.adminCycleId ? `?ciclo_id=${this.state.adminCycleId}` : "";
     const conRes = await this.api(`pedidos/consolidado${cycleQuery}`);
@@ -3188,7 +3269,7 @@ const app = {
       this.toast("Nenhum pedido para exportar", "error");
       return;
     }
-    if (typeof XLSX === "undefined") {
+    if (!(await this.loadXlsxLib())) {
       this.toast("Biblioteca Excel indisponível", "error");
       return;
     }
@@ -3651,6 +3732,9 @@ const app = {
     }
   },
 };
+
+// Expõe a instância para scripts auxiliares (PWA) e handlers inline.
+if (typeof window !== "undefined") window.app = app;
 
 // Inicializa app quando o DOM estiver pronto.
 if (document.readyState === "loading") {

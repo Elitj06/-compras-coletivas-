@@ -1,0 +1,59 @@
+{
+  "name": "Compras Coletivas · Vida Forte",
+  "short_name": "Compras Coletivas",
+  "description": "Plataforma de compras coletivas Vida Forte — produtos Vitafor com descontos progressivos.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "id": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#f6f8f7",
+  "theme_color": "#0e8a5f",
+  "categories": ["shopping", "health", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Catálogo de produtos",
+      "short_name": "Produtos",
+      "description": "Abrir o catálogo de produtos",
+      "url": "/?tab=produtos",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Meu pedido",
+      "short_name": "Pedido",
+      "description": "Ver o carrinho e a fatura com desconto",
+      "url": "/?tab=meu-pedido",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Histórico",
+      "short_name": "Histórico",
+      "description": "Ver pedidos anteriores",
+      "url": "/?tab=historico",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

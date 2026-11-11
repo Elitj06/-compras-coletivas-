@@ -49,6 +49,7 @@
 /* ----- Reset ----- */
 *, *::before, *::after { box-sizing: border-box; }
 * { margin: 0; padding: 0; }
+[hidden] { display: none !important; }
 html { scroll-behavior: smooth; }
 body {
   font-family: var(--font-sans);
@@ -1794,3 +1795,85 @@ body.cart-drawer-open { overflow: hidden; }
   border: 1px solid rgb(180 35 24 / 28%); font-size: 0.8rem; font-weight: 700; text-align: center;
 }
 .product-card-unavailable { border-color: rgb(180 35 24 / 42%); }
+
+
+/* ============================================================
+   PWA: instala��o, status offline e atualiza��o
+   ============================================================ */
+.tabs { scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+.tab { scroll-snap-align: start; }
+
+.offline-banner,
+.update-banner {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100% - 32px);
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-lg);
+}
+
+.offline-banner {
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  background: #7c2d12;
+  color: #fff;
+}
+
+.update-banner {
+  bottom: calc(140px + env(safe-area-inset-bottom));
+  background: var(--c-surface);
+  color: var(--c-text);
+  border: 1px solid var(--c-border);
+}
+
+.update-banner .btn { white-space: nowrap; }
+
+.ios-install-hint {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(6, 20, 15, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.ios-install-card {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  padding: 22px 20px calc(20px + env(safe-area-inset-bottom));
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius) var(--radius);
+  background: var(--c-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.ios-install-card h2 { font-family: var(--font-display); font-size: 1.05rem; margin-bottom: 8px; }
+.ios-install-card p { font-size: 0.88rem; color: var(--c-text-muted); line-height: 1.5; margin-bottom: 16px; }
+.ios-install-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--c-bg-alt);
+  color: var(--c-text-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.ios-install-close:hover { background: var(--c-brand-soft); color: var(--c-brand); }
+
+@media (max-width: 600px) {
+  .offline-banner { bottom: calc(96px + env(safe-area-inset-bottom)); font-size: 0.78rem; }
+  .update-banner { bottom: calc(150px + env(safe-area-inset-bottom)); font-size: 0.78rem; }
+}
