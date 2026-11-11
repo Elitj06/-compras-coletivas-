@@ -590,21 +590,28 @@ async function verifyAdminPassword(client, password) {
  * Alterar a identidade sem rehash quebraria o PIN antigo.
  * Retorna `pinHash` novo quando o PIN atual foi confirmado.
  */
-async function legacyPinIdentityGuard(client, buyerId, nextNome, nextPhone, currentPin) {
+async function legacyPinIdentityGuard(client, buyerId, nextNome, nextPhone, currentPin, req, env = process.env) {
   const result = await client.query(
-    'SELECT nome, telefone, pin_hash FROM compradores WHERE id = $1',
+    'SELECT nome, telefone, pin_hash FROM compradores WHERE id = $1 FOR UPDATE',
     [buyerId]
   );
   const buyer = result.rows[0];
   if (!buyer) return { error: 'BUYER_NOT_FOUND' };
   const nameChanged = String(nextNome || '').trim() !== String(buyer.nome || '').trim();
-  const phoneChanged =
-    String(nextPhone || '').replace(/\D/g, '') !== String(buyer.telefone || '').replace(/\D/g, '');
+  const phoneChanged = !phonesEquivalent(nextPhone, buyer.telefone);
   if (!nameChanged && !phoneChanged) return { buyer, pinHash: null };
   if (!isLegacyPinHash(buyer.pin_hash)) return { buyer, pinHash: null };
   if (!/^\d{4,6}$/.test(String(currentPin || ''))) {
     return { error: 'PIN_REHASH_REQUIRED', buyer };
   }
+  // A confirmação do PIN atual é uma verificação de credencial: aplica o
+  // mesmo limite de tentativas da troca de PIN para não criar oráculo.
+  const limit = await consumeAuthRateLimit(client, req, {
+    scope: 'profile_pin_buyer', key: String(buyerId), limit: 5,
+    windowSeconds: 900, blockSeconds: 1800,
+  }, env);
+  if (!limit.configured) return { error: 'AUTH_NOT_CONFIGURED' };
+  if (limit.blocked) return { error: 'PIN_REHASH_RATE_LIMITED', buyer };
   const legacySalt = `${buyer.nome}:${String(buyer.telefone || '').replace(/\D/g, '')}`;
   if (!(await verifyPinHash(currentPin, buyer.pin_hash, legacySalt))) {
     return { error: 'PIN_REHASH_REQUIRED', buyer };
@@ -1470,40 +1477,60 @@ export default async function handler(req) {
           await client.end();
           return json({ success: false, code: 'IDENTITY_ALREADY_REGISTERED', error: 'Telefone ou e-mail já cadastrado para outro comprador' }, 409);
         }
-        const guard = await legacyPinIdentityGuard(
-          client,
-          buyerSession.id,
-          nome,
-          telNorm,
-          body.current_pin
-        );
-        if (guard.error === 'BUYER_NOT_FOUND') {
+        await client.query('BEGIN');
+        try {
+          const guard = await legacyPinIdentityGuard(
+            client,
+            buyerSession.id,
+            nome,
+            telNorm,
+            body.current_pin,
+            req
+          );
+          if (guard.error) {
+            await client.query('ROLLBACK');
+            await client.end();
+            const errors = {
+              BUYER_NOT_FOUND: [404, { success: false, error: 'Comprador não encontrado' }],
+              PIN_REHASH_REQUIRED: [409, {
+                success: false,
+                code: 'PIN_REHASH_REQUIRED',
+                error: 'Confirme seu PIN atual para alterar nome ou telefone',
+              }],
+              PIN_REHASH_RATE_LIMITED: [429, {
+                success: false,
+                code: 'PIN_REHASH_RATE_LIMITED',
+                error: 'Muitas tentativas. Aguarde e tente novamente.',
+              }],
+              AUTH_NOT_CONFIGURED: [503, {
+                success: false,
+                code: 'AUTH_RATE_LIMIT_UNAVAILABLE',
+                error: 'Autenticação temporariamente indisponível',
+              }],
+            };
+            const [status, payload] = errors[guard.error] || [400, { success: false, error: 'Não foi possível validar o PIN' }];
+            return json(payload, status);
+          }
+          const updated = await client.query(
+            `UPDATE compradores SET nome = $1, telefone = $2, email = $3,
+               pin_hash = COALESCE($4, pin_hash), updated_at = NOW()
+             WHERE id = $5 RETURNING id, nome, telefone, email`,
+            [String(nome).trim(), telNorm, (email || '').trim() || null, guard.pinHash, buyerSession.id]
+          );
+          // Sincroniza o nome em pedidos existentes do ciclo ativo
+          await client.query(
+            `UPDATE pedidos SET usuario = $1
+             WHERE comprador_id = $2 AND status != 'cancelado'
+               AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)`,
+            [String(nome).trim(), buyerSession.id]
+          );
+          await client.query('COMMIT');
           await client.end();
-          return json({ success: false, error: 'Comprador não encontrado' }, 404);
+          return json({ success: true, message: 'Dados atualizados', data: updated.rows[0] });
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
         }
-        if (guard.error === 'PIN_REHASH_REQUIRED') {
-          await client.end();
-          return json({
-            success: false,
-            code: 'PIN_REHASH_REQUIRED',
-            error: 'Confirme seu PIN atual para alterar nome ou telefone',
-          }, 409);
-        }
-        const updated = await client.query(
-          `UPDATE compradores SET nome = $1, telefone = $2, email = $3,
-             pin_hash = COALESCE($4, pin_hash), updated_at = NOW()
-           WHERE id = $5 RETURNING id, nome, telefone, email`,
-          [String(nome).trim(), telNorm, (email || '').trim() || null, guard.pinHash, buyerSession.id]
-        );
-        // Sincroniza o nome em pedidos existentes do ciclo ativo
-        await client.query(
-          `UPDATE pedidos SET usuario = $1
-           WHERE comprador_id = $2 AND status != 'cancelado'
-             AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)`,
-          [String(nome).trim(), buyerSession.id]
-        );
-        await client.end();
-        return json({ success: true, message: 'Dados atualizados', data: updated.rows[0] });
       }
 
       // PUT /admin/compradores/:id — Admin: atualiza nome, telefone e e-mail de qualquer comprador
@@ -1540,34 +1567,43 @@ export default async function handler(req) {
           await client.end();
           return json({ success: false, code: 'IDENTITY_ALREADY_REGISTERED', error: 'Telefone ou e-mail já cadastrado para outro comprador' }, 409);
         }
-        const guard = await legacyPinIdentityGuard(client, buyerId, nome, telNorm, null);
-        if (guard.error === 'BUYER_NOT_FOUND') {
+        await client.query('BEGIN');
+        try {
+          const guard = await legacyPinIdentityGuard(client, buyerId, nome, telNorm, null, req);
+          if (guard.error === 'BUYER_NOT_FOUND') {
+            await client.query('ROLLBACK');
+            await client.end();
+            return json({ success: false, error: 'Comprador não encontrado' }, 404);
+          }
+          if (guard.error === 'PIN_REHASH_REQUIRED') {
+            await client.query('ROLLBACK');
+            await client.end();
+            return json({
+              success: false,
+              code: 'PIN_REHASH_REQUIRED',
+              error: 'Este comprador ainda usa o PIN antigo. Use “Gerar novo acesso” para definir um PIN novo antes de alterar nome ou telefone.',
+            }, 409);
+          }
+          const oldNome = guard.buyer.nome;
+          const updated = await client.query(
+            `UPDATE compradores SET nome = $1, telefone = $2, email = $3, updated_at = NOW()
+             WHERE id = $4 RETURNING id, nome, telefone, email`,
+            [String(nome).trim(), telNorm, (email || '').trim() || null, buyerId]
+          );
+          // Sincroniza nome em pedidos do ciclo ativo
+          await client.query(
+            `UPDATE pedidos SET usuario = $1
+             WHERE comprador_id = $2 AND status != 'cancelado'
+               AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)`,
+            [String(nome).trim(), buyerId]
+          );
+          await client.query('COMMIT');
           await client.end();
-          return json({ success: false, error: 'Comprador não encontrado' }, 404);
+          return json({ success: true, message: 'Dados do comprador atualizados', data: updated.rows[0], old_nome: oldNome });
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
         }
-        if (guard.error === 'PIN_REHASH_REQUIRED') {
-          await client.end();
-          return json({
-            success: false,
-            code: 'PIN_REHASH_REQUIRED',
-            error: 'Este comprador ainda usa o PIN antigo. Peça para entrar uma vez antes de alterar nome ou telefone, ou gere um novo acesso.',
-          }, 409);
-        }
-        const oldNome = guard.buyer.nome;
-        const updated = await client.query(
-          `UPDATE compradores SET nome = $1, telefone = $2, email = $3, updated_at = NOW()
-           WHERE id = $4 RETURNING id, nome, telefone, email`,
-          [String(nome).trim(), telNorm, (email || '').trim() || null, buyerId]
-        );
-        // Sincroniza nome em pedidos do ciclo ativo
-        await client.query(
-          `UPDATE pedidos SET usuario = $1
-           WHERE comprador_id = $2 AND status != 'cancelado'
-             AND ciclo_id = (SELECT id FROM ciclos_compra WHERE ativo = TRUE)`,
-          [String(nome).trim(), buyerId]
-        );
-        await client.end();
-        return json({ success: true, message: 'Dados do comprador atualizados', data: updated.rows[0], old_nome: oldNome });
       }
 
       // PUT /pagamentos/:id — atualiza parcelas/obs de um pagamento

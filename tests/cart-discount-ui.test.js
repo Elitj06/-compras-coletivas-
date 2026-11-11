@@ -69,6 +69,11 @@ test('aplica o desconto em vigor por unidade com arredondamento de centavos', ()
   assert.equal(totals.total, 130);
   assert.equal(totals.economia, 120);
   assert.equal(totals.pct, 48);
+
+  // O servidor arredonda o subtotal da linha, não a unidade vezes quantidade.
+  app.state.discountPct = 33;
+  assert.equal(app.applyDiscountTo(99.99), 66.99);
+  assert.equal(app.calcLineFinal(99.99, 3), 200.98);
 });
 
 test('o preço do card mostra valor final, valor cheio e percentual', () => {

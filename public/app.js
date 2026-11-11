@@ -321,7 +321,7 @@ const app = {
           this.clearAdminSession();
         }
         if (path.includes("historico") || path === "pedidos") {
-          this.clearBuyerSession(false, { preserveLocal: true });
+          this.clearBuyerSession(path === "pedidos", { preserveLocal: true });
         }
       }
       return data;
@@ -725,14 +725,21 @@ const app = {
 
   _saveUserSession(name, phone, email, token, { id = null, announce = true, refreshHistory = true } = {}) {
     const previousUser = { ...this.state.user };
-    const previousKeys = [
+    const previousValues = [
       previousUser.id ? `id:${previousUser.id}` : null,
       previousUser.phone,
       previousUser.email,
       previousUser.name,
-    ].filter(Boolean).map((value) => encodeURIComponent(String(value).trim().toLowerCase()));
+    ];
+    if (!previousUser.id && !previousUser.phone && !previousUser.email && !previousUser.name) {
+      previousValues.push("anonymous");
+    }
+    const previousKeys = previousValues
+      .filter(Boolean)
+      .map((value) => encodeURIComponent(String(value).trim().toLowerCase()));
 
-    this.state.user.id = id != null && String(id).trim() !== "" ? id : this.state.user.id;
+    const nextId = id != null && String(id).trim() !== "" ? id : null;
+    this.state.user.id = nextId;
     this.state.user.name = name;
     this.state.user.phone = phone;
     this.state.user.email = email;
@@ -1026,6 +1033,13 @@ const app = {
     return Math.round(preco * (1 - pct / 100) * 100) / 100;
   },
 
+  /** Subtotal da linha com o mesmo arredondamento do servidor. */
+  calcLineFinal(preco, qty) {
+    const pct = Number(this.state.discountPct) || 0;
+    if (!pct) return preco * qty;
+    return Math.round(preco * (1 - pct / 100) * qty * 100) / 100;
+  },
+
   /** Preço de catálogo com o desconto coletivo em vigor, sempre com o cheio ao lado. */
   renderPriceHtml(preco) {
     const pct = Number(this.state.discountPct) || 0;
@@ -1245,7 +1259,7 @@ const app = {
     this.renderPagination(totalPages);
   },
 
-  // Card de produto único — preço cheio, sem desconto no visual.
+  // Card de produto único — preço cheio e, quando houver, desconto em vigor.
   renderProductCard(p) {
     const qty = this.state.cart[p.codigo] || 0;
     const hasImg = p.imagem && p.imagem.length > 0;
@@ -1614,7 +1628,7 @@ const app = {
       const p = PRODUTO_INDEX[cod];
       if (!p) continue;
       bruto += p.preco * qty;
-      total += this.applyDiscountTo(p.preco) * qty;
+      total += this.calcLineFinal(p.preco, qty);
     }
     const pct = this.state.discountPct || 0;
     return {
@@ -1735,7 +1749,7 @@ const app = {
       if (!produto) return "";
       const unitFinal = this.applyDiscountTo(produto.preco);
       const subtotalBruto = produto.preco * qty;
-      const subtotalFinal = unitFinal * qty;
+      const subtotalFinal = this.calcLineFinal(produto.preco, qty);
       const priceHtml = pct > 0
         ? `<span class="cart-drawer-price-main">${fmt.brl(subtotalFinal)}</span>
            <span class="cart-drawer-price-old">${fmt.brl(subtotalBruto)}</span>
@@ -1972,7 +1986,7 @@ const app = {
         if (!p) return "";
         const sub = p.preco * qty;
         const unitD = this.applyDiscountTo(p.preco);
-        const subD = unitD * qty;
+        const subD = this.calcLineFinal(p.preco, qty);
         const subPriceHtml =
           pct > 0
             ? `<span class="invoice-strike">${fmt.brl(sub)}</span>

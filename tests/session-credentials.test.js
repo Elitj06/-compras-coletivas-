@@ -180,6 +180,26 @@ test('edição de nome/telefone protege hash de PIN legado', () => {
   assert.match(apiSource, /async function legacyPinIdentityGuard/);
   assert.match(apiSource, /PIN_REHASH_REQUIRED/);
   assert.match(apiSource, /pin_hash = COALESCE\(\$4, pin_hash\)/);
+  assert.match(apiSource, /FOR UPDATE/);
+  assert.match(apiSource, /profile_pin_buyer/);
+  assert.match(apiSource, /PIN_REHASH_RATE_LIMITED/);
   const guardCalls = apiSource.match(/legacyPinIdentityGuard\(/g) || [];
   assert.ok(guardCalls.length >= 3, 'esperado definição + rotas de comprador e admin');
+});
+
+test('login sem id não herda o id nem o carrinho da conta anterior', () => {
+  const storage = createStorage({
+    userRegistered: 'true',
+    registeredId: '1',
+    registeredName: 'Conta A',
+    [keyFor('id:1', 'cart')]: JSON.stringify({ A: 5 }),
+  });
+  const app = loadApp(storage);
+  app.checkRegistration();
+  app.state.cart = { A: 5 };
+  app._saveUserSession('Conta B', '11888888888', '', '', {
+    id: null, announce: false, refreshHistory: false,
+  });
+  assert.equal(app.state.user.id, null);
+  assert.equal(Object.keys(app.state.cart).length, 0);
 });
