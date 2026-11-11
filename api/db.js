@@ -1488,7 +1488,9 @@ export default async function handler(req) {
             req
           );
           if (guard.error) {
-            await client.query('ROLLBACK');
+            // Preserva o consumo de rate limit (tentativa inválida) e não
+            // aplica nenhuma alteração de perfil.
+            await client.query('COMMIT');
             await client.end();
             const errors = {
               BUYER_NOT_FOUND: [404, { success: false, error: 'Comprador não encontrado' }],
@@ -1571,12 +1573,12 @@ export default async function handler(req) {
         try {
           const guard = await legacyPinIdentityGuard(client, buyerId, nome, telNorm, null, req);
           if (guard.error === 'BUYER_NOT_FOUND') {
-            await client.query('ROLLBACK');
+            await client.query('COMMIT');
             await client.end();
             return json({ success: false, error: 'Comprador não encontrado' }, 404);
           }
           if (guard.error === 'PIN_REHASH_REQUIRED') {
-            await client.query('ROLLBACK');
+            await client.query('COMMIT');
             await client.end();
             return json({
               success: false,
